@@ -111,19 +111,25 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 
 ## Thinking Mode Implementation
 
-Qwen3.5-27B uses `<think>...</think>` tags for chain-of-thought reasoning.
+Qwen3.5-27B is a hybrid thinking model — it always performs chain-of-thought reasoning internally. The orchestrator controls how this reasoning is exposed using llama.cpp's native `enable_thinking` API.
 
 ```python
-THINK_START = "<think>\n"    # Opens thinking block
-THINK_STOP = "\n</think>\n\n"  # Immediately closes thinking block
+payload = {
+    "model": "gizmo",
+    "messages": messages,
+    "stream": True,
+    "enable_thinking": thinking_enabled,  # Controls reasoning separation
+}
 ```
 
-**Token injection** works by appending a partial assistant message to the messages array before sending to llama.cpp:
+When `enable_thinking` is `true`, llama.cpp separates the model's internal reasoning into a dedicated `reasoning_content` field in the streaming delta, distinct from the `content` field that holds the actual response. When `false`, the model still thinks internally but the reasoning is not surfaced.
 
-- **Thinking ON**: `{"role": "assistant", "content": "<think>\n"}` — model continues reasoning inside the think block
-- **Thinking OFF**: `{"role": "assistant", "content": "\n</think>\n\n"}` — model sees the think block as already closed and jumps to the response
+The orchestrator's stream parser yields different event types based on these fields:
 
-The orchestrator's stream parser separates content inside `<think>...</think>` from the final response, sending them as different event types.
+- `delta.reasoning_content` → `{"type": "thinking", "content": "..."}` — rendered as a collapsible block in the UI
+- `delta.content` → `{"type": "token", "content": "..."}` — rendered as the assistant's response
+
+**Note:** The model always produces `reasoning_content` regardless of the `enable_thinking` setting — the parameter controls whether llama.cpp separates it into its own field or folds it into the response.
 
 ## Memory System
 

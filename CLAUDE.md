@@ -65,6 +65,20 @@ via a custom SvelteKit web UI. Everything is containerized via Podman.
 - Kokoro: kept at v0.2.2 (compose file), v0.2.4 wasn't tested
 - Download script: uses Python heredoc, not huggingface-cli (not available on PATH)
 
+## V1 Status
+Build complete. All 6 services deployed and operational. GitHub repo published.
+
+## V2 Roadmap
+- Multi-turn tool use (agent loop with iterative tool calls)
+- Conversation search and export
+- Image generation (Stable Diffusion integration)
+- RAG pipeline (document ingestion + vector search)
+- Multi-model support (hot-swap between different GGUFs)
+- Mobile-optimized UI (PWA)
+- Conversation branching / forking
+- Streaming TTS (chunk audio as it generates)
+
 ## Session Log
 - [2026-03-12] Project created from scratch, greenfield build
 - [2026-03-12] All 6 services deployed and healthy, streaming chat verified
+- [2026-03-12] V1 complete — GitHub repo + wiki published
