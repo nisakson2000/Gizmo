@@ -6,7 +6,7 @@ Complete setup guide from a fresh Linux machine. Target audience: someone techni
 
 ## Before You Start
 
-You are about to set up a stack of 5 containerized services that work together to run a 9-billion parameter language model and a neural TTS model on your GPU. This involves:
+You are about to set up a stack of 6 containerized services that work together to run a 9-billion parameter language model, a neural TTS model, and a speech-to-text service on your hardware. This involves:
 
 - Building software from source (llama.cpp with CUDA support)
 - Downloading ~14GB of models from HuggingFace (LLM, TTS, vision projector, chat template)
@@ -17,7 +17,7 @@ You are about to set up a stack of 5 containerized services that work together t
 ## Hardware Requirements
 
 ### GPU (Most Important)
-You need an **NVIDIA GPU with 16GB+ VRAM**. The LLM weights (Q8_0 quantization) are ~9.5GB and Qwen3-TTS adds ~4GB when active — total peak ~16.8GB. The RTX 4090 (24GB) is the tested configuration with comfortable headroom.
+You need an **NVIDIA GPU with 16GB+ VRAM**. The LLM weights (Q8_0 quantization) are ~9.5GB and Qwen3-TTS adds ~4GB when active — total peak ~16.8GB. The RTX 4090 (24GB) is the tested configuration with comfortable headroom. Whisper runs on CPU and does not consume VRAM.
 
 If you have less VRAM:
 - 16GB VRAM → use Q8_0 (fits with TTS, tight but works)
@@ -26,10 +26,10 @@ If you have less VRAM:
 AMD GPUs are not supported (llama.cpp CUDA build required).
 
 ### RAM
-**32GB minimum.** The orchestrator and SearXNG run on CPU and use system RAM. 64GB recommended for comfortable headroom.
+**32GB minimum.** The orchestrator, SearXNG, and Whisper run on CPU and use system RAM. 64GB recommended for comfortable headroom.
 
 ### Disk
-**50GB free space.** Breakdown: LLM model file (~9.5GB), TTS model (~4GB), container images (~10GB), mmproj vision file (600MB), logs and memory (variable).
+**50GB free space.** Breakdown: LLM model file (~9.5GB), TTS model (~4GB), Whisper model (~150MB, auto-downloaded), container images (~10GB), mmproj vision file (600MB), logs and memory (variable).
 
 ### CPU
 Less critical than GPU. The AMD Ryzen 9 7950X3D is the tested configuration.
@@ -119,10 +119,12 @@ bash scripts/download-model.sh
 
 This downloads:
 - **Main model:** `Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf` (~9.5GB)
-- **Vision projector:** mmproj Q8_0 (~600MB) — downloaded for future vision support
+- **Vision projector:** mmproj Q8_0 (~600MB) — enables image understanding
 - **Chat template:** `chat_template.jinja` (handles thinking, vision, and tool calling)
 - **TTS model:** `Qwen3-TTS-12Hz-1.7B-Base` (~3.6GB)
 - **TTS tokenizer:** `Qwen3-TTS-Tokenizer-12Hz` (~651MB)
+
+The Whisper model (~150MB) is downloaded automatically on first container start.
 
 The download is resumable — if it fails, run the script again and it will continue where it left off.
 
@@ -165,7 +167,7 @@ bash scripts/start.sh
 
 The script:
 1. Checks that the model file exists
-2. Starts infrastructure services (SearXNG)
+2. Starts infrastructure services (SearXNG, Whisper)
 3. Starts the LLM server (takes 15-30 seconds to load 9.5GB into VRAM)
 4. Starts the TTS server (GPU, loads on first request)
 5. Starts the orchestrator and UI
@@ -181,6 +183,7 @@ Starting LLM server (Qwen3.5-9B, ~10GB VRAM)...
 Waiting for LLM to load...
 ........... ready.
 Starting Qwen3-TTS server (~3GB VRAM)...
+Starting Whisper server (CPU)...
 Starting orchestrator and UI...
 
 ╔═══════════════════════════════════════════════════════╗
@@ -189,9 +192,11 @@ Starting orchestrator and UI...
 ║  Orchestrator: http://localhost:9100                  ║
 ║  LLM API:      http://localhost:8080                  ║
 ║  TTS API:      http://localhost:8400                  ║
+║  Whisper API:  http://localhost:8200                  ║
 ╚═══════════════════════════════════════════════════════╝
 
 Tailscale: access via your Tailscale IP on port 3100
+HTTPS:     https://bazzite.tail163501.ts.net/
 ```
 
 ## Step 8 — Verify Everything Works
@@ -207,6 +212,7 @@ Gizmo-AI Service Health
   ✓ gizmo-llama              (port 8080)
   ✓ gizmo-orchestrator       (port 9100)
   ✓ gizmo-tts                (port 8400)
+  ✓ gizmo-whisper            (port 8200)
   ✓ gizmo-searxng            (port 8300)
   ✓ gizmo-ui                 (port 3100)
 ```
@@ -224,6 +230,13 @@ You should see a dark-themed chat interface with "Gizmo" centered and capability
 1. Install Tailscale on your server (if not already): `curl -fsSL https://tailscale.com/install.sh | sh`
 2. Run `tailscale ip -4` to get your server's Tailscale IP
 3. Access the UI at `http://{tailscale-ip}:3100` from any device on your Tailnet
+
+**For HTTPS (required for microphone access from non-localhost):**
+```bash
+tailscale serve --https=443 http://127.0.0.1:3100
+```
+
+This provides a valid Let's Encrypt certificate at `https://bazzite.tail163501.ts.net/`. The browser requires a secure context (HTTPS or localhost) for microphone access.
 
 **Firewall note:** If port 3100 is blocked on your server's firewall:
 ```bash
@@ -253,6 +266,21 @@ sudo firewall-cmd --reload
 - Check container health: `curl http://localhost:8400/health`
 - Check TTS toggle in UI settings
 - TTS auto-unloads after 60s idle — first request after idle takes longer
+
+### Whisper transcription fails
+- Check container: `podman logs gizmo-whisper`
+- Test directly: `curl http://localhost:8200/health`
+- SELinux note: Whisper container requires `security_opt: label=disable` for HuggingFace cache mount
+
+### Microphone not working
+- **From localhost:** Should work — browsers treat localhost as secure context
+- **From other devices:** Must use HTTPS. Set up `tailscale serve --https=443 http://127.0.0.1:3100` and access via `https://bazzite.tail163501.ts.net/`
+- Check browser permissions: click the lock icon in the address bar
+
+### Voice Studio upload fails
+- Check orchestrator logs: `podman logs gizmo-orchestrator`
+- File size limit: 50MB per voice reference
+- Long audio files are automatically truncated to the selected duration (30-120s)
 
 ### Tailscale not reaching UI
 - Verify both devices are on same Tailnet: `tailscale status`

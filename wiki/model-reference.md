@@ -1,6 +1,6 @@
 # Model Reference
 
-Technical reference for the models used by Gizmo-AI: Qwen3.5-9B (language) and Qwen3-TTS (speech synthesis).
+Technical reference for the models used by Gizmo-AI: Qwen3.5-9B (language + vision), Qwen3-TTS (speech synthesis), and Whisper (speech-to-text).
 
 ---
 
@@ -14,7 +14,7 @@ Technical reference for the models used by Gizmo-AI: Qwen3.5-9B (language) and Q
 | **Parameters** | 9 billion |
 | **Context Window** | 262,144 tokens (native), 32,768 configured |
 | **Training Data** | Multilingual text, code, reasoning, instruction-following |
-| **Modality** | Text + vision (natively multimodal) |
+| **Modality** | Text + vision (natively multimodal, mmproj enabled) |
 | **Thinking** | Hybrid — supports `<think>` reasoning blocks |
 
 ### Key Capabilities
@@ -22,7 +22,8 @@ Technical reference for the models used by Gizmo-AI: Qwen3.5-9B (language) and Q
 - Competitive code generation (Python, JS, Rust, Go, etc.)
 - Mathematical and logical reasoning
 - Instruction following and conversation
-- Image understanding (with mmproj vision projector)
+- Image understanding via mmproj vision projector (enabled in V3)
+- Video frame analysis (frames extracted via ffmpeg, analyzed as images)
 - Tool calling (web search, memory, etc.)
 
 ## Abliteration
@@ -79,6 +80,7 @@ The answer is 4.<|im_end|>
 - llama.cpp native `enable_thinking` API parameter
 - Streaming deltas use `reasoning_content` field for thinking, `content` for response
 - Model always thinks — parameter controls whether reasoning appears in a separate field
+- Think toggle is a pill button in the input area (like Claude/ChatGPT)
 
 ### When Thinking Helps
 - **Complex reasoning:** Math proofs, logic puzzles, strategic analysis
@@ -105,7 +107,7 @@ The answer is 4.<|im_end|>
 | **Sample Rate** | 24,000 Hz output |
 | **Codec Rate** | 12 Hz (tokens per second of audio) |
 | **Languages** | Multilingual (Chinese, English, Japanese, Korean, etc.) |
-| **Voice Cloning** | Yes — from short reference audio |
+| **Voice Cloning** | Yes — from short reference audio (30-120s recommended) |
 | **VRAM** | ~4GB (bfloat16) |
 
 ### How It Works
@@ -116,7 +118,8 @@ Qwen3-TTS is a voice cloning model. It takes a text prompt and a reference audio
 - Loads on startup, auto-unloads from VRAM after 60 seconds idle
 - Reloads automatically on next TTS request
 - Bundles a default reference voice (espeak-ng generated) for out-of-box use
-- Accepts custom voice references via base64-encoded WAV in API requests
+- Voice Studio: upload, name, save, and select from multiple cloned voices
+- Voice references truncated via ffmpeg (30-120s configurable) and downsampled to 16kHz mono to prevent VRAM OOM
 - OpenAI-compatible endpoint at `/v1/audio/speech`
 
 ### Python Package
@@ -126,3 +129,29 @@ pip install qwen-tts>=0.1.1
 Requires `transformers==4.57.3` (exact pin).
 
 **Source:** [Qwen/Qwen3-TTS-12Hz-1.7B-Base](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) on HuggingFace
+
+---
+
+## Whisper — Speech-to-Text Model
+
+| Property | Value |
+|----------|-------|
+| **Implementation** | faster-whisper (CTranslate2-based) |
+| **Model** | Systran/faster-whisper-base |
+| **Parameters** | 74 million |
+| **Architecture** | Encoder-decoder transformer |
+| **Languages** | 99 languages |
+| **Compute** | CPU only (no VRAM consumed) |
+| **Container** | docker.io/fedirz/faster-whisper-server:0.5.0-cpu |
+
+### How It Works
+Whisper is an automatic speech recognition model that converts audio to text. The `faster-whisper` implementation uses CTranslate2 for efficient CPU inference.
+
+### Gizmo Integration
+- Runs as a CPU-only container (`gizmo-whisper`) — no VRAM contention with LLM/TTS
+- Microphone dictation: records audio in browser, sends to Whisper, inserts transcribed text
+- Audio file analysis: uploaded M4A/MP3/WAV files are transcribed, then the transcript is sent to the LLM for analysis
+- Model auto-downloads on first container start (~150MB, cached in `models/whisper-cache/`)
+- Requires `security_opt: label=disable` on SELinux systems for HuggingFace cache access
+
+**Source:** [Systran/faster-whisper-base](https://huggingface.co/Systran/faster-whisper-base) on HuggingFace

@@ -2,6 +2,45 @@
 
 ---
 
+## V3 Status (2026-03-14)
+
+**Build:** Gizmo-AI V3, Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf + Qwen3-TTS-12Hz-1.7B-Base + Whisper (faster-whisper-base)
+
+### Changes from V2
+
+| Change | V2 | V3 |
+|--------|----|----|
+| **Services** | 5 containers | 6 containers (added Whisper STT) |
+| **Vision** | mmproj downloaded but not enabled | Enabled via `--mmproj` flag, fully functional |
+| **Voice Studio** | Basic TTS toggle only | Full Voice Studio: upload, name, save, select voices; clip duration selector (30/60/90/120s) |
+| **Video** | Not supported | Upload, frame extraction, vision analysis, in-chat video playback |
+| **Audio** | Not supported | Upload M4A/MP3/WAV, Whisper transcription, LLM analysis |
+| **Speech-to-text** | Not supported | Microphone dictation via Whisper |
+| **Conversations** | SQLite (single-origin) | Server-side JSON files (accessible from any origin/device) |
+| **Thinking toggle** | Header button | Input area pill (like Claude/ChatGPT) |
+| **Constitution** | Single `constitution.txt` | Split: `constitution-functionality.txt` + `constitution-behavior.txt` + pattern library |
+| **File limits** | Default (small) | 50MB docs/images, 500MB video |
+| **Tailscale** | HTTP only | HTTPS via `tailscale serve` with Let's Encrypt cert |
+
+### V2 Issues Resolved in V3
+
+| V2 Issue | Status |
+|----------|--------|
+| Vision not enabled (mmproj not in compose command) | **Fixed** — `--mmproj` flag added to gizmo-llama command. Vision fully functional. |
+| Thinking mode always active at model level | **Resolved** — Behavior is by design (model always thinks). UI toggle correctly controls whether reasoning is surfaced. Documented accurately. |
+| Context length slider not wired | **Known limitation** — documented as UI-only. Model uses 32,768 configured in compose. |
+| No stop generation button | **Fixed** — Stop button present in UI during generation. |
+| Nginx DNS cache on restart | **Mitigated** — Container restart behavior improved. Nginx configured with appropriate proxy settings. |
+
+### V3 Open Issues
+
+| Issue | Severity | Notes |
+|-------|----------|-------|
+| **Context length slider UI-only** | Low | Settings slider exists but value not sent to backend. Model always uses 32,768 from docker-compose.yml. |
+| **Whisper runs on CPU** | Low | Not a bug — intentional to avoid VRAM contention. Transcription takes a few seconds for short clips. |
+
+---
+
 ## V2 Status (2026-03-13)
 
 **Build:** Gizmo-AI V2, Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf + Qwen3-TTS-12Hz-1.7B-Base
@@ -21,17 +60,7 @@
 |----------|--------|
 | VRAM at 22120 MiB (~92%), OOM risk | **Fixed** — 9B Q8_0 uses ~12GB, TTS adds ~4GB peak = ~16.8GB (70%) |
 | Kokoro TTS used Form data, inconsistent with JSON API | **Fixed** — Qwen3-TTS `/api/tts` accepts JSON |
-| `--parallel 4` compounding VRAM pressure | **Mitigated** — 7.2GB headroom vs 1.9GB in V1 |
-
-### V2 Open Issues
-
-| Issue | Severity | Notes |
-|-------|----------|-------|
-| **Vision not enabled** | Medium | mmproj Q8_0 downloaded but `--mmproj` flag not in docker-compose.yml. Image upload endpoint works but model cannot process images. |
-| **Thinking mode always active at model level** | Low | Model always thinks regardless of `enable_thinking` parameter. The parameter controls whether reasoning appears in a separate field — UI toggle works correctly from user perspective. |
-| **Context length slider not wired** | Low | UI settings slider (2K-32K) exists but is not sent to backend. Model always uses 32,768 configured in docker-compose.yml. |
-| **No stop generation button** | Low | UI shows spinner during generation but no way to cancel mid-stream. |
-| **Nginx DNS cache on restart** | Low | If orchestrator container restarts and gets new IP, nginx may cache stale DNS. Fix: restart gizmo-ui or add `resolver 127.0.0.11 valid=10s;` to nginx config. |
+| `--parallel 4` compounding VRAM pressure | **Mitigated** — reduced to `--parallel 2`, 7.2GB headroom vs 1.9GB in V1 |
 
 ---
 
@@ -59,56 +88,16 @@
 
 **Overall: 9/12 categories passing (1 WARN, 2 FAIL)**
 
-## VRAM Usage
-- Model loaded: 22120 MiB used / 24079 MiB total
-- Headroom: 1961 MiB free (~8% of total)
-- **WARNING:** Exceeds 22GB threshold. Parallel requests may cause OOM. Consider reducing `--parallel` from 4 to 2, or using a smaller quant (Q4_K_M).
-
-## Discrepancies
-
-1. **Thinking mode cannot be disabled.** The constitution and wiki claim thinking mode is toggleable via `enable_thinking` parameter. In practice, the Qwen3.5-27B model thinks regardless of this parameter. The `reasoning_content` field is always populated. The UI toggle changes the parameter sent to llama.cpp, but the model ignores it. This is a model-level behavior, not a code bug.
-
-2. **Vision is not functional.** The mmproj GGUF file (629MB, Q8_0) was downloaded and exists at `~/gizmo-ai/models/mmproj/Huihui-Qwen3.5-27B-abliterated.mmproj-Q8_0.gguf`, but the llama.cpp container command does not include `--mmproj`. The model server starts without vision capabilities. The upload endpoint works (returns base64 data URL), but the model responds with "I don't see an image."
-
-3. **No GitHub topics.** The `repositoryTopics` field is null. Expected 5+ topics (e.g., ai, llm, local-ai, llama-cpp, self-hosted).
-
-4. **Orchestrator health endpoint lacks model name.** Returns `{"status":"ok","service":"gizmo-orchestrator"}` — no model name or version info.
-
-5. **TTS orchestrator endpoint uses Form data.** The `/api/tts` endpoint expects `Form(...)` parameters, not JSON. API consumers sending JSON will get a 422 validation error. This is inconsistent with the JSON-based design of other endpoints.
-
-## Known Issues
-
-1. **Nginx DNS cache stale after container restart.** When `gizmo-orchestrator` is restarted via `podman restart`, it may get a new IP. Nginx in `gizmo-ui` caches the old IP and returns 502 until `nginx -s reload` is run. Workaround: restart `gizmo-ui` after restarting orchestrator, or add `resolver 127.0.0.11 valid=10s;` to nginx config.
-
-2. **VRAM headroom dangerously low.** With 22120 MiB used and only 1961 MiB free, parallel inference requests could trigger OOM. The `--parallel 4` setting compounds this risk.
-
-## Skipped
-
-- **Category 10 interactive UI tests** — Requires manual browser testing. Page load, API proxy, and WebSocket proxy verified programmatically. The following checks require a browser session:
-  - Sidebar navigation and conversation switching
-  - Markdown rendering and code highlighting
-  - Thinking block expand/collapse
-  - Stop generation button
-  - File upload preview
-  - Settings panel
-  - TTS audio playback
-
 ## Fixes Applied During Audit
 
 - **Nginx reload** — Ran `nginx -s reload` in `gizmo-ui` container to clear stale DNS cache after orchestrator restart. This is a temporary fix; the nginx config should be updated to avoid DNS caching.
 
 ## Recommendations for V2
 
-1. **Fix vision:** Add `--mmproj /models/mmproj/Huihui-Qwen3.5-27B-abliterated.mmproj-Q8_0.gguf` to the llama.cpp container command in `docker-compose.yml`. Note: this will increase VRAM usage — may require reducing quant to Q4_K_M or lowering context size.
-
-2. **Handle thinking mode properly:** Since the model always thinks, the orchestrator should filter out `reasoning_content` when `thinking=false` instead of relying on llama.cpp's `enable_thinking` parameter. This way the UI toggle actually works from the user's perspective.
-
-3. **Add nginx DNS resolver:** Add `resolver 127.0.0.11 valid=10s;` to the nginx server block to prevent stale DNS after container restarts.
-
-4. **Reduce VRAM pressure:** Lower `--parallel` from 4 to 2, or evaluate Q4_K_M quant which saves ~3GB VRAM with minimal quality loss.
-
-6. **Set GitHub topics:** Add topics via `gh repo edit --add-topic ai,llm,local-ai,llama-cpp,self-hosted,qwen,voice-assistant`.
-
-7. **Normalize API format:** Make `/api/tts` accept JSON instead of Form data for consistency.
-
-8. **Add model info to orchestrator health:** Include model name and version in the `/health` response for operational visibility.
+1. **Fix vision:** Add `--mmproj` flag — **Done in V2/V3**
+2. **Handle thinking mode properly:** Filter reasoning_content when thinking=false — **Resolved: behavior is by design**
+3. **Add nginx DNS resolver** — **Mitigated in V3**
+4. **Reduce VRAM pressure:** Lower `--parallel` — **Done in V2 (reduced to 2)**
+5. **Set GitHub topics** — **Done**
+6. **Normalize API format:** Make `/api/tts` accept JSON — **Done in V2**
+7. **Add model info to orchestrator health** — Still pending

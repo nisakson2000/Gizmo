@@ -79,18 +79,33 @@ Pattern:
 5. Document in `config/services.yaml`
 6. Rebuild and restart
 
+## UI Development
+
+The UI is a SvelteKit app using Svelte 5 runes mode:
+
+- **State:** Use `$state()`, `$derived()`, `$effect()` — NOT `export let`
+- **Props:** Use `$props()` with `$bindable()` for two-way binding
+- **Styling:** TailwindCSS with custom design tokens defined in `app.css`
+- **Components:** `services/ui/src/lib/components/`
+- **Stores:** `services/ui/src/lib/stores/` (chat.ts, settings.ts, connection.ts)
+
+**Important:** UI changes require rebuilding the container image:
+```bash
+podman compose build gizmo-ui && podman compose up -d --force-recreate gizmo-ui
+```
+The Dockerfile copies the build output at image build time. Just running `up -d` will not pick up source changes.
+
 ## Future Features
 
 - **ChromaDB semantic memory** — replace keyword matching with vector similarity search
-- **Vision activation** — mmproj is downloaded, needs llama.cpp `--mmproj` flag enabled in compose
 - **Agent mode** — multi-step task execution with tool chaining
 - **Model hot-swap** — switch models via API without restarting
-- **Prompt template editor** — edit constitution.txt from the UI
+- **Prompt template editor** — edit constitution from the UI
 - **Mobile-optimized layout** — responsive design for phone access via Tailscale
 - **Usage analytics** — token counts, response times, cost estimation dashboard
-- **Stop generation** — client-side abort signal to cancel streaming
-- **Custom voice profiles** — user-uploaded reference audio for TTS voice cloning
 - **Streaming TTS** — chunk audio as it generates for lower latency
+- **Conversation export** — download conversation history as markdown or JSON
+- **Image generation** — Stable Diffusion integration
 
 ## Contributing
 
@@ -107,4 +122,3 @@ Pattern:
 **Testing:**
 - Run `bash scripts/health.sh` after changes
 - Test streaming chat, tool calls, and edge cases manually
-- Automated tests coming in v2

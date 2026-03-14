@@ -7,52 +7,57 @@ Full technical reference for Gizmo-AI. Assumes familiarity with containers and R
 ## System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         HOST MACHINE                            │
-│                    (Bazzite OS, RTX 4090)                       │
-│                                                                 │
-│  ┌──────────────────────────── gizmo-net ──────────────────┐   │
-│  │                        10.90.0.0/24                      │   │
-│  │                                                          │   │
-│  │  ┌──────────┐    ┌──────────────┐    ┌───────────────┐  │   │
-│  │  │ gizmo-ui │───▶│ gizmo-       │───▶│ gizmo-llama   │  │   │
-│  │  │ :3100    │    │ orchestrator │    │ :8080         │  │   │
-│  │  │ SvelteKit│    │ :9100 FastAPI│    │ llama.cpp     │  │   │
-│  │  │ nginx    │    └──────┬───────┘    │ Q8_0 9B      │  │   │
-│  │  └──────────┘           │            │ [GPU]         │  │   │
-│  │              ┌──────────┼────────┐   └───────────────┘  │   │
-│  │              │          │                                │   │
-│  │         ┌────▼─────┐  ┌▼──────────┐                     │   │
-│  │         │gizmo-    │  │gizmo-     │                     │   │
-│  │         │searxng   │  │qwen3-tts  │                     │   │
-│  │         │:8300     │  │:8400      │                     │   │
-│  │         │(8080)    │  │TTS [GPU]  │                     │   │
-│  │         └──────────┘  └───────────┘                     │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  Volumes: ~/gizmo-ai/models, ~/gizmo-ai/memory, ~/gizmo-ai/logs│
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         HOST MACHINE                              │
+│                    (Bazzite OS, RTX 4090)                         │
+│                                                                    │
+│  ┌─────────────────────── gizmo-net ───────────────────────┐      │
+│  │                      10.90.0.0/24                        │      │
+│  │                                                          │      │
+│  │  ┌──────────┐    ┌──────────────┐    ┌───────────────┐  │      │
+│  │  │ gizmo-ui │───▶│ gizmo-       │───▶│ gizmo-llama   │  │      │
+│  │  │ :3100    │    │ orchestrator │    │ :8080         │  │      │
+│  │  │ SvelteKit│    │ :9100 FastAPI│    │ llama.cpp     │  │      │
+│  │  │ nginx    │    └──────┬───────┘    │ Q8_0 9B      │  │      │
+│  │  └──────────┘           │            │ + mmproj      │  │      │
+│  │              ┌──────────┼────────┐   │ [GPU]         │  │      │
+│  │              │          │        │   └───────────────┘  │      │
+│  │         ┌────▼─────┐ ┌─▼──────┐ ┌▼────────────┐        │      │
+│  │         │gizmo-    │ │gizmo-  │ │gizmo-       │        │      │
+│  │         │searxng   │ │tts     │ │whisper      │        │      │
+│  │         │:8300     │ │:8400   │ │:8200        │        │      │
+│  │         │(8080)    │ │[GPU]   │ │[CPU]        │        │      │
+│  │         └──────────┘ └────────┘ └─────────────┘        │      │
+│  └────────────────────────────────────────────────────────┘      │
+│                                                                    │
+│  Volumes: ~/gizmo-ai/models, ~/gizmo-ai/memory, ~/gizmo-ai/logs  │
+│           ~/gizmo-ai/voices, ~/gizmo-ai/media                     │
+└──────────────────────────────────────────────────────────────────┘
          ▲                                    ▲
-  Browser/App                           Tailscale
-  localhost:3100                        (remote access)
+  Browser/App                           Tailscale HTTPS
+  localhost:3100                 bazzite.tail163501.ts.net
 ```
 
 ## Container Reference
 
 | Container | Image | Role | Container Port | Host Port | GPU | Depends On |
 |-----------|-------|------|---------------|-----------|-----|------------|
-| gizmo-llama | gizmo-llama:latest (built from source) | LLM inference server | 8080 | 8080 | Yes (RTX 4090) | — |
+| gizmo-llama | gizmo-llama:latest (built from source) | LLM + vision inference | 8080 | 8080 | Yes (RTX 4090) | — |
 | gizmo-orchestrator | gizmo-orchestrator:latest (built) | API gateway, routing, tools | 9100 | 9100 | No | gizmo-llama |
 | gizmo-ui | gizmo-ui:latest (built) | Web UI (SvelteKit + nginx) | 3100 | 3100 | No | gizmo-orchestrator |
 | gizmo-searxng | searxng/searxng:latest | Web search engine | 8080 | 8300 | No | — |
 | gizmo-tts | gizmo-tts:latest (built) | Text-to-speech (Qwen3-TTS) | 8400 | 8400 | Yes (RTX 4090) | — |
+| gizmo-whisper | fedirz/faster-whisper-server:0.5.0-cpu | Speech-to-text (Whisper) | 8000 | 8200 | No (CPU) | — |
 
 **Volumes:**
-- `./models:/models:ro` — Model files (llama container)
+- `./models:/models:ro` — Model files (llama, TTS, Whisper cache)
 - `./config:/app/config:ro` — Constitution and configs (orchestrator)
-- `./memory:/app/memory:rw` — SQLite DB and memory files (orchestrator)
+- `./memory:/app/memory:rw` — Memory files (orchestrator)
 - `./logs:/app/logs:rw` — Runtime logs (orchestrator)
+- `./voices:/app/voices:rw` — Saved voice profiles (orchestrator)
+- `./media:/app/media:rw` — Uploaded video files (orchestrator)
 - `./services/searxng/config:/etc/searxng:rw` — SearXNG config
+- `./models/whisper-cache:/root/.cache/huggingface:Z` — Whisper model cache
 
 ## Request Lifecycle
 
@@ -61,9 +66,9 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 1. User types message and clicks Send in the SvelteKit UI
 2. UI sends JSON via WebSocket to `ws://gizmo-orchestrator:9100/ws/chat`
 3. Message payload: `{"message": "Search for AI news", "thinking": true, "conversation_id": "uuid"}`
-4. Orchestrator receives message, loads conversation history from SQLite
-5. Orchestrator loads `constitution.txt`, scans memory for relevant files
-6. System prompt assembled: constitution + relevant memories
+4. Orchestrator receives message, loads conversation history from server-side JSON file
+5. Orchestrator loads constitution files, scans memory for relevant files
+6. System prompt assembled: constitution-functionality + constitution-behavior rules + relevant memories
 7. Messages array built in OpenAI format: `[system, ...history, user]`
 8. Orchestrator POSTs to `http://gizmo-llama:8080/v1/chat/completions` with `stream: true`, `enable_thinking: true`, and tool definitions
 9. Model begins generating — llama.cpp separates reasoning into `reasoning_content` field
@@ -78,7 +83,7 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 19. Final response tokens stream as `{"type": "token"}` events
 20. Stream ends → orchestrator sends `{"type": "done", "trace_id": "gizmo-abc123"}`
 21. UI renders complete message with collapsed thinking block above response
-22. Orchestrator saves user message and assistant response to SQLite
+22. Orchestrator saves messages to server-side JSON file
 
 ## WebSocket Event Protocol
 
@@ -108,7 +113,7 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 
 ## REST API
 
-The orchestrator also exposes a non-streaming REST endpoint for programmatic access.
+The orchestrator exposes a non-streaming REST endpoint for programmatic access plus various management endpoints.
 
 ### `POST /api/chat`
 
@@ -127,20 +132,28 @@ The orchestrator also exposes a non-streaming REST endpoint for programmatic acc
 }
 ```
 
-Supports up to 5 rounds of automatic tool calling per request. The model can chain tool calls (e.g., search the web, then use the results to answer).
+Supports up to 5 rounds of automatic tool calling per request.
 
-### Other REST Endpoints
+### All REST Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Orchestrator health check |
 | `/api/services/health` | GET | Health of all backend services |
-| `/api/conversations` | GET | List all conversations |
+| `/api/conversations` | GET | List all conversations (server-side JSON) |
 | `/api/conversations/{id}` | GET | Get conversation messages |
+| `/api/conversations/{id}` | PUT | Update conversation |
 | `/api/conversations/{id}` | DELETE | Delete a conversation |
-| `/api/upload` | POST | Upload document (PDF, text, code) |
-| `/api/upload-image` | POST | Upload image (returns base64 data URL) |
-| `/api/tts` | POST | Synthesize speech (JSON body: `text`, `voice`) |
+| `/api/conversations/import` | POST | Import conversations from localStorage |
+| `/api/upload` | POST | Upload document (PDF, text, code — up to 50MB) |
+| `/api/upload-image` | POST | Upload image (returns base64 data URL — up to 50MB) |
+| `/api/upload-video` | POST | Upload video (frame extraction + server storage — up to 500MB) |
+| `/api/transcribe` | POST | Transcribe audio via Whisper |
+| `/api/tts` | POST | Synthesize speech (JSON: `text`, `voice_id`) |
+| `/api/voices` | GET | List saved voice profiles |
+| `/api/voices` | POST | Upload and save a voice profile (FormData: file, name, max_duration) |
+| `/api/voices/{id}` | DELETE | Delete a saved voice profile |
+| `/api/media/{filename}` | GET | Serve uploaded video/media files |
 | `/api/search` | GET | Web search via SearXNG (`?q=query`) |
 | `/api/memory/list` | GET | List memory files |
 | `/api/memory/write` | POST | Write memory file |
@@ -149,23 +162,9 @@ Supports up to 5 rounds of automatic tool calling per request. The model can cha
 
 Qwen3.5-9B is a hybrid thinking model — it always performs chain-of-thought reasoning internally. The orchestrator controls how this reasoning is exposed using llama.cpp's native `enable_thinking` API.
 
-```python
-payload = {
-    "model": "gizmo",
-    "messages": messages,
-    "stream": True,
-    "enable_thinking": thinking_enabled,  # Controls reasoning separation
-}
-```
+When `enable_thinking` is `true`, llama.cpp separates the model's internal reasoning into a dedicated `reasoning_content` field in the streaming delta. When `false`, the model still thinks internally but the reasoning is not surfaced.
 
-When `enable_thinking` is `true`, llama.cpp separates the model's internal reasoning into a dedicated `reasoning_content` field in the streaming delta, distinct from the `content` field that holds the actual response. When `false`, the model still thinks internally but the reasoning is not surfaced.
-
-The orchestrator's stream parser yields different event types based on these fields:
-
-- `delta.reasoning_content` → `{"type": "thinking", "content": "..."}` — rendered as a collapsible block in the UI
-- `delta.content` → `{"type": "token", "content": "..."}` — rendered as the assistant's response
-
-**Note:** The model always produces `reasoning_content` regardless of the `enable_thinking` setting — the parameter controls whether llama.cpp separates it into its own field or folds it into the response.
+The Think toggle is a pill button in the chat input area (similar to Claude and ChatGPT).
 
 ## Memory System
 
@@ -174,8 +173,7 @@ The orchestrator's stream parser yields different event types based on these fie
 memory/
 ├── facts/          # Persistent facts (user's name, preferences)
 ├── conversations/  # Conversation summaries (future use)
-├── notes/          # General notes
-└── conversations.db  # SQLite — conversation history
+└── notes/          # General notes
 ```
 
 ### Injection Logic
@@ -183,9 +181,6 @@ memory/
 2. Memory files are scanned for keyword matches (filename and content)
 3. Top 5 matches (max 300 chars each) are injected into the system prompt
 4. Path traversal protection: filenames sanitized to `[a-zA-Z0-9_\-.]` only
-
-### v2 Plan
-Replace keyword matching with ChromaDB vector store for semantic similarity search. Memories would be embedded as vectors and retrieved by meaning, not literal keyword overlap.
 
 ## Tool Calling
 
@@ -208,10 +203,19 @@ Tools follow the OpenAI function-calling format. llama.cpp supports this nativel
 5. Result is added to messages as a `tool` role message
 6. Generation resumes with tool results in context
 
-## Configuration Files
+## Constitution System
 
-### constitution.txt
-Plain text system prompt. Lines starting with `#` are stripped as comments. Defines model identity, capabilities, and communication style.
+The model's persona and behavior are defined by a split constitution system:
+
+- **`config/constitution-functionality.txt`** — Prose base prompt defining identity and capabilities. Lines starting with `#` stripped as comments.
+- **`config/constitution-behavior.txt`** — Structured rules with injection points:
+  - `[system_prompt]` — Base behavior rules
+  - `[pre_routing]` — Keyword-based routing overrides (`keyword => model`)
+  - `[patterns]` — Pattern activation rules
+  - `[per_model:name]` — Model-specific instructions
+- **`config/patterns/*.md`** — Pattern library (7 patterns: extract_wisdom, analyze_threat, summarize_content, explain_technical, create_analogy, security_review, debug_code)
+
+## Configuration Files
 
 ### models.yaml
 ```yaml
@@ -241,11 +245,21 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 ~/gizmo-ai/
 ├── CLAUDE.md                              # Claude Code session knowledge
 ├── README.md                              # Public-facing documentation
+├── AUDIT.md                               # Version audit reports
 ├── LICENSE                                # MIT license
 ├── .gitignore                             # Git ignore rules
-├── docker-compose.yml                     # Podman compose — all 5 services
+├── docker-compose.yml                     # Podman compose — all 6 services
 ├── config/
-│   ├── constitution.txt                   # System prompt / persona
+│   ├── constitution-functionality.txt     # System prompt / persona (prose)
+│   ├── constitution-behavior.txt          # Structured behavior rules
+│   ├── patterns/                          # Pattern library (7 patterns)
+│   │   ├── extract_wisdom.md
+│   │   ├── analyze_threat.md
+│   │   ├── summarize_content.md
+│   │   ├── explain_technical.md
+│   │   ├── create_analogy.md
+│   │   ├── security_review.md
+│   │   └── debug_code.md
 │   ├── models.yaml                        # Model configuration
 │   └── services.yaml                      # Service endpoints
 ├── services/
@@ -254,29 +268,40 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   ├── orchestrator/
 │   │   ├── Dockerfile                     # Python 3.12 slim
 │   │   ├── requirements.txt               # Python dependencies
-│   │   ├── main.py                        # FastAPI app, WebSocket, REST
-│   │   ├── router.py                      # Route placeholder (v2)
+│   │   ├── main.py                        # FastAPI app, WebSocket, REST, voice/video/transcribe endpoints
+│   │   ├── router.py                      # Route placeholder
 │   │   ├── memory.py                      # File-based memory system
 │   │   ├── search.py                      # SearXNG proxy
-│   │   ├── tts.py                         # Qwen3-TTS proxy
+│   │   ├── tts.py                         # Qwen3-TTS proxy (voice cloning support)
 │   │   └── tools.py                       # Tool definitions and dispatch
 │   ├── ui/
 │   │   ├── Dockerfile                     # Node build → nginx serve
-│   │   ├── nginx.conf                     # Static + API/WS proxy
+│   │   ├── nginx.conf                     # Static + API/WS proxy (500MB upload limit)
 │   │   ├── package.json                   # SvelteKit dependencies
 │   │   ├── svelte.config.js               # SvelteKit + static adapter
 │   │   ├── vite.config.ts                 # Vite + TailwindCSS
 │   │   └── src/
 │   │       ├── app.html                   # HTML shell
 │   │       ├── app.css                    # TailwindCSS + design tokens
-│   │       ├── routes/+page.svelte        # Main page
+│   │       ├── routes/+page.svelte        # Main page (VoiceStudio, HTTPS banner)
 │   │       ├── routes/+layout.svelte      # Root layout
 │   │       └── lib/
-│   │           ├── stores/chat.ts         # Conversation state
-│   │           ├── stores/settings.ts     # User preferences
+│   │           ├── stores/chat.ts         # Conversation state (videoUrl support)
+│   │           ├── stores/settings.ts     # User preferences (voiceStudioOpen)
 │   │           ├── stores/connection.ts   # WebSocket state
 │   │           ├── ws/client.ts           # WebSocket manager
-│   │           └── components/            # UI components
+│   │           ├── utils/sanitize.ts      # HTML sanitization
+│   │           ├── actions/highlight.ts   # Code syntax highlighting
+│   │           └── components/
+│   │               ├── ChatArea.svelte    # Main chat area
+│   │               ├── ChatInput.svelte   # Input with Think/Voice Studio pills
+│   │               ├── ChatMessage.svelte # Message display (video player, audio)
+│   │               ├── Header.svelte      # Top bar with settings
+│   │               ├── Sidebar.svelte     # Conversation list
+│   │               ├── Settings.svelte    # Settings panel
+│   │               ├── VoiceStudio.svelte # Voice Studio modal
+│   │               ├── ThinkingBlock.svelte # Collapsible thinking display
+│   │               └── ToolCallBlock.svelte # Tool call display
 │   ├── tts/
 │   │   ├── Dockerfile                     # Qwen3-TTS container (PyTorch + CUDA)
 │   │   ├── requirements.txt               # qwen-tts, fastapi, uvicorn
@@ -293,5 +318,7 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 ├── wiki/                                  # Documentation
 ├── models/                                # Model files (gitignored)
 ├── memory/                                # Persistent memory (gitignored)
+├── voices/                                # Saved voice profiles (gitignored)
+├── media/                                 # Uploaded videos (gitignored)
 └── logs/                                  # Runtime logs (gitignored)
 ```
