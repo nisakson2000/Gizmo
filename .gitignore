@@ -8,6 +8,8 @@ models/
 # Runtime data
 memory/
 logs/
+media/
+voices/
 *.log
 *.jsonl
 

@@ -1,5 +1,12 @@
 @import 'tailwindcss';
 
+/* Self-hosted fonts */
+@font-face { font-family: 'Inter'; font-weight: 400; font-style: normal; font-display: swap; src: url('/fonts/inter-400.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-weight: 500; font-style: normal; font-display: swap; src: url('/fonts/inter-500.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-weight: 600; font-style: normal; font-display: swap; src: url('/fonts/inter-600.ttf') format('truetype'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 400; font-style: normal; font-display: swap; src: url('/fonts/jetbrainsmono-400.ttf') format('truetype'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 500; font-style: normal; font-display: swap; src: url('/fonts/jetbrainsmono-500.ttf') format('truetype'); }
+
 @theme {
 	/* Warm dark minimal — inspired by Claude/ChatGPT */
 	--color-bg-primary: #0d0d0d;
@@ -251,4 +258,24 @@
 	max-width: 100%;
 	border-radius: 8px;
 	margin: 0.8em 0;
+}
+
+/* ─── Responsive ──────────────────────── */
+
+@media (max-width: 768px) {
+	.sidebar-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 40;
+		background: rgba(0, 0, 0, 0.5);
+	}
+
+	.sidebar-panel {
+		position: fixed;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		z-index: 50;
+		width: 280px;
+	}
 }

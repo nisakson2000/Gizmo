@@ -1,6 +1,5 @@
 """Tool definitions and dispatch for LLM function calling."""
 
-import json
 from typing import Any
 
 from memory import write_memory, read_memory, list_memories
@@ -123,26 +122,3 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
 
     else:
         return f"Unknown tool: {name}"
-
-
-def parse_tool_calls(response_text: str) -> list[dict] | None:
-    """Parse tool calls from model response if present.
-
-    llama.cpp with function calling outputs structured JSON. This parser
-    handles both the native tool_calls format from the API and manual
-    JSON extraction from the response text as a fallback.
-    """
-    # This is used as a fallback if the API doesn't return structured tool_calls
-    try:
-        # Look for JSON block that looks like a function call
-        if '{"name":' in response_text or '{"function":' in response_text:
-            # Try to find and parse JSON
-            start = response_text.find("{")
-            end = response_text.rfind("}") + 1
-            if start >= 0 and end > start:
-                data = json.loads(response_text[start:end])
-                if "name" in data and "arguments" in data:
-                    return [data]
-    except (json.JSONDecodeError, KeyError):
-        pass
-    return None

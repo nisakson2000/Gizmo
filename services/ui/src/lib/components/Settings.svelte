@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { thinkingEnabled, ttsEnabled, contextLength, settingsOpen } from '$lib/stores/settings';
+	import { thinkingEnabled, ttsEnabled, contextLength, settingsOpen, voiceStudioOpen } from '$lib/stores/settings';
 
 	interface ServiceHealth {
 		[key: string]: { status: string; error?: string };
@@ -65,8 +65,8 @@
 				<!-- TTS -->
 				<div class="flex items-center justify-between">
 					<div class="flex-1 mr-4">
-						<p class="text-sm font-medium">Text-to-Speech</p>
-						<p class="text-xs text-text-dim mt-0.5">Speak responses via Qwen3-TTS. GPU-accelerated, auto-unloads when idle.</p>
+						<p class="text-sm font-medium">Read Responses Aloud</p>
+						<p class="text-xs text-text-dim mt-0.5">Reads each AI response out loud via Qwen3-TTS. Uses GPU, auto-unloads when idle.</p>
 					</div>
 					<button
 						onclick={() => ttsEnabled.update((v) => !v)}
@@ -74,6 +74,20 @@
 						aria-label="Toggle text-to-speech"
 					>
 						<div class="w-4 h-4 rounded-full bg-white shadow-sm transition-transform {$ttsEnabled ? 'translate-x-[22px]' : 'translate-x-[3px]'}"></div>
+					</button>
+				</div>
+
+				<!-- Voice Studio shortcut -->
+				<div class="flex items-center justify-between">
+					<div class="flex-1 mr-4">
+						<p class="text-sm font-medium">Voice Studio</p>
+						<p class="text-xs text-text-dim mt-0.5">Clone voices, save them, and generate speech from text.</p>
+					</div>
+					<button
+						onclick={() => { settingsOpen.set(false); voiceStudioOpen.set(true); }}
+						class="px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-tertiary text-text-secondary border border-border/50 hover:border-accent/40 hover:text-text-primary transition-all"
+					>
+						Open
 					</button>
 				</div>
 

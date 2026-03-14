@@ -16,12 +16,12 @@ logger = logging.getLogger(__name__)
 async def synthesize(
     text: str,
     voice: str = "default",
-    voice_reference_path: Optional[str] = None,
+    voice_clone_data_url: Optional[str] = None,
 ) -> Optional[bytes]:
     """Generate speech from text via Qwen3-TTS.
 
     Returns audio bytes or None on failure.
-    If voice_reference_path is provided, use it for voice cloning.
+    If voice_clone_data_url is provided (base64 data URL), use it for voice cloning.
     """
     payload = {
         "model": "qwen3-tts",
@@ -31,9 +31,13 @@ async def synthesize(
         "speed": 1.0,
     }
 
-    if voice_reference_path and os.path.exists(voice_reference_path):
-        with open(voice_reference_path, "rb") as f:
-            payload["voice_reference"] = base64.b64encode(f.read()).decode()
+    if voice_clone_data_url:
+        # Extract raw base64 from data URL (strip "data:audio/wav;base64," prefix)
+        if ";base64," in voice_clone_data_url:
+            raw_b64 = voice_clone_data_url.split(";base64,", 1)[1]
+        else:
+            raw_b64 = voice_clone_data_url
+        payload["voice_reference"] = raw_b64
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:

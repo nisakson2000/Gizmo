@@ -24,13 +24,14 @@ services:
       - label=disable
     command: >
       --model /models/Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf
+      --mmproj /models/mmproj/Huihui-Qwen3.5-9B-abliterated.mmproj-Q8_0.gguf
       --host 0.0.0.0
       --port 8080
       --ctx-size 32768
       --n-gpu-layers 99
       --flash-attn on
       --threads 8
-      --parallel 4
+      --parallel 2
       --cont-batching
       --chat-template-file /models/chat_template.jinja
       --log-disable
@@ -52,7 +53,7 @@ services:
     volumes:
       - ./services/searxng/config:/etc/searxng:rw,Z
     environment:
-      - SEARXNG_BASE_URL=http://localhost:8300
+      - SEARXNG_BASE_URL=http://gizmo-searxng:8080
     restart: unless-stopped
 
   gizmo-tts:
@@ -97,6 +98,8 @@ services:
       - ./config:/app/config:ro,Z
       - ./memory:/app/memory:rw,Z
       - ./logs:/app/logs:rw,Z
+      - ./voices:/app/voices:rw,Z
+      - ./media:/app/media:rw,Z
     environment:
       - LLAMA_HOST=gizmo-llama
       - LLAMA_PORT=8080
@@ -104,6 +107,8 @@ services:
       - SEARXNG_PORT=8080
       - TTS_HOST=gizmo-tts
       - TTS_PORT=8400
+      - WHISPER_HOST=gizmo-whisper
+      - WHISPER_PORT=8000
     depends_on:
       - gizmo-llama
     restart: unless-stopped
@@ -112,6 +117,27 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  gizmo-whisper:
+    image: docker.io/fedirz/faster-whisper-server:0.5.0-cpu
+    container_name: gizmo-whisper
+    networks:
+      - gizmo-net
+    ports:
+      - "8200:8000"
+    environment:
+      - WHISPER__MODEL=Systran/faster-whisper-base
+    volumes:
+      - ./models/whisper-cache:/root/.cache/huggingface:Z
+    security_opt:
+      - label=disable
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   gizmo-ui:
     build:

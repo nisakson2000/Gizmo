@@ -38,6 +38,21 @@
 	<!-- User message: right-aligned, accent tinted -->
 	<div class="flex justify-end mb-5">
 		<div class="max-w-[75%] bg-user-msg rounded-2xl rounded-br-md px-4 py-2.5">
+			{#if message.videoUrl}
+				<video
+					src={message.videoUrl}
+					controls
+					class="max-w-full max-h-64 rounded-lg mb-2"
+				>
+					<track kind="captions" />
+				</video>
+			{:else if message.imageUrl}
+				<img
+					src={message.imageUrl}
+					alt="Uploaded image"
+					class="max-w-full max-h-64 rounded-lg mb-2"
+				/>
+			{/if}
 			<div class="prose-chat text-[15px]">
 				{@html renderedHtml}
 			</div>

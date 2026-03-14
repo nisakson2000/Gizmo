@@ -15,3 +15,5 @@ export const ttsEnabled = persistedWritable('gizmo:tts', false);
 export const contextLength = persistedWritable('gizmo:contextLength', 32768);
 export const sidebarOpen = persistedWritable('gizmo:sidebar', true);
 export const settingsOpen = writable(false);
+export const pendingSuggestion = writable('');
+export const voiceStudioOpen = writable(false);

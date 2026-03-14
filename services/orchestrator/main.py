@@ -1,9 +1,12 @@
 """Gizmo-AI Orchestrator — FastAPI backend for the local AI assistant."""
 
+import base64
 import json
 import os
 import re
 import sqlite3
+import subprocess
+import tempfile
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -15,16 +18,10 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
-from memory import (
-    get_relevant_memories,
-    list_memories,
-    read_memory,
-    write_memory,
-    delete_memory,
-)
-from search import web_search, format_search_results
+from memory import get_relevant_memories, list_memories, write_memory
+from search import web_search
 from tools import TOOL_DEFINITIONS, execute_tool
-from tts import synthesize, check_health as tts_health
+from tts import synthesize
 
 # --- Config ---
 
@@ -38,9 +35,15 @@ SEARXNG_PORT = os.getenv("SEARXNG_PORT", "8080")
 TTS_HOST = os.getenv("TTS_HOST", "gizmo-tts")
 TTS_PORT = os.getenv("TTS_PORT", "8400")
 
+WHISPER_HOST = os.getenv("WHISPER_HOST", "gizmo-whisper")
+WHISPER_PORT = os.getenv("WHISPER_PORT", "8000")
+WHISPER_URL = f"http://{WHISPER_HOST}:{WHISPER_PORT}"
+
 CONSTITUTION_PATH = Path("/app/config/constitution.txt")
 DB_PATH = Path("/app/memory/conversations.db")
 LOGS_DIR = Path("/app/logs")
+VOICES_DIR = Path("/app/voices")
+MEDIA_DIR = Path("/app/media")
 
 
 # --- Database ---
@@ -175,7 +178,7 @@ async def stream_chat(
         "max_tokens": 8192,
         "temperature": 0.7,
         "top_p": 0.9,
-        "enable_thinking": thinking_enabled,
+        "chat_template_kwargs": {"enable_thinking": thinking_enabled},
     }
 
     if tools:
@@ -286,6 +289,7 @@ async def services_health():
         ("llama", f"{LLAMA_URL}/health"),
         ("searxng", f"http://{SEARXNG_HOST}:{SEARXNG_PORT}/"),
         ("tts", f"http://{TTS_HOST}:{TTS_PORT}/health"),
+        ("whisper", f"{WHISPER_URL}/health"),
     ]
     async with httpx.AsyncClient(timeout=5.0) as client:
         for name, url in checks:
@@ -314,9 +318,12 @@ async def ws_chat(ws: WebSocket):
                 continue
 
             user_text = msg.get("message", "")
+            image_data = msg.get("image")  # base64 data URL for vision
+            video_frames = msg.get("video_frames")  # list of base64 data URLs
             thinking = msg.get("thinking", False)
             conversation_id = msg.get("conversation_id") or str(uuid.uuid4())
             request_tts = msg.get("tts", False)
+            voice_clone_ref = msg.get("voice_clone_ref")  # base64 data URL for voice cloning
             trace_id = f"gizmo-{uuid.uuid4().hex[:8]}"
 
             await ws.send_json({"type": "trace_id", "trace_id": trace_id})
@@ -324,7 +331,21 @@ async def ws_chat(ws: WebSocket):
             # Load conversation history
             history = get_conversation_messages(conversation_id)
             history_msgs = [{"role": m["role"], "content": m["content"]} for m in history]
-            history_msgs.append({"role": "user", "content": user_text})
+
+            # Build user message — multimodal if image/video attached
+            if video_frames:
+                user_content = [{"type": "text", "text": user_text}]
+                for frame_url in video_frames:
+                    user_content.append({"type": "image_url", "image_url": {"url": frame_url}})
+                history_msgs.append({"role": "user", "content": user_content})
+            elif image_data:
+                user_content = [
+                    {"type": "text", "text": user_text},
+                    {"type": "image_url", "image_url": {"url": image_data}},
+                ]
+                history_msgs.append({"role": "user", "content": user_content})
+            else:
+                history_msgs.append({"role": "user", "content": user_text})
 
             # Save user message
             save_message(conversation_id, "user", user_text)
@@ -338,7 +359,7 @@ async def ws_chat(ws: WebSocket):
             full_thinking = ""
             tool_calls_pending = []
 
-            async for event in stream_chat(messages, thinking):
+            async for event in stream_chat(messages, thinking_enabled=thinking):
                 if event["type"] == "thinking":
                     full_thinking += event["content"]
                     await ws.send_json(event)
@@ -362,6 +383,20 @@ async def ws_chat(ws: WebSocket):
 
             # Execute tool calls if any
             if tool_calls_pending:
+                # Build single assistant message with all tool calls (matches OpenAI protocol)
+                messages.append({
+                    "role": "assistant",
+                    "content": full_response,
+                    "tool_calls": [
+                        {
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {"name": tc["name"], "arguments": tc["arguments"]},
+                        }
+                        for tc in tool_calls_pending
+                    ],
+                })
+
                 for tc in tool_calls_pending:
                     try:
                         args = json.loads(tc["arguments"]) if isinstance(tc["arguments"], str) else tc["arguments"]
@@ -375,12 +410,6 @@ async def ws_chat(ws: WebSocket):
                         "result": result,
                     })
 
-                    # Add tool result to messages and continue generation
-                    messages.append({"role": "assistant", "content": full_response, "tool_calls": [{
-                        "id": tc["id"],
-                        "type": "function",
-                        "function": {"name": tc["name"], "arguments": tc["arguments"]},
-                    }]})
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc["id"],
@@ -398,9 +427,11 @@ async def ws_chat(ws: WebSocket):
 
             # TTS if requested
             if request_tts and full_response:
-                audio_data = await synthesize(full_response[:1000])
+                audio_data = await synthesize(
+                    full_response[:4000],
+                    voice_clone_data_url=voice_clone_ref,
+                )
                 if audio_data:
-                    import base64
                     audio_b64 = base64.b64encode(audio_data).decode()
                     await ws.send_json({
                         "type": "audio",
@@ -525,7 +556,6 @@ async def upload_file(file: UploadFile = File(...)):
 @app.post("/api/upload-image")
 async def upload_image(file: UploadFile = File(...)):
     """Upload an image and return a reference for use in chat."""
-    import base64
     content = await file.read()
     b64 = base64.b64encode(content).decode()
     mime = file.content_type or "image/png"
@@ -535,6 +565,89 @@ async def upload_image(file: UploadFile = File(...)):
         "data_url": f"data:{mime};base64,{b64}",
         "size": len(content),
     }
+
+
+@app.post("/api/upload-video")
+async def upload_video(file: UploadFile = File(...)):
+    """Upload a video, extract frames with ffmpeg, return as base64 data URLs."""
+    content = await file.read()
+    max_frames = 8
+    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Save video for playback
+    video_id = str(uuid.uuid4())[:8]
+    ext = Path(file.filename or "video.mp4").suffix or ".mp4"
+    saved_video_path = MEDIA_DIR / f"{video_id}{ext}"
+    saved_video_path.write_bytes(content)
+    video_url = f"/api/media/{video_id}{ext}"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        video_path = os.path.join(tmpdir, file.filename or "video.mp4")
+        with open(video_path, "wb") as f:
+            f.write(content)
+
+        # Get video duration
+        probe = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "csv=p=0", video_path],
+            capture_output=True, text=True
+        )
+        try:
+            duration = float(probe.stdout.strip())
+        except (ValueError, AttributeError):
+            return JSONResponse(status_code=400, content={"error": "Could not read video duration"})
+
+        # Extract frames evenly spaced
+        frames_dir = os.path.join(tmpdir, "frames")
+        os.makedirs(frames_dir)
+
+        if duration <= 0:
+            return JSONResponse(status_code=400, content={"error": "Invalid video"})
+
+        # Calculate timestamps for evenly spaced frames
+        num_frames = min(max_frames, max(1, int(duration)))
+        interval = duration / (num_frames + 1)
+        timestamps = [interval * (i + 1) for i in range(num_frames)]
+
+        frame_data_urls = []
+        for i, ts in enumerate(timestamps):
+            frame_path = os.path.join(frames_dir, f"frame_{i:03d}.jpg")
+            subprocess.run(
+                ["ffmpeg", "-ss", str(ts), "-i", video_path,
+                 "-frames:v", "1", "-q:v", "3", "-y", frame_path],
+                capture_output=True
+            )
+            if os.path.exists(frame_path):
+                with open(frame_path, "rb") as fp:
+                    b64 = base64.b64encode(fp.read()).decode()
+                frame_data_urls.append(f"data:image/jpeg;base64,{b64}")
+
+        if not frame_data_urls:
+            return JSONResponse(status_code=400, content={"error": "Could not extract frames"})
+
+        return {
+            "filename": file.filename,
+            "frames": frame_data_urls,
+            "frame_count": len(frame_data_urls),
+            "duration": round(duration, 1),
+            "video_url": video_url,
+        }
+
+
+# --- Media ---
+
+
+@app.get("/api/media/{filename}")
+async def serve_media(filename: str):
+    """Serve uploaded media files (videos, etc.)."""
+    filepath = MEDIA_DIR / filename
+    if not filepath.exists():
+        return JSONResponse(status_code=404, content={"error": "Not found"})
+    # Determine content type from extension
+    ext = filepath.suffix.lower()
+    ct_map = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".avi": "video/x-msvideo"}
+    content_type = ct_map.get(ext, "application/octet-stream")
+    return Response(content=filepath.read_bytes(), media_type=content_type)
 
 
 # --- Conversations ---
@@ -608,10 +721,128 @@ async def api_tts(request: Request):
 
     text = body.get("text", "")
     voice = body.get("voice", "default")
+    voice_clone_data_url = body.get("voice_clone_data_url")
+    voice_id = body.get("voice_id")
     if not text:
         return JSONResponse(status_code=400, content={"error": "Missing 'text' field"})
 
-    audio = await synthesize(text, voice)
+    # If voice_id is provided, load the saved voice reference
+    if voice_id and not voice_clone_data_url:
+        meta_path = VOICES_DIR / f"{voice_id}.json"
+        if meta_path.exists():
+            meta = json.loads(meta_path.read_text())
+            voice_clone_data_url = meta.get("data_url")
+
+    audio = await synthesize(text, voice, voice_clone_data_url=voice_clone_data_url)
     if audio is None:
         return JSONResponse(status_code=503, content={"error": "TTS service unavailable"})
     return Response(content=audio, media_type="audio/wav")
+
+
+# --- Voice Management ---
+
+
+@app.get("/api/voices")
+async def list_voices():
+    """List saved voice references."""
+    VOICES_DIR.mkdir(parents=True, exist_ok=True)
+    voices = []
+    for f in sorted(VOICES_DIR.glob("*.json")):
+        try:
+            meta = json.loads(f.read_text())
+            voices.append(meta)
+        except Exception:
+            continue
+    return voices
+
+
+@app.post("/api/voices")
+async def save_voice(file: UploadFile = File(...), name: str = Form(...), max_duration: str = Form("30")):
+    """Upload and save a voice reference. Truncates to max_duration for VRAM safety."""
+    VOICES_DIR.mkdir(parents=True, exist_ok=True)
+    content = await file.read()
+    voice_id = str(uuid.uuid4())[:8]
+
+    try:
+        dur = int(max_duration)
+    except ValueError:
+        dur = 30
+    dur = max(10, min(dur, 120))
+
+    # Save original temporarily, then truncate to WAV via ffmpeg
+    with tempfile.TemporaryDirectory() as tmpdir:
+        raw_path = os.path.join(tmpdir, file.filename or "voice.wav")
+        with open(raw_path, "wb") as f:
+            f.write(content)
+
+        wav_path = str(VOICES_DIR / f"{voice_id}.wav")
+        subprocess.run(
+            ["ffmpeg", "-i", raw_path, "-t", str(dur), "-ar", "16000", "-ac", "1", "-y", wav_path],
+            capture_output=True,
+        )
+
+    if not os.path.exists(wav_path):
+        return JSONResponse(status_code=400, content={"error": "Could not process audio file"})
+
+    trimmed = Path(wav_path).read_bytes()
+    b64_data = base64.b64encode(trimmed).decode()
+
+    meta = {
+        "id": voice_id,
+        "name": name,
+        "filename": file.filename,
+        "size": len(trimmed),
+        "data_url": f"data:audio/wav;base64,{b64_data}",
+    }
+    meta_path = VOICES_DIR / f"{voice_id}.json"
+    meta_path.write_text(json.dumps(meta))
+
+    return meta
+
+
+@app.delete("/api/voices/{voice_id}")
+async def delete_voice(voice_id: str):
+    """Delete a saved voice reference."""
+    # Remove audio file (any extension)
+    for f in VOICES_DIR.glob(f"{voice_id}.*"):
+        f.unlink()
+    return {"status": "deleted"}
+
+
+@app.post("/api/voices/{voice_id}/preview")
+async def preview_voice(voice_id: str, request: Request):
+    """Synthesize a short preview with a saved voice."""
+    meta_path = VOICES_DIR / f"{voice_id}.json"
+    if not meta_path.exists():
+        return JSONResponse(status_code=404, content={"error": "Voice not found"})
+
+    meta = json.loads(meta_path.read_text())
+    body = await request.json()
+    text = body.get("text", "Hello, this is a voice preview.")
+
+    audio = await synthesize(text, voice_clone_data_url=meta["data_url"])
+    if audio is None:
+        return JSONResponse(status_code=503, content={"error": "TTS service unavailable"})
+    return Response(content=audio, media_type="audio/wav")
+
+
+# --- Transcription (Whisper STT) ---
+
+
+@app.post("/api/transcribe")
+async def transcribe(file: UploadFile = File(...)):
+    """Transcribe audio via Whisper."""
+    content = await file.read()
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                f"{WHISPER_URL}/v1/audio/transcriptions",
+                files={"file": (file.filename or "audio.webm", content, file.content_type or "audio/webm")},
+                data={"model": "Systran/faster-whisper-base"},
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.ConnectError:
+        return JSONResponse(status_code=503, content={"error": "Whisper service unavailable"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})

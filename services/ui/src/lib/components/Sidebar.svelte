@@ -9,6 +9,17 @@
 	import { sidebarOpen, settingsOpen } from '$lib/stores/settings';
 
 	let search = $state('');
+	let isMobile = $state(false);
+
+	function checkMobile() {
+		isMobile = window.innerWidth < 768;
+	}
+
+	$effect(() => {
+		checkMobile();
+		window.addEventListener('resize', checkMobile);
+		return () => window.removeEventListener('resize', checkMobile);
+	});
 
 	let filtered = $derived(
 		$conversations.filter((c) => c.title.toLowerCase().includes(search.toLowerCase()))
@@ -45,19 +56,31 @@
 
 	function handleConvClick(id: string) {
 		loadConversation(id);
+		if (isMobile) sidebarOpen.set(false);
 	}
 
 	function handleDeleteClick(e: MouseEvent, id: string) {
 		e.stopPropagation();
 		deleteConversation(id);
 	}
+
+	function handleNewChat() {
+		newConversation();
+		if (isMobile) sidebarOpen.set(false);
+	}
 </script>
 
 {#if $sidebarOpen}
-	<aside class="w-60 flex-shrink-0 bg-bg-secondary/50 border-r border-border/40 flex flex-col h-full">
+	{#if isMobile}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="sidebar-overlay" onclick={() => sidebarOpen.set(false)}></div>
+	{/if}
+
+	<aside class="{isMobile ? 'sidebar-panel' : 'w-64 flex-shrink-0'} bg-bg-secondary border-r border-border/40 flex flex-col h-full">
 		<div class="p-3">
 			<button
-				onclick={() => newConversation()}
+				onclick={handleNewChat}
 				class="w-full px-3 py-2 rounded-lg bg-bg-hover/60 border border-border/40 text-text-secondary hover:text-text-primary hover:border-border text-sm transition-all text-left flex items-center gap-2"
 			>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

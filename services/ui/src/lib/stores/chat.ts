@@ -1,5 +1,16 @@
 import { writable, derived, get } from 'svelte/store';
 
+/** crypto.randomUUID() requires a secure context (HTTPS or localhost).
+ *  Fall back to a manual v4 UUID for plain HTTP access (e.g. Tailscale IP). */
+function uuid(): string {
+	if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+		return crypto.randomUUID();
+	}
+	return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) =>
+		(+c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))).toString(16)
+	);
+}
+
 export interface Message {
 	id: string;
 	role: 'user' | 'assistant';
@@ -8,6 +19,8 @@ export interface Message {
 	timestamp: string;
 	traceId?: string;
 	audioUrl?: string;
+	imageUrl?: string;
+	videoUrl?: string;
 	toolCalls?: { tool: string; status: string; result?: string }[];
 }
 
@@ -35,14 +48,16 @@ export function newConversation() {
 	streamingToolCalls.set([]);
 }
 
-export function addUserMessage(content: string): string {
-	const id = crypto.randomUUID();
+export function addUserMessage(content: string, imageUrl?: string, videoFrames?: string[], videoUrl?: string): string {
+	const id = uuid();
 	const msg: Message = {
 		id,
 		role: 'user',
 		content,
 		thinking: '',
 		timestamp: new Date().toISOString(),
+		imageUrl: imageUrl || (videoFrames?.length ? videoFrames[0] : undefined),
+		videoUrl,
 	};
 	messages.update((msgs) => [...msgs, msg]);
 	return id;
@@ -53,7 +68,7 @@ export function finalizeAssistantMessage(traceId: string, audioUrl?: string) {
 	const content = get(streamingContent);
 	const toolCalls = get(streamingToolCalls);
 	const msg: Message = {
-		id: crypto.randomUUID(),
+		id: uuid(),
 		role: 'assistant',
 		content,
 		thinking,
@@ -88,7 +103,7 @@ export async function loadConversation(id: string) {
 			activeConversationId.set(id);
 			messages.set(
 				data.messages.map((m: any) => ({
-					id: crypto.randomUUID(),
+					id: uuid(),
 					role: m.role,
 					content: m.content,
 					thinking: m.thinking || '',

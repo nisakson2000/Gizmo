@@ -122,7 +122,7 @@ function handleEvent(data: any) {
 	}
 }
 
-export function send(message: string) {
+export function send(message: string, imageDataUrl?: string, videoFrames?: string[]) {
 	if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
 	generating.set(true);
@@ -131,14 +131,18 @@ export function send(message: string) {
 	streamingContent.set('');
 	streamingToolCalls.set([]);
 
-	ws.send(
-		JSON.stringify({
-			message,
-			thinking: get(thinkingEnabled),
-			conversation_id: get(activeConversationId),
-			tts: get(ttsEnabled),
-		})
-	);
+	const payload: Record<string, unknown> = {
+		message,
+		thinking: get(thinkingEnabled),
+		conversation_id: get(activeConversationId),
+		tts: get(ttsEnabled),
+	};
+	if (videoFrames && videoFrames.length > 0) {
+		payload.video_frames = videoFrames;
+	} else if (imageDataUrl) {
+		payload.image = imageDataUrl;
+	}
+	ws.send(JSON.stringify(payload));
 }
 
 export function stopGeneration() {
