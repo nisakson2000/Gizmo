@@ -24,6 +24,7 @@ export const messages = writable<Message[]>([]);
 export const generating = writable(false);
 export const streamingThinking = writable('');
 export const streamingContent = writable('');
+export const streamingToolCalls = writable<{ tool: string; status: string; result?: string }[]>([]);
 export const currentTraceId = writable('');
 
 export function newConversation() {
@@ -31,6 +32,7 @@ export function newConversation() {
 	messages.set([]);
 	streamingThinking.set('');
 	streamingContent.set('');
+	streamingToolCalls.set([]);
 }
 
 export function addUserMessage(content: string): string {
@@ -49,6 +51,7 @@ export function addUserMessage(content: string): string {
 export function finalizeAssistantMessage(traceId: string, audioUrl?: string) {
 	const thinking = get(streamingThinking);
 	const content = get(streamingContent);
+	const toolCalls = get(streamingToolCalls);
 	const msg: Message = {
 		id: crypto.randomUUID(),
 		role: 'assistant',
@@ -57,10 +60,12 @@ export function finalizeAssistantMessage(traceId: string, audioUrl?: string) {
 		timestamp: new Date().toISOString(),
 		traceId,
 		audioUrl,
+		toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
 	};
 	messages.update((msgs) => [...msgs, msg]);
 	streamingThinking.set('');
 	streamingContent.set('');
+	streamingToolCalls.set([]);
 }
 
 export async function loadConversations() {

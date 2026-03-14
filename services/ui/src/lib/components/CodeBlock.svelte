@@ -4,7 +4,7 @@
 	let { code, language = '' }: { code: string; language?: string } = $props();
 	let copied = $state(false);
 
-	let highlighted = $derived(() => {
+	let highlighted = $derived.by(() => {
 		try {
 			if (language && hljs.getLanguage(language)) {
 				return hljs.highlight(code, { language }).value;
@@ -32,5 +32,5 @@
 			{copied ? 'Copied!' : 'Copy'}
 		</button>
 	</div>
-	<pre class="overflow-x-auto p-3 text-sm leading-relaxed font-mono"><code class="hljs">{@html highlighted()}</code></pre>
+	<pre class="overflow-x-auto p-3 text-sm leading-relaxed font-mono"><code class="hljs">{@html highlighted}</code></pre>
 </div>

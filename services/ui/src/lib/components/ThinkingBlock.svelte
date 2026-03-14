@@ -2,9 +2,8 @@
 	let { content, streaming = false }: { content: string; streaming?: boolean } = $props();
 	let expanded = $state(false);
 
-	// Auto-collapse when streaming stops
+	// Auto-expand when streaming starts; user controls collapse
 	$effect(() => {
-		if (!streaming && content) expanded = false;
 		if (streaming) expanded = true;
 	});
 </script>

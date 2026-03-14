@@ -1,22 +1,19 @@
 <script lang="ts">
 	import { marked } from 'marked';
+	import { sanitize } from '$lib/utils/sanitize';
+	import { highlightCode } from '$lib/actions/highlight';
 	import ThinkingBlock from './ThinkingBlock.svelte';
-	import CodeBlock from './CodeBlock.svelte';
+	import ToolCallBlock from './ToolCallBlock.svelte';
 	import type { Message } from '$lib/stores/chat';
 
 	let { message }: { message: Message } = $props();
 	let copied = $state(false);
 
-	// Configure marked for security
-	marked.setOptions({
-		breaks: true,
-		gfm: true,
-	});
+	marked.setOptions({ breaks: true, gfm: true });
 
-	// Custom renderer to extract code blocks for our component
 	let renderedHtml = $derived.by(() => {
 		try {
-			return marked.parse(message.content) as string;
+			return sanitize(marked.parse(message.content) as string);
 		} catch {
 			return message.content;
 		}
@@ -37,41 +34,64 @@
 	}
 </script>
 
-<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4 group">
-	<div
-		class="max-w-[80%] {message.role === 'user'
-			? 'bg-accent/20 border-accent/30'
-			: 'bg-bg-secondary border-border'} border rounded-lg px-4 py-3"
-	>
-		{#if message.role === 'assistant' && message.thinking}
+{#if message.role === 'user'}
+	<!-- User message: right-aligned, accent tinted -->
+	<div class="flex justify-end mb-5">
+		<div class="max-w-[75%] bg-user-msg rounded-2xl rounded-br-md px-4 py-2.5">
+			<div class="prose-chat text-[15px]">
+				{@html renderedHtml}
+			</div>
+		</div>
+	</div>
+{:else}
+	<!-- Assistant message: full-width, no bubble -->
+	<div class="mb-6 group">
+		{#if message.thinking}
 			<ThinkingBlock content={message.thinking} />
 		{/if}
 
-		<div class="prose prose-invert max-w-none text-text-primary text-[15px] leading-[1.7]">
+		{#if message.toolCalls?.length}
+			{#each message.toolCalls as tc, i (i)}
+				<ToolCallBlock tool={tc.tool} status={tc.status} result={tc.result} />
+			{/each}
+		{/if}
+
+		<div class="prose-chat" use:highlightCode={renderedHtml}>
 			{@html renderedHtml}
 		</div>
 
 		{#if message.audioUrl}
-			<div class="mt-2">
-				<audio controls src={message.audioUrl} class="w-full h-8">
-					<track kind="captions" />
+			<div class="mt-3">
+				<audio controls src={message.audioUrl} class="w-full h-9 rounded-lg" aria-label="TTS audio">
+					<track kind="captions" src="" default />
 				</audio>
 			</div>
 		{/if}
 
-		<div class="flex items-center justify-between mt-2 pt-1 border-t border-border/50">
-			<span class="text-xs text-text-dim font-mono">
-				{formatTime(message.timestamp)}
-				{#if message.traceId}
-					<span class="ml-2">{message.traceId}</span>
-				{/if}
-			</span>
+		<!-- Actions row: visible on hover -->
+		<div class="flex items-center gap-3 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
 			<button
 				onclick={copyMessage}
-				class="text-xs text-text-dim hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+				class="text-xs text-text-dim hover:text-text-secondary transition-colors flex items-center gap-1"
 			>
-				{copied ? 'Copied' : 'Copy'}
+				{#if copied}
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+					</svg>
+					Copied
+				{:else}
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+					</svg>
+					Copy
+				{/if}
 			</button>
+			<span class="text-[11px] text-text-dim font-mono">
+				{formatTime(message.timestamp)}
+			</span>
+			{#if message.traceId}
+				<span class="text-[11px] text-text-dim font-mono">{message.traceId}</span>
+			{/if}
 		</div>
 	</div>
-</div>
+{/if}
