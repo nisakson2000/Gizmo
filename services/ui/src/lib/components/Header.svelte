@@ -34,7 +34,7 @@
 			</svg>
 		</button>
 		<span class="text-lg font-semibold text-text-primary tracking-tight">Gizmo</span>
-		<span class="text-xs text-text-dim font-mono hidden sm:inline">Qwen3.5-27B Abliterated</span>
+		<span class="text-xs text-text-dim font-mono hidden sm:inline">Qwen3.5-9B Abliterated</span>
 	</div>
 
 	<div class="flex items-center gap-3">

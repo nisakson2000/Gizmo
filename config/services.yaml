@@ -44,11 +44,11 @@ services:
     health: /
     description: "SearXNG — self-hosted web search"
 
-  kokoro:
-    container: gizmo-kokoro
-    host: gizmo-kokoro
-    port: 8880
+  tts:
+    container: gizmo-tts
+    host: gizmo-tts
+    port: 8400
     host_port: 8400
-    gpu: false
+    gpu: true
     health: /health
-    description: "Kokoro FastAPI — text-to-speech"
+    description: "Qwen3-TTS — GPU-accelerated text-to-speech with voice cloning"

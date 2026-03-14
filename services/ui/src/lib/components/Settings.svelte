@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { thinkingEnabled, ttsEnabled, ttsVoice, contextLength, settingsOpen } from '$lib/stores/settings';
+	import { thinkingEnabled, ttsEnabled, contextLength, settingsOpen } from '$lib/stores/settings';
 
 	interface ServiceHealth {
 		[key: string]: { status: string; error?: string };
@@ -54,7 +54,7 @@
 					<label class="flex items-center justify-between">
 						<div>
 							<span class="text-sm font-medium">Text-to-Speech</span>
-							<p class="text-xs text-text-secondary mt-0.5">Gizmo will speak responses aloud via Kokoro TTS.</p>
+							<p class="text-xs text-text-secondary mt-0.5">Gizmo will speak responses aloud via Qwen3-TTS. GPU-accelerated, auto-unloads after 60s idle.</p>
 						</div>
 						<button
 							onclick={() => ttsEnabled.update((v) => !v)}
@@ -63,21 +63,6 @@
 							<div class="w-4 h-4 rounded-full bg-white transition-transform {$ttsEnabled ? 'translate-x-5' : 'translate-x-0.5'}"></div>
 						</button>
 					</label>
-					{#if $ttsEnabled}
-						<div class="mt-2">
-							<label class="text-xs text-text-secondary">Voice</label>
-							<select
-								bind:value={$ttsVoice}
-								class="mt-1 w-full bg-bg-tertiary border border-border rounded px-2 py-1 text-sm text-text-primary"
-							>
-								<option value="af_heart">Heart (warm, natural)</option>
-								<option value="af_bella">Bella</option>
-								<option value="af_nicole">Nicole</option>
-								<option value="am_adam">Adam</option>
-								<option value="am_michael">Michael</option>
-							</select>
-						</div>
-					{/if}
 				</div>
 
 				<!-- Context Length -->
@@ -87,14 +72,14 @@
 					<input
 						type="range"
 						min="2048"
-						max="16384"
+						max="32768"
 						step="1024"
 						bind:value={$contextLength}
 						class="w-full mt-2 accent-accent"
 					/>
 					<div class="flex justify-between text-xs text-text-dim">
 						<span>2K</span>
-						<span>16K</span>
+						<span>32K</span>
 					</div>
 				</div>
 

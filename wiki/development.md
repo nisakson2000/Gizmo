@@ -79,16 +79,18 @@ Pattern:
 5. Document in `config/services.yaml`
 6. Rebuild and restart
 
-## Planned v2 Features
+## Future Features
 
 - **ChromaDB semantic memory** — replace keyword matching with vector similarity search
-- **Vision support** — mmproj is already downloaded, needs llama.cpp `--mmproj` flag and image message handling
+- **Vision activation** — mmproj is downloaded, needs llama.cpp `--mmproj` flag enabled in compose
 - **Agent mode** — multi-step task execution with tool chaining
 - **Model hot-swap** — switch models via API without restarting
 - **Prompt template editor** — edit constitution.txt from the UI
 - **Mobile-optimized layout** — responsive design for phone access via Tailscale
 - **Usage analytics** — token counts, response times, cost estimation dashboard
 - **Stop generation** — client-side abort signal to cancel streaming
+- **Custom voice profiles** — user-uploaded reference audio for TTS voice cloning
+- **Streaming TTS** — chunk audio as it generates for lower latency
 
 ## Contributing
 

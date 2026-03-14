@@ -66,11 +66,10 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 5. Orchestrator loads `constitution.txt`, scans memory for relevant files
 6. System prompt assembled: constitution + relevant memories
 7. Messages array built in OpenAI format: `[system, ...history, user]`
-8. Thinking mode is ON → orchestrator appends partial assistant message: `{"role": "assistant", "content": "<think>\n"}`
-9. Orchestrator POSTs to `http://gizmo-llama:8080/v1/chat/completions` with `stream: true` and tool definitions
-10. Model begins generating — orchestrator detects `<think>` block
-11. Thinking tokens streamed as `{"type": "thinking", "content": "..."}` events to UI
-12. Model closes think block with `</think>`, orchestrator switches to `{"type": "token"}` events
+8. Orchestrator POSTs to `http://gizmo-llama:8080/v1/chat/completions` with `stream: true`, `enable_thinking: true`, and tool definitions
+9. Model begins generating — llama.cpp separates reasoning into `reasoning_content` field
+10. Thinking tokens streamed as `{"type": "thinking", "content": "..."}` events to UI
+11. Model finishes reasoning, orchestrator switches to `{"type": "token"}` events for response content
 13. Model outputs tool call: `web_search({"query": "AI news"})`
 14. Orchestrator sends `{"type": "tool_call", "tool": "web_search", "status": "running"}` to UI
 15. Orchestrator queries SearXNG at `http://gizmo-searxng:8080/search?q=AI+news&format=json`
@@ -155,7 +154,7 @@ Replace keyword matching with ChromaDB vector store for semantic similarity sear
 
 Tools follow the OpenAI function-calling format. llama.cpp supports this natively.
 
-### Available Tools (v1)
+### Available Tools
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|

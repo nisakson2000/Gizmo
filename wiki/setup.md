@@ -167,7 +167,7 @@ The script:
 2. Starts infrastructure services (SearXNG, Whisper)
 3. Starts the LLM server (takes 15-30 seconds to load 9.5GB into VRAM)
 4. Starts the TTS server (GPU, loads on first request)
-4. Starts the orchestrator and UI
+5. Starts the orchestrator and UI
 
 **Expected output:**
 ```
@@ -176,17 +176,21 @@ The script:
 ╚════════════════════════════════╝
 
 Starting infrastructure services...
-Starting model server (this may take 30-60s to load)...
-Waiting for model to load...
+Starting LLM server (Qwen3.5-9B, ~10GB VRAM)...
+Waiting for LLM to load...
 ........... ready.
+Starting Qwen3-TTS server (~3GB VRAM)...
 Starting orchestrator and UI...
 
-╔════════════════════════════════════════════╗
-║  Gizmo-AI is running                       ║
-║  UI:           http://localhost:3100        ║
-║  Orchestrator: http://localhost:9100        ║
-║  Model API:    http://localhost:8080        ║
-╚════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════╗
+║  Gizmo-AI is running                                  ║
+║  UI:           http://localhost:3100                  ║
+║  Orchestrator: http://localhost:9100                  ║
+║  LLM API:      http://localhost:8080                  ║
+║  TTS API:      http://localhost:8400                  ║
+╚═══════════════════════════════════════════════════════╝
+
+Tailscale: access via your Tailscale IP on port 3100
 ```
 
 ## Step 8 — Verify Everything Works

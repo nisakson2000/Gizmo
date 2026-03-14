@@ -112,7 +112,6 @@ Access via the **Settings** button at the bottom of the sidebar.
 | Setting | Description |
 |---------|-------------|
 | **Thinking Mode** | Toggle extended reasoning ON/OFF |
-| **Text-to-Speech** | Toggle spoken responses ON/OFF |
-| **TTS Voice** | Default voice (Qwen3-TTS voice cloning) |
-| **Context Length** | Slider: 2,048–16,384 tokens. Higher = more history visible to model, but slower |
+| **Text-to-Speech** | Toggle spoken responses ON/OFF (Qwen3-TTS, GPU-accelerated) |
+| **Context Length** | Slider: 2,048–32,768 tokens. Higher = more history visible to model, but slower |
 | **Service Health** | Live status of all 6 backend services |
