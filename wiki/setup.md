@@ -9,7 +9,7 @@ Complete setup guide from a fresh Linux machine. Target audience: someone techni
 You are about to set up a stack of 6 containerized services that work together to run a 9-billion parameter language model and a neural TTS model on your GPU. This involves:
 
 - Building software from source (llama.cpp with CUDA support)
-- Downloading a ~10GB LLM and ~4GB TTS model from HuggingFace
+- Downloading ~14GB of models from HuggingFace (LLM, TTS, vision projector, chat template)
 - Running containers via Podman (or Docker)
 
 **Estimated time:** 1-2 hours on first setup. After that, starting Gizmo takes ~30 seconds.
@@ -119,9 +119,10 @@ bash scripts/download-model.sh
 
 This downloads:
 - **Main model:** `Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf` (~9.5GB)
-- **Vision projector:** mmproj Q8_0 (~600MB)
-- **TTS model:** Qwen3-TTS-12Hz-1.7B-Base (~4GB)
+- **Vision projector:** mmproj Q8_0 (~600MB) — downloaded for future vision support
 - **Chat template:** `chat_template.jinja` (handles thinking, vision, and tool calling)
+- **TTS model:** `Qwen3-TTS-12Hz-1.7B-Base` (~3.6GB)
+- **TTS tokenizer:** `Qwen3-TTS-Tokenizer-12Hz` (~651MB)
 
 The download is resumable — if it fails, run the script again and it will continue where it left off.
 
@@ -132,7 +133,7 @@ ls -lh models/*.gguf
 ls -lh models/mmproj/*.gguf
 # Should show ~600MB file
 ls models/qwen3-tts/1.7B-Base/
-# Should show model files
+# Should show model.safetensors, config.json, etc.
 ```
 
 ## Step 6 — Build llama.cpp

@@ -49,7 +49,7 @@ No API keys or accounts needed — SearXNG aggregates results from Google, DuckD
 Click the **paperclip button** to upload files.
 
 **Supported types:**
-- **Images:** PNG, JPG, GIF, WebP — model can describe, analyze, read text in images
+- **Images:** PNG, JPG, GIF, WebP — uploaded and base64-encoded for the model (vision support pending — mmproj not yet enabled)
 - **PDFs:** Text extracted and sent to model (first 10,000 characters)
 - **Text/Code:** .txt, .md, .py, .js, .ts, .json, .yaml, .csv — content sent directly
 
@@ -113,5 +113,5 @@ Access via the **Settings** button at the bottom of the sidebar.
 |---------|-------------|
 | **Thinking Mode** | Toggle extended reasoning ON/OFF |
 | **Text-to-Speech** | Toggle spoken responses ON/OFF (Qwen3-TTS, GPU-accelerated) |
-| **Context Length** | Slider: 2,048–32,768 tokens. Higher = more history visible to model, but slower |
+| **Context Length** | Slider: 2,048–32,768 tokens. UI-only — not yet wired to the backend. The model always uses the full 32,768 token context window configured in docker-compose.yml |
 | **Service Health** | Live status of all 6 backend services |
