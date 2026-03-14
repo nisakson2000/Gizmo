@@ -24,7 +24,6 @@ The model used is an abliterated variant of Qwen3.5-9B — meaning the safety re
 - **Function calling** — model autonomously uses tools (web search, memory read/write) based on context
 - **Web search** via self-hosted SearXNG — no API keys needed
 - **Document upload** — analyze PDFs, text files, and code directly in chat
-- **Voice input** via faster-whisper — local speech-to-text, no cloud transcription
 - **Text-to-speech** via Qwen3-TTS — GPU-accelerated neural voice cloning, auto-unloads from VRAM when idle
 - **Memory system** — Gizmo remembers facts across conversations via keyword-matched file storage
 - **Dark-themed UI** — code syntax highlighting, markdown rendering, auto-reconnecting WebSocket
@@ -53,7 +52,7 @@ git clone https://github.com/nisakson2000/Gizmo-AI.git
 cd Gizmo-AI
 bash scripts/download-model.sh   # Downloads ~14GB (LLM + TTS + vision projector)
 bash scripts/build-llamacpp.sh   # Builds model server (~5-10min)
-bash scripts/start.sh            # Starts all 6 services
+bash scripts/start.sh            # Starts all 5 services
 # Open http://localhost:3100
 ```
 
@@ -71,11 +70,11 @@ bash scripts/start.sh            # Starts all 6 services
 │  │  │ SvelteKit│   │  :9100 FastAPI │   │  llama.cpp  │ │    │
 │  │  └──────────┘   └───────┬────────┘   │  [GPU]      │ │    │
 │  │                     ┌────┼─────┐     └─────────────┘ │    │
-│  │               ┌─────▼┐ ┌▼────┐ ┌▼────────┐          │    │
-│  │               │whisper│ │searx│ │qwen3-tts│          │    │
-│  │               │ :8200 │ │:8300│ │  :8400  │          │    │
-│  │               │ [CPU] │ │[CPU]│ │  [GPU]  │          │    │
-│  │               └───────┘ └─────┘ └─────────┘          │    │
+│  │                ┌────▼──┐ ┌▼────────┐                 │    │
+│  │                │ searx │ │qwen3-tts│                 │    │
+│  │                │ :8300 │ │  :8400  │                 │    │
+│  │                │ [CPU] │ │  [GPU]  │                 │    │
+│  │                └───────┘ └─────────┘                 │    │
 │  └────────────────────────────────────────────────────────┘    │
 └────────────────────────────────────────────────────────────────┘
 ```

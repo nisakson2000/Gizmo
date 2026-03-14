@@ -40,7 +40,7 @@ fi
 
 # Start CPU-only infrastructure first
 echo "Starting infrastructure services..."
-podman compose up -d gizmo-searxng gizmo-whisper
+podman compose up -d gizmo-searxng
 sleep 5
 
 # Start model server (GPU)

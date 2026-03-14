@@ -26,15 +26,6 @@ services:
     health: /
     description: "SvelteKit web UI served via nginx"
 
-  whisper:
-    container: gizmo-whisper
-    host: gizmo-whisper
-    port: 8000
-    host_port: 8200
-    gpu: false
-    health: /health
-    description: "faster-whisper-server — speech-to-text"
-
   searxng:
     container: gizmo-searxng
     host: gizmo-searxng

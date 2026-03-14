@@ -45,12 +45,11 @@
 
 | Category | Status | Notes |
 |----------|--------|-------|
-| 1. Infrastructure Health | WARN | All 6 services healthy. VRAM at 22120 MiB (over 22GB threshold). Whisper reports unhealthy in podman but responds OK. |
+| 1. Infrastructure Health | WARN | All services healthy. VRAM at 22120 MiB (over 22GB threshold). |
 | 2. Model Response | PASS | Non-streaming and streaming both work. Model auto-thinks so needs adequate max_tokens. |
 | 3. Thinking Mode | FAIL | Thinking ON works. Thinking OFF (`enable_thinking: false`) does NOT suppress thinking — model thinks regardless. |
 | 4. WebSocket Streaming | PASS | All 5 protocol checks pass. Event order correct. Orchestrator restart recovery <5s. |
 | 5. Tool Calling | PASS | web_search, write_memory, read_memory, list_memories all functional. SearXNG returns results. |
-| 6. Whisper Transcription | PASS | Direct endpoint and orchestrator proxy both return valid JSON. |
 | 7. Kokoro TTS | PASS | Direct: 16,941 byte audio. Orchestrator proxy: 16,869 byte MPEG audio. Endpoint uses Form data, not JSON. |
 | 8. Vision/Image Upload | FAIL | mmproj GGUF exists on disk but llama.cpp not started with `--mmproj` flag. Upload endpoint works, but model cannot process images. |
 | 9. Conversation Persistence | PASS | SQLite survives restart. Context recalled correctly across restart boundary. |
@@ -81,9 +80,7 @@
 
 1. **Nginx DNS cache stale after container restart.** When `gizmo-orchestrator` is restarted via `podman restart`, it may get a new IP. Nginx in `gizmo-ui` caches the old IP and returns 502 until `nginx -s reload` is run. Workaround: restart `gizmo-ui` after restarting orchestrator, or add `resolver 127.0.0.11 valid=10s;` to nginx config.
 
-2. **Whisper container reports unhealthy.** `podman ps` shows `(unhealthy)` for `gizmo-whisper`, but the `/health` endpoint returns `OK`. Likely a healthcheck configuration mismatch (wrong port, path, or timeout in docker-compose.yml).
-
-3. **VRAM headroom dangerously low.** With 22120 MiB used and only 1961 MiB free, parallel inference requests could trigger OOM. The `--parallel 4` setting compounds this risk.
+2. **VRAM headroom dangerously low.** With 22120 MiB used and only 1961 MiB free, parallel inference requests could trigger OOM. The `--parallel 4` setting compounds this risk.
 
 ## Skipped
 
@@ -93,7 +90,6 @@
   - Thinking block expand/collapse
   - Stop generation button
   - File upload preview
-  - Microphone recording
   - Settings panel
   - TTS audio playback
 
@@ -109,9 +105,7 @@
 
 3. **Add nginx DNS resolver:** Add `resolver 127.0.0.11 valid=10s;` to the nginx server block to prevent stale DNS after container restarts.
 
-4. **Fix Whisper healthcheck:** Update the docker-compose healthcheck for whisper to match the actual health endpoint.
-
-5. **Reduce VRAM pressure:** Lower `--parallel` from 4 to 2, or evaluate Q4_K_M quant which saves ~3GB VRAM with minimal quality loss.
+4. **Reduce VRAM pressure:** Lower `--parallel` from 4 to 2, or evaluate Q4_K_M quant which saves ~3GB VRAM with minimal quality loss.
 
 6. **Set GitHub topics:** Add topics via `gh repo edit --add-topic ai,llm,local-ai,llama-cpp,self-hosted,qwen,voice-assistant`.
 

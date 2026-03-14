@@ -21,13 +21,13 @@ Full technical reference for Gizmo-AI. Assumes familiarity with containers and R
 │  │  │ nginx    │    └──────┬───────┘    │ Q8_0 9B      │  │   │
 │  │  └──────────┘           │            │ [GPU]         │  │   │
 │  │              ┌──────────┼────────┐   └───────────────┘  │   │
-│  │              │          │        │                       │   │
-│  │   ┌──────────▼──┐  ┌───▼─────┐  ┌▼──────────┐          │   │
-│  │   │gizmo-whisper│  │gizmo-   │  │gizmo-     │          │   │
-│  │   │:8200 (8000) │  │searxng  │  │qwen3-tts  │          │   │
-│  │   │Whisper STT  │  │:8300    │  │:8400      │          │   │
-│  │   │[CPU]        │  │(8080)   │  │TTS [GPU]  │          │   │
-│  │   └─────────────┘  └─────────┘  └───────────┘          │   │
+│  │              │          │                                │   │
+│  │         ┌────▼─────┐  ┌▼──────────┐                     │   │
+│  │         │gizmo-    │  │gizmo-     │                     │   │
+│  │         │searxng   │  │qwen3-tts  │                     │   │
+│  │         │:8300     │  │:8400      │                     │   │
+│  │         │(8080)    │  │TTS [GPU]  │                     │   │
+│  │         └──────────┘  └───────────┘                     │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  Volumes: ~/gizmo-ai/models, ~/gizmo-ai/memory, ~/gizmo-ai/logs│
@@ -44,7 +44,6 @@ Full technical reference for Gizmo-AI. Assumes familiarity with containers and R
 | gizmo-llama | gizmo-llama:latest (built from source) | LLM inference server | 8080 | 8080 | Yes (RTX 4090) | — |
 | gizmo-orchestrator | gizmo-orchestrator:latest (built) | API gateway, routing, tools | 9100 | 9100 | No | gizmo-llama |
 | gizmo-ui | gizmo-ui:latest (built) | Web UI (SvelteKit + nginx) | 3100 | 3100 | No | gizmo-orchestrator |
-| gizmo-whisper | fedirz/faster-whisper-server:latest-cpu | Speech-to-text | 8000 | 8200 | No | — |
 | gizmo-searxng | searxng/searxng:latest | Web search engine | 8080 | 8300 | No | — |
 | gizmo-tts | gizmo-tts:latest (built) | Text-to-speech (Qwen3-TTS) | 8400 | 8400 | Yes (RTX 4090) | — |
 
@@ -135,13 +134,12 @@ Supports up to 5 rounds of automatic tool calling per request. The model can cha
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Orchestrator health check |
-| `/api/services/health` | GET | Health of all 6 backend services |
+| `/api/services/health` | GET | Health of all backend services |
 | `/api/conversations` | GET | List all conversations |
 | `/api/conversations/{id}` | GET | Get conversation messages |
 | `/api/conversations/{id}` | DELETE | Delete a conversation |
 | `/api/upload` | POST | Upload document (PDF, text, code) |
 | `/api/upload-image` | POST | Upload image (returns base64 data URL) |
-| `/api/transcribe` | POST | Transcribe audio via Whisper |
 | `/api/tts` | POST | Synthesize speech (JSON body: `text`, `voice`) |
 | `/api/search` | GET | Web search via SearXNG (`?q=query`) |
 | `/api/memory/list` | GET | List memory files |
@@ -245,7 +243,7 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 ├── README.md                              # Public-facing documentation
 ├── LICENSE                                # MIT license
 ├── .gitignore                             # Git ignore rules
-├── docker-compose.yml                     # Podman compose — all 6 services
+├── docker-compose.yml                     # Podman compose — all 5 services
 ├── config/
 │   ├── constitution.txt                   # System prompt / persona
 │   ├── models.yaml                        # Model configuration

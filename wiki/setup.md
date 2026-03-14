@@ -6,7 +6,7 @@ Complete setup guide from a fresh Linux machine. Target audience: someone techni
 
 ## Before You Start
 
-You are about to set up a stack of 6 containerized services that work together to run a 9-billion parameter language model and a neural TTS model on your GPU. This involves:
+You are about to set up a stack of 5 containerized services that work together to run a 9-billion parameter language model and a neural TTS model on your GPU. This involves:
 
 - Building software from source (llama.cpp with CUDA support)
 - Downloading ~14GB of models from HuggingFace (LLM, TTS, vision projector, chat template)
@@ -26,13 +26,13 @@ If you have less VRAM:
 AMD GPUs are not supported (llama.cpp CUDA build required).
 
 ### RAM
-**32GB minimum.** The orchestrator, Whisper, and SearXNG run on CPU and use system RAM. 64GB recommended for comfortable headroom.
+**32GB minimum.** The orchestrator and SearXNG run on CPU and use system RAM. 64GB recommended for comfortable headroom.
 
 ### Disk
 **50GB free space.** Breakdown: LLM model file (~9.5GB), TTS model (~4GB), container images (~10GB), mmproj vision file (600MB), logs and memory (variable).
 
 ### CPU
-Less critical than GPU. Whisper transcription runs on CPU — more cores means faster transcription. The AMD Ryzen 9 7950X3D is the tested configuration.
+Less critical than GPU. The AMD Ryzen 9 7950X3D is the tested configuration.
 
 ---
 
@@ -165,7 +165,7 @@ bash scripts/start.sh
 
 The script:
 1. Checks that the model file exists
-2. Starts infrastructure services (SearXNG, Whisper)
+2. Starts infrastructure services (SearXNG)
 3. Starts the LLM server (takes 15-30 seconds to load 9.5GB into VRAM)
 4. Starts the TTS server (GPU, loads on first request)
 5. Starts the orchestrator and UI
@@ -206,7 +206,6 @@ Gizmo-AI Service Health
 ─────────────────────────────────
   ✓ gizmo-llama              (port 8080)
   ✓ gizmo-orchestrator       (port 9100)
-  ✓ gizmo-whisper            (port 8200)
   ✓ gizmo-tts                (port 8400)
   ✓ gizmo-searxng            (port 8300)
   ✓ gizmo-ui                 (port 3100)
@@ -249,10 +248,6 @@ sudo firewall-cmd --reload
 - Check container: `podman logs gizmo-searxng`
 - Check config: `services/searxng/config/settings.yml`
 - Test directly: `curl http://localhost:8300/search?q=test&format=json`
-
-### Whisper not transcribing
-- Browser mic permission requires HTTPS or localhost
-- Check container: `podman logs gizmo-whisper`
 
 ### Qwen3-TTS silent
 - Check container health: `curl http://localhost:8400/health`

@@ -55,19 +55,6 @@ Click the **paperclip button** to upload files.
 
 The model receives the file content in its context and can discuss, analyze, or answer questions about it.
 
-## Voice Input
-
-Click the **microphone button** to record audio.
-
-1. Browser requests microphone permission (works on localhost without HTTPS)
-2. Speak your message
-3. Click the mic button again to stop recording
-4. Audio is sent to Whisper for transcription
-5. Transcribed text appears in the input box
-6. Edit if needed, then send
-
-The Whisper model used is `Systran/faster-whisper-large-v3` — high accuracy across languages.
-
 ## Text-to-Speech
 
 Toggle TTS with the **TTS button** in the header or in Settings.
@@ -114,4 +101,4 @@ Access via the **Settings** button at the bottom of the sidebar.
 | **Thinking Mode** | Toggle extended reasoning ON/OFF |
 | **Text-to-Speech** | Toggle spoken responses ON/OFF (Qwen3-TTS, GPU-accelerated) |
 | **Context Length** | Slider: 2,048–32,768 tokens. UI-only — not yet wired to the backend. The model always uses the full 32,768 token context window configured in docker-compose.yml |
-| **Service Health** | Live status of all 6 backend services |
+| **Service Health** | Live status of all backend services |

@@ -28,13 +28,13 @@ via a custom SvelteKit web UI. Text-to-speech uses Qwen3-TTS-12Hz-1.7B-Base
 
 ## Architecture
 - gizmo-net: Podman network, subnet 10.90.0.0/24
-- Ports: llama=8080, orchestrator=9100, ui=3100, whisper=8200, searxng=8300, tts=8400
+- Ports: llama=8080, orchestrator=9100, ui=3100, searxng=8300, tts=8400
 - All inter-container communication by service name
 - GPU passthrough via CDI: nvidia.com/gpu=all + security_opt label=disable
 - Both gizmo-llama and gizmo-tts use GPU (shared RTX 4090)
 
 ## Container Startup Order
-1. gizmo-searxng, gizmo-whisper (infrastructure, no GPU)
+1. gizmo-searxng (infrastructure, no GPU)
 2. gizmo-llama (GPU — LLM server)
 3. gizmo-tts (GPU — TTS, loads model on startup, auto-unloads after 60s idle)
 4. gizmo-orchestrator (depends on llama)
@@ -60,10 +60,8 @@ via a custom SvelteKit web UI. Text-to-speech uses Qwen3-TTS-12Hz-1.7B-Base
 - Vision requires separate mmproj file alongside the main GGUF
 - Model always thinks — enable_thinking controls whether reasoning is in separate field
 - SearXNG config must disable rate limiting for local use
-- Whisper runs CPU-only (fedirz/faster-whisper-server:latest-cpu, v0.5.0)
 - Constitution.txt lines starting with # are stripped as comments
 - GitHub user: nisakson2000
-- Whisper image frozen at v0.5.0 — uses WHISPER__MODEL env var
 - huggingface-cli not on PATH — use Python hf_hub_download/snapshot_download APIs
 - Podman requires fully qualified image names (docker.io/...)
 - Q8_0 only available in static repo (not imatrix): mradermacher/Huihui-Qwen3.5-9B-abliterated-GGUF
@@ -76,7 +74,6 @@ via a custom SvelteKit web UI. Text-to-speech uses Qwen3-TTS-12Hz-1.7B-Base
 - llama.cpp GGML_BACKEND_DL=ON needed for CUDA backend as runtime-loaded .so
 - podman-compose has no `rm` subcommand — use stop+rm via podman directly
 - Model always produces reasoning_content even with enable_thinking: false
-- Whisper container shows "unhealthy" in podman ps but /health endpoint works (port mapping)
 - After podman restart, nginx in gizmo-ui may cache stale DNS — fix with nginx -s reload
 
 ## Spec Deviations
@@ -85,7 +82,7 @@ via a custom SvelteKit web UI. Text-to-speech uses Qwen3-TTS-12Hz-1.7B-Base
 - TTS Base model has no built-in voice — requires bundled reference audio
 
 ## V2 Status
-Build complete. All 6 services deployed and operational.
+Build complete. All 5 services deployed and operational (whisper removed).
 - LLM: Qwen3.5-9B Q8_0 (was 27B Q5_K_M)
 - TTS: Qwen3-TTS (was Kokoro CPU)
 - VRAM: ~16.8GB peak / 24GB available

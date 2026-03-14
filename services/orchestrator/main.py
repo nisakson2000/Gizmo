@@ -32,10 +32,6 @@ LLAMA_HOST = os.getenv("LLAMA_HOST", "gizmo-llama")
 LLAMA_PORT = os.getenv("LLAMA_PORT", "8080")
 LLAMA_URL = f"http://{LLAMA_HOST}:{LLAMA_PORT}"
 
-WHISPER_HOST = os.getenv("WHISPER_HOST", "gizmo-whisper")
-WHISPER_PORT = os.getenv("WHISPER_PORT", "8000")
-WHISPER_URL = f"http://{WHISPER_HOST}:{WHISPER_PORT}"
-
 SEARXNG_HOST = os.getenv("SEARXNG_HOST", "gizmo-searxng")
 SEARXNG_PORT = os.getenv("SEARXNG_PORT", "8080")
 
@@ -288,7 +284,6 @@ async def services_health():
     results = {}
     checks = [
         ("llama", f"{LLAMA_URL}/health"),
-        ("whisper", f"{WHISPER_URL}/health"),
         ("searxng", f"http://{SEARXNG_HOST}:{SEARXNG_PORT}/"),
         ("tts", f"http://{TTS_HOST}:{TTS_PORT}/health"),
     ]
@@ -540,28 +535,6 @@ async def upload_image(file: UploadFile = File(...)):
         "data_url": f"data:{mime};base64,{b64}",
         "size": len(content),
     }
-
-
-# --- Transcription ---
-
-
-@app.post("/api/transcribe")
-async def transcribe(file: UploadFile = File(...)):
-    """Transcribe audio via Whisper."""
-    content = await file.read()
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                f"{WHISPER_URL}/v1/audio/transcriptions",
-                files={"file": (file.filename or "audio.webm", content, file.content_type or "audio/webm")},
-                data={"model": "Systran/faster-whisper-large-v3"},
-            )
-            resp.raise_for_status()
-            return resp.json()
-    except httpx.ConnectError:
-        return JSONResponse(status_code=503, content={"error": "Whisper service unavailable"})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # --- Conversations ---

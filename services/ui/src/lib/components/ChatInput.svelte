@@ -8,9 +8,6 @@
 	let textarea: HTMLTextAreaElement;
 	let sendBtn: HTMLButtonElement;
 	let uploadBtn: HTMLButtonElement;
-	let micBtn: HTMLButtonElement;
-	let recording = $state(false);
-	let mediaRecorder: MediaRecorder | null = null;
 
 	function handleSubmit() {
 		const text = input.trim();
@@ -64,44 +61,6 @@
 		inp.click();
 	}
 
-	async function toggleRecording() {
-		if (recording && mediaRecorder) {
-			mediaRecorder.stop();
-			recording = false;
-			return;
-		}
-
-		try {
-			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-			const chunks: Blob[] = [];
-			mediaRecorder = new MediaRecorder(stream);
-
-			mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-			mediaRecorder.onstop = async () => {
-				stream.getTracks().forEach((t) => t.stop());
-				const blob = new Blob(chunks, { type: 'audio/webm' });
-				const formData = new FormData();
-				formData.append('file', blob, 'recording.webm');
-
-				try {
-					const resp = await fetch('/api/transcribe', { method: 'POST', body: formData });
-					if (resp.ok) {
-						const data = await resp.json();
-						input = data.text || '';
-						autoResize();
-					}
-				} catch {
-					// Transcription failed
-				}
-			};
-
-			mediaRecorder.start();
-			recording = true;
-		} catch {
-			// Mic access denied
-		}
-	}
-
 	// Use direct addEventListener to bypass Svelte 5 event delegation
 	onMount(() => {
 		textarea.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -113,7 +72,6 @@
 		textarea.addEventListener('input', autoResize);
 		sendBtn.addEventListener('click', handleSubmit);
 		uploadBtn.addEventListener('click', handleFileUpload);
-		micBtn.addEventListener('click', toggleRecording);
 	});
 </script>
 
@@ -127,16 +85,6 @@
 		>
 			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-			</svg>
-		</button>
-
-		<button
-			bind:this={micBtn}
-			class="p-2 flex-shrink-0 transition-colors {recording ? 'text-error animate-pulse' : 'text-text-secondary hover:text-text-primary'}"
-			aria-label={recording ? 'Stop recording' : 'Record audio'}
-		>
-			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
 			</svg>
 		</button>
 
