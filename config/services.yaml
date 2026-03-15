@@ -43,3 +43,12 @@ services:
     gpu: true
     health: /health
     description: "Qwen3-TTS — GPU-accelerated text-to-speech with voice cloning"
+
+  whisper:
+    container: gizmo-whisper
+    host: gizmo-whisper
+    port: 8000
+    host_port: 8200
+    gpu: false
+    health: /health
+    description: "faster-whisper — CPU-based speech-to-text transcription"
