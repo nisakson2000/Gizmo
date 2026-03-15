@@ -2,6 +2,44 @@
 
 ---
 
+## V4 Status (2026-03-14)
+
+**Build:** Gizmo-AI V4, Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf + Qwen3-TTS-12Hz-1.7B-Base + Whisper (faster-whisper-base)
+
+### Changes from V3
+
+| Change | V3 | V4 |
+|--------|----|----|
+| **Memory system** | Keyword matching (crude, 300-char snippets) | BM25 ranking with stop-word filtering, recency weighting, 800-char snippets |
+| **Memory management** | File system only | Full UI modal: view, add, delete, clear memories |
+| **Code execution** | Not supported | Sandboxed Python execution via Podman container (no network, 256MB RAM, read-only FS) |
+| **Code Playground** | Not supported | Dedicated modal with direct Run and Ask Gizmo modes |
+| **Vision prompting** | Static constitution instructions for all messages | Conditional VISION_PROMPT injected only when images/video present |
+| **Model timeout** | Flat 300s httpx timeout | Per-token 60s inactivity timeout with user-visible error |
+| **Audio suggestion** | Buried in file picker | Dedicated suggestion card on home screen |
+| **TTS voice selection** | Default voice only in chat | Choose any cloned voice from Voice Studio for chat TTS |
+| **System prompt** | Basic 29-line constitution | Expanded with Response Quality, Vision, Memory, Code Execution sections |
+| **Tool discipline** | Tools triggered freely | Tightened descriptions + constitution rules prevent spurious tool calls |
+
+### V3 Issues Resolved in V4
+
+| V3 Issue | Status |
+|----------|--------|
+| Model hangs on stalled llama.cpp (300s wait) | **Fixed** — per-token 60s timeout with asyncio.timeout() |
+| Memory keyword matching misses semantic matches | **Fixed** — BM25 ranking with TF-IDF scoring |
+| No way to manage memories from UI | **Fixed** — MemoryManager modal with full CRUD |
+| No code execution capability | **Fixed** — Sandboxed Podman container + run_code tool |
+| Audio upload not discoverable | **Fixed** — Dedicated Audio suggestion card |
+
+### V4 Open Issues
+
+| Issue | Severity | Notes |
+|-------|----------|-------|
+| **Context length slider UI-only** | Low | Settings slider exists but value not sent to backend. Model always uses 32,768 from docker-compose.yml. |
+| **Whisper runs on CPU** | Low | Not a bug — intentional to avoid VRAM contention. Transcription takes a few seconds for short clips. |
+
+---
+
 ## V3 Status (2026-03-14)
 
 **Build:** Gizmo-AI V3, Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf + Qwen3-TTS-12Hz-1.7B-Base + Whisper (faster-whisper-base)

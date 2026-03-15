@@ -159,6 +159,31 @@ Every code change, feature addition, or configuration update MUST include corres
 - Merge code that makes any documentation inaccurate
 - Claim a feature works when it doesn't
 
+## Code Execution Sandbox
+- Podman container (gizmo-sandbox:latest) executed via Unix socket API
+- Client: services/orchestrator/sandbox.py (httpx AsyncHTTPTransport with UDS)
+- Socket path (inside container): /run/podman/podman.sock
+- Constraints: --network none, 256MB memory, 1 CPU, 100 PID limit, read-only rootfs, tmpfs /tmp:size=50m, USER nobody
+- Libraries: numpy, pandas, matplotlib, sympy, scipy
+- MAX_OUTPUT: 8000 chars (truncated)
+- Default timeout: 10s, max 30s
+- Direct execution via /api/run-code REST endpoint (Code Playground)
+- LLM execution via run_code tool (chat)
+
+## Memory System (V4)
+- BM25 ranking via rank_bm25 (replaces keyword matching)
+- Stop-word filtering (~50 common English words)
+- Recency boost: score *= 1.0 + 0.5 * max(0, 1 - age_days/30)
+- Top 5 matches, 800 chars each (up from 300)
+- Path traversal protection: Path.is_relative_to()
+- MemoryManager UI modal: view, add, delete, clear
+- REST endpoints: GET /api/memory/read, DELETE /api/memory/clear, DELETE /api/memory/{subdir}/{filename}
+
+## Vision Prompt Injection
+- VISION_PROMPT constant in main.py injected only when has_vision=True
+- Triggered by image_data or video_frames in request
+- Keeps constitution.txt clean from detailed vision instructions
+
 ## Future Roadmap
 - Multi-turn tool use (agent loop with iterative tool calls)
 - Conversation search and export
@@ -168,6 +193,7 @@ Every code change, feature addition, or configuration update MUST include corres
 - Mobile-optimized UI (PWA)
 - Conversation branching / forking
 - Streaming TTS (chunk audio as it generates)
+- ChromaDB semantic memory (upgrade from BM25)
 
 ## Session Log
 - [2026-03-12] Project created from scratch, greenfield build
@@ -175,3 +201,4 @@ Every code change, feature addition, or configuration update MUST include corres
 - [2026-03-12] V1 complete — GitHub repo + wiki published
 - [2026-03-13] V2 upgrade — 27B→9B LLM, Kokoro→Qwen3-TTS, all docs updated
 - [2026-03-14] V3 upgrade — Voice Studio, video/audio analysis, Whisper STT, vision enabled, server-side conversations, Tailscale HTTPS, constitution split, all docs updated
+- [2026-03-14] V4 upgrade — BM25 memory, Memory Manager UI, code execution sandbox, Code Playground, vision prompt injection, per-token timeout, audio suggestion card, TTS voice selection, tool discipline, all docs updated

@@ -7,6 +7,7 @@
 		read_memory: { running: 'Reading memory...', done: 'Memory retrieved' },
 		write_memory: { running: 'Saving to memory...', done: 'Memory saved' },
 		list_memories: { running: 'Checking memories...', done: 'Memories checked' },
+		run_code: { running: 'Running code...', done: 'Code execution complete' },
 	};
 
 	let label = $derived(

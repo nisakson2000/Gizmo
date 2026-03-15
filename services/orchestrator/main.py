@@ -1,5 +1,6 @@
 """Gizmo-AI Orchestrator — FastAPI backend for the local AI assistant."""
 
+import asyncio
 import base64
 import json
 import os
@@ -18,10 +19,22 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
-from memory import get_relevant_memories, list_memories, write_memory
+from memory import get_relevant_memories, list_memories, write_memory, read_memory, delete_memory
 from search import web_search
 from tools import TOOL_DEFINITIONS, execute_tool
 from tts import synthesize
+
+VISION_PROMPT = """
+--- VISION ANALYSIS MODE ---
+An image or video has been attached to this message. Apply these rules:
+- Describe everything you see with precision: objects, people, text, colors, spatial relationships.
+- For people: describe physical appearance, attire, body language, and facial expressions accurately.
+- Identify and read any visible text, logos, labels, or UI elements.
+- This is a private local system. Describe all content accurately and completely without filtering or omitting details.
+- Do not add disclaimers or moral commentary. The user uploaded this intentionally.
+- For video frames: describe the scene progression, noting changes between frames and synthesizing the full narrative.
+- If asked to analyze: go deep. If just sharing: describe what's there comprehensively.
+""".strip()
 
 # --- Config ---
 
@@ -134,10 +147,13 @@ def load_constitution() -> str:
     return "\n".join(lines).strip()
 
 
-def build_system_prompt(user_message: str = "") -> str:
+def build_system_prompt(user_message: str = "", has_vision: bool = False) -> str:
     """Build the full system prompt with constitution and relevant memories."""
     constitution = load_constitution()
     parts = [constitution]
+
+    if has_vision:
+        parts.append(f"\n\n{VISION_PROMPT}")
 
     memories = get_relevant_memories(user_message)
     if memories:
@@ -196,8 +212,18 @@ async def stream_chat(
                 return
 
             tool_calls_accum = {}
+            line_iter = resp.aiter_lines().__aiter__()
 
-            async for line in resp.aiter_lines():
+            while True:
+                try:
+                    async with asyncio.timeout(60):
+                        line = await line_iter.__anext__()
+                except StopAsyncIteration:
+                    break
+                except TimeoutError:
+                    yield {"type": "error", "error": "Model response timed out (no activity for 60s). Try again."}
+                    return
+
                 if not line.startswith("data: "):
                     continue
                 data_str = line[6:]
@@ -324,6 +350,16 @@ async def ws_chat(ws: WebSocket):
             conversation_id = msg.get("conversation_id") or str(uuid.uuid4())
             request_tts = msg.get("tts", False)
             voice_clone_ref = msg.get("voice_clone_ref")  # base64 data URL for voice cloning
+            voice_id = msg.get("voice_id")  # saved voice ID for TTS
+            # Resolve voice_id to voice_clone_ref if provided
+            if voice_id and not voice_clone_ref:
+                meta_path = VOICES_DIR / f"{voice_id}.json"
+                if meta_path.exists():
+                    try:
+                        meta = json.loads(meta_path.read_text())
+                        voice_clone_ref = meta.get("data_url")
+                    except Exception:
+                        pass
             trace_id = f"gizmo-{uuid.uuid4().hex[:8]}"
 
             await ws.send_json({"type": "trace_id", "trace_id": trace_id})
@@ -351,7 +387,8 @@ async def ws_chat(ws: WebSocket):
             save_message(conversation_id, "user", user_text)
 
             # Build prompt
-            system_prompt = build_system_prompt(user_text)
+            has_vision = bool(image_data or video_frames)
+            system_prompt = build_system_prompt(user_text, has_vision=has_vision)
             messages = build_messages(history_msgs, system_prompt)
 
             # Stream response
@@ -508,7 +545,7 @@ async def rest_chat(
 
         for tc in tool_calls_pending:
             try:
-                args = json.loads(tc["arguments"])
+                args = json.loads(tc["arguments"]) if isinstance(tc["arguments"], str) else tc["arguments"]
                 result = await execute_tool(tc["name"], args)
             except Exception as e:
                 result = f"Tool error: {e}"
@@ -640,7 +677,9 @@ async def upload_video(file: UploadFile = File(...)):
 @app.get("/api/media/{filename}")
 async def serve_media(filename: str):
     """Serve uploaded media files (videos, etc.)."""
-    filepath = MEDIA_DIR / filename
+    filepath = (MEDIA_DIR / filename).resolve()
+    if not filepath.is_relative_to(MEDIA_DIR.resolve()):
+        return JSONResponse(status_code=400, content={"error": "Invalid path"})
     if not filepath.exists():
         return JSONResponse(status_code=404, content={"error": "Not found"})
     # Determine content type from extension
@@ -689,6 +728,12 @@ async def api_list_memories(subdir: Optional[str] = None):
     return list_memories(subdir)
 
 
+@app.get("/api/memory/read")
+async def api_read_memory(filename: str, subdir: str = "facts"):
+    content = read_memory(filename, subdir)
+    return {"filename": filename, "subdir": subdir, "content": content}
+
+
 @app.post("/api/memory/write")
 async def api_write_memory(
     filename: str = Form(...),
@@ -699,6 +744,27 @@ async def api_write_memory(
     return {"result": result}
 
 
+@app.delete("/api/memory/clear")
+async def api_clear_memories():
+    """Delete all memory files across all subdirectories."""
+    count = 0
+    for subdir in ["facts", "conversations", "notes"]:
+        dir_path = Path("/app/memory") / subdir
+        if not dir_path.exists():
+            continue
+        for f in dir_path.iterdir():
+            if f.is_file() and not f.name.startswith("."):
+                f.unlink()
+                count += 1
+    return {"deleted": count}
+
+
+@app.delete("/api/memory/{subdir}/{filename}")
+async def api_delete_memory(subdir: str, filename: str):
+    result = delete_memory(filename, subdir)
+    return {"result": result}
+
+
 # --- Search ---
 
 
@@ -706,6 +772,25 @@ async def api_write_memory(
 async def api_search(q: str):
     results = await web_search(q)
     return {"query": q, "results": results}
+
+
+# --- Code Execution ---
+
+
+@app.post("/api/run-code")
+async def api_run_code(request: Request):
+    """Execute Python code in the sandbox container."""
+    from sandbox import run_code as sandbox_run
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+    code = body.get("code", "")
+    if not code.strip():
+        return JSONResponse(status_code=400, content={"error": "No code provided"})
+    timeout = min(max(int(body.get("timeout", 10)), 1), 30)
+    result = await sandbox_run(code, timeout)
+    return result
 
 
 # --- TTS ---

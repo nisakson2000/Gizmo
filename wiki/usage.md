@@ -87,7 +87,7 @@ Toggle TTS in Settings under "Read Responses Aloud."
 
 When enabled, Gizmo speaks responses aloud. An audio player appears below each assistant message. The TTS engine is Qwen3-TTS — a GPU-accelerated neural voice cloning model. It loads into VRAM on demand and auto-unloads after 60 seconds of idle time to free memory for the LLM.
 
-The voice used for chat TTS is the default bundled voice. To use cloned voices, use the Voice Studio.
+By default, the bundled voice is used. To use a cloned voice for chat TTS, go to **Settings** and select a voice from the **TTS Voice** dropdown. Any voices you've created in Voice Studio will appear here.
 
 ## Web Search
 
@@ -132,7 +132,33 @@ Gizmo can remember things across conversations.
 - "What do you remember about me?"
 - "List what you remember"
 
-Memories persist across conversations and browser sessions. They are simple text files injected into the system prompt based on keyword relevance.
+Memories persist across conversations and browser sessions. They are text files injected into the system prompt using BM25 relevance ranking with recency weighting.
+
+## Memory Manager
+
+Open the Memory Manager from **Settings → Memory Manager** to view and manage all stored memories.
+
+- **Browse memories** by category: All, Facts, Notes, Conversations
+- **Click a memory** to read its full content
+- **Delete individual memories** with the X button
+- **Add new memories** via the "+ Add Memory" form (filename, category, content)
+- **Clear all memories** with a confirmation step
+
+## Code Playground
+
+Open the Code Playground via the **Code** suggestion card on the home screen or from the chat area.
+
+The Code Playground offers two modes:
+
+- **Run** — Execute Python code directly in a sandboxed container. You see stdout, stderr, and exit code immediately. The sandbox has no network access, 256MB RAM limit, and a read-only filesystem. Libraries available: numpy, pandas, matplotlib, sympy, scipy.
+- **Ask Gizmo** — Send your code to the chat as a markdown code block for Gizmo to run and explain.
+
+**Shortcuts:**
+- **Ctrl+Enter** — Run the code
+- **Tab** — Insert 4 spaces (instead of moving focus)
+- **Escape** — Close the playground
+
+**Timeout options:** 5s, 10s, 20s, 30s (default 10s)
 
 ## Conversation Management
 
@@ -151,7 +177,9 @@ Access via the **gear icon** in the header.
 | Setting | Description |
 |---------|-------------|
 | **Read Responses Aloud** | Toggle spoken responses ON/OFF (Qwen3-TTS, GPU-accelerated) |
+| **TTS Voice** | Select which cloned voice to use for chat TTS (default or any saved voice) |
 | **Voice Studio** | Shortcut to open Voice Studio |
+| **Memory Manager** | Shortcut to open Memory Manager (view, add, delete memories) |
 | **Context Length** | Slider: 2,048–32,768 tokens. UI-only — model always uses 32,768 configured in compose. |
 | **Service Health** | Live status of all backend services |
 

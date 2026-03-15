@@ -18,6 +18,11 @@
 	$effect(() => {
 		const s = $pendingSuggestion;
 		if (s) {
+			if (s === '__audio_upload__') {
+				pendingSuggestion.set('');
+				openAudioPicker();
+				return;
+			}
 			input = s;
 			pendingSuggestion.set('');
 			if (textarea) {
@@ -149,6 +154,41 @@
 			} catch {
 				uploading = false;
 				showError('Upload failed. Check your connection.');
+			}
+		};
+		inp.click();
+	}
+
+	function openAudioPicker() {
+		const inp = document.createElement('input');
+		inp.type = 'file';
+		inp.accept = 'audio/*';
+		inp.onchange = async (e) => {
+			const file = (e.target as HTMLInputElement).files?.[0];
+			if (!file) return;
+			if (file.size > MAX_DOC_SIZE) {
+				showError('File too large. Max 50MB.');
+				return;
+			}
+			const formData = new FormData();
+			formData.append('file', file);
+			try {
+				uploading = true;
+				const resp = await fetch('/api/transcribe', { method: 'POST', body: formData });
+				uploading = false;
+				if (!resp.ok) {
+					showError('Audio transcription failed.');
+					return;
+				}
+				const data = await resp.json();
+				if (data.text) {
+					pendingFile = { filename: file.name, content: `[Transcribed audio from: ${file.name}]\n\n${data.text}` };
+				} else {
+					showError('No speech detected in audio.');
+				}
+			} catch {
+				uploading = false;
+				showError('Whisper service unavailable.');
 			}
 		};
 		inp.click();

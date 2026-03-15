@@ -6,6 +6,8 @@
 	import ChatInput from '$lib/components/ChatInput.svelte';
 	import Settings from '$lib/components/Settings.svelte';
 	import VoiceStudio from '$lib/components/VoiceStudio.svelte';
+	import MemoryManager from '$lib/components/MemoryManager.svelte';
+	import CodePlayground from '$lib/components/CodePlayground.svelte';
 	import { connect, disconnect } from '$lib/ws/client';
 	import { loadConversations } from '$lib/stores/chat';
 	import { voiceStudioOpen } from '$lib/stores/settings';
@@ -50,3 +52,5 @@
 
 <Settings />
 <VoiceStudio bind:open={$voiceStudioOpen} />
+<MemoryManager />
+<CodePlayground />

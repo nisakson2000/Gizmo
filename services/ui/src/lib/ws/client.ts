@@ -10,7 +10,7 @@ import {
 	loadConversations,
 } from '$lib/stores/chat';
 import { connectionStatus } from '$lib/stores/connection';
-import { thinkingEnabled, ttsEnabled } from '$lib/stores/settings';
+import { thinkingEnabled, ttsEnabled, ttsVoiceId } from '$lib/stores/settings';
 
 let ws: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -88,11 +88,16 @@ function handleEvent(data: any) {
 			]);
 			break;
 		case 'tool_result':
-			streamingToolCalls.update((calls) =>
-				calls.map((tc) =>
-					tc.tool === data.tool ? { ...tc, status: 'done', result: data.result } : tc
-				)
-			);
+			streamingToolCalls.update((calls) => {
+				let matched = false;
+				return calls.map((tc) => {
+					if (!matched && tc.tool === data.tool && tc.status === 'running') {
+						matched = true;
+						return { ...tc, status: 'done', result: data.result };
+					}
+					return tc;
+				});
+			});
 			break;
 		case 'audio':
 			// Audio will be attached to finalized message
@@ -137,6 +142,10 @@ export function send(message: string, imageDataUrl?: string, videoFrames?: strin
 		conversation_id: get(activeConversationId),
 		tts: get(ttsEnabled),
 	};
+	const voiceId = get(ttsVoiceId);
+	if (voiceId) {
+		payload.voice_id = voiceId;
+	}
 	if (videoFrames && videoFrames.length > 0) {
 		payload.video_frames = videoFrames;
 	} else if (imageDataUrl) {

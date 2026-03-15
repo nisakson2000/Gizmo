@@ -97,7 +97,6 @@ The Dockerfile copies the build output at image build time. Just running `up -d`
 
 ## Future Features
 
-- **ChromaDB semantic memory** — replace keyword matching with vector similarity search
 - **Agent mode** — multi-step task execution with tool chaining
 - **Model hot-swap** — switch models via API without restarting
 - **Prompt template editor** — edit constitution from the UI
@@ -106,6 +105,7 @@ The Dockerfile copies the build output at image build time. Just running `up -d`
 - **Streaming TTS** — chunk audio as it generates for lower latency
 - **Conversation export** — download conversation history as markdown or JSON
 - **Image generation** — Stable Diffusion integration
+- **ChromaDB semantic memory** — upgrade BM25 to vector similarity search
 
 ## Contributing
 

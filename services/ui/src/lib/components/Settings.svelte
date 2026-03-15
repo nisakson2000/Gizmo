@@ -1,10 +1,15 @@
 <script lang="ts">
-	import { thinkingEnabled, ttsEnabled, contextLength, settingsOpen, voiceStudioOpen } from '$lib/stores/settings';
+	import { thinkingEnabled, ttsEnabled, contextLength, settingsOpen, voiceStudioOpen, memoryManagerOpen, ttsVoiceId } from '$lib/stores/settings';
 
 	interface ServiceHealth {
 		[key: string]: { status: string; error?: string };
 	}
+	interface SavedVoice {
+		id: string;
+		name: string;
+	}
 	let health = $state<ServiceHealth>({});
+	let savedVoices = $state<SavedVoice[]>([]);
 
 	async function checkHealth() {
 		try {
@@ -15,8 +20,20 @@
 		}
 	}
 
+	async function loadVoices() {
+		try {
+			const resp = await fetch('/api/voices');
+			if (resp.ok) savedVoices = await resp.json();
+		} catch {
+			savedVoices = [];
+		}
+	}
+
 	$effect(() => {
-		if ($settingsOpen) checkHealth();
+		if ($settingsOpen) {
+			checkHealth();
+			loadVoices();
+		}
 	});
 
 	let serviceCount = $derived(Object.keys(health).length);
@@ -85,6 +102,38 @@
 					</div>
 					<button
 						onclick={() => { settingsOpen.set(false); voiceStudioOpen.set(true); }}
+						class="px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-tertiary text-text-secondary border border-border/50 hover:border-accent/40 hover:text-text-primary transition-all"
+					>
+						Open
+					</button>
+				</div>
+
+				<!-- TTS Voice Selection -->
+				<div class="flex items-center justify-between">
+					<div class="flex-1 mr-4">
+						<p class="text-sm font-medium">TTS Voice</p>
+						<p class="text-xs text-text-dim mt-0.5">Voice used for "Read Responses Aloud". Select a cloned voice or use default.</p>
+					</div>
+					<select
+						value={$ttsVoiceId ?? ''}
+						onchange={(e) => ttsVoiceId.set((e.target as HTMLSelectElement).value || null)}
+						class="bg-bg-tertiary border border-border/50 rounded-lg px-2.5 py-1.5 text-xs text-text-secondary focus:outline-none focus:border-accent/40 max-w-[140px]"
+					>
+						<option value="">Default</option>
+						{#each savedVoices as v (v.id)}
+							<option value={v.id}>{v.name}</option>
+						{/each}
+					</select>
+				</div>
+
+				<!-- Memory Manager shortcut -->
+				<div class="flex items-center justify-between">
+					<div class="flex-1 mr-4">
+						<p class="text-sm font-medium">Memory Manager</p>
+						<p class="text-xs text-text-dim mt-0.5">View, add, and delete persistent memories.</p>
+					</div>
+					<button
+						onclick={() => { settingsOpen.set(false); memoryManagerOpen.set(true); }}
 						class="px-3 py-1.5 rounded-lg text-xs font-medium bg-bg-tertiary text-text-secondary border border-border/50 hover:border-accent/40 hover:text-text-primary transition-all"
 					>
 						Open

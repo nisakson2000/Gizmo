@@ -28,17 +28,22 @@ The model used is an abliterated variant of Qwen3.5-9B — meaning the safety re
 - **Voice Studio** — dedicated TTS playground with voice cloning: upload reference audio, name and save multiple voices, select which voice to use, adjustable clip duration (30/60/90/120s)
 - **Speech-to-text** — dictate messages via microphone using Whisper transcription
 - **Text-to-speech** via Qwen3-TTS — GPU-accelerated neural voice cloning with saved voice profiles, auto-unloads from VRAM when idle
-- **Function calling** — model autonomously uses tools (web search, memory read/write) based on context
+- **Function calling** — model autonomously uses tools (web search, memory read/write, code execution) based on context
 - **Web search** via self-hosted SearXNG — no API keys needed
 - **Document upload** — analyze PDFs, text files, and code directly in chat (up to 50MB)
-- **Memory system** — Gizmo remembers facts across conversations via keyword-matched file storage
+- **Memory system** — Gizmo remembers facts across conversations via BM25-ranked file storage with recency weighting
+- **Memory Manager** — view, add, and delete memories from the UI
+- **Code execution sandbox** — run Python code in an isolated Podman container (no network, 256MB RAM, read-only filesystem)
+- **Code Playground** — dedicated modal for writing and running Python directly, or sending code to Gizmo for analysis
 - **Dark-themed UI** — code syntax highlighting, markdown rendering, auto-reconnecting WebSocket
 - **Service health dashboard** — live status monitoring for all backend services
 - **Customizable persona** — split constitution system with functionality and behavior rules, plus a pattern library
+- **Vision-aware prompting** — detailed vision analysis instructions injected only when images/video are present
+- **TTS voice selection** — choose a cloned voice from the Voice Studio for chat TTS responses
+- **Per-token timeout** — 60-second inactivity detection prevents model hangs during generation
 - **Dual API** — WebSocket for streaming UI, REST endpoint (`/api/chat`) for programmatic access
 - **Tailscale HTTPS** — access from any device on your tailnet with valid Let's Encrypt cert for secure mic access
 - **100% local** — your data never leaves your machine
-- **No content filtering** — abliterated model, no nannying
 
 ## Hardware Requirements
 

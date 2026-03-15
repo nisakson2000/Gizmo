@@ -3,6 +3,7 @@
 from typing import Any
 
 from memory import write_memory, read_memory, list_memories
+from sandbox import run_code
 from search import web_search, format_search_results
 
 # OpenAI function-calling format tool definitions
@@ -50,7 +51,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "write_memory",
-            "description": "Save information to persistent memory. Use when the user asks you to remember something.",
+            "description": "Save information to persistent memory. ONLY use when the user explicitly asks you to remember or save something. Do not proactively save observations about the conversation.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -89,6 +90,27 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_code",
+            "description": "Execute Python code in a sandboxed container. Use ONLY when the user asks you to run code, do a calculation, or when a task clearly requires computation. Do not use for conversational or creative tasks. Available libraries: numpy, pandas, matplotlib, sympy, scipy. No network access.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "Python code to execute",
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Execution timeout in seconds (default 10, max 30)",
+                    },
+                },
+                "required": ["code"],
+            },
+        },
+    },
 ]
 
 
@@ -119,6 +141,22 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
         for m in memories:
             lines.append(f"- {m['subdir']}/{m['filename']} ({m['size']} bytes)")
         return "\n".join(lines)
+
+    elif name == "run_code":
+        result = await run_code(
+            arguments["code"],
+            arguments.get("timeout", 10),
+        )
+        parts = []
+        if result["timed_out"]:
+            parts.append(f"[TIMED OUT after {arguments.get('timeout', 10)}s]")
+        if result["stdout"]:
+            parts.append(f"stdout:\n{result['stdout']}")
+        if result["stderr"]:
+            parts.append(f"stderr:\n{result['stderr']}")
+        if not parts:
+            parts.append(f"(no output, exit code {result['exit_code']})")
+        return "\n".join(parts)
 
     else:
         return f"Unknown tool: {name}"

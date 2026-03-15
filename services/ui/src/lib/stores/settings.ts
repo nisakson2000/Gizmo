@@ -17,3 +17,6 @@ export const sidebarOpen = persistedWritable('gizmo:sidebar', true);
 export const settingsOpen = writable(false);
 export const pendingSuggestion = writable('');
 export const voiceStudioOpen = writable(false);
+export const memoryManagerOpen = writable(false);
+export const codePlaygroundOpen = writable(false);
+export const ttsVoiceId = persistedWritable<string | null>('gizmo:ttsVoiceId', null);

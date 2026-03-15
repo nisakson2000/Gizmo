@@ -138,7 +138,7 @@ ls models/qwen3-tts/1.7B-Base/
 # Should show model.safetensors, config.json, etc.
 ```
 
-## Step 6 — Build llama.cpp
+## Step 6 — Build llama.cpp and Sandbox
 
 ```bash
 bash scripts/build-llamacpp.sh
@@ -146,12 +146,21 @@ bash scripts/build-llamacpp.sh
 
 This builds llama.cpp from source inside a container with CUDA 12.4 support, targeting the Ada Lovelace architecture (RTX 4090). We build from source because pre-built images don't guarantee the version needed for Qwen3.5 support.
 
-**Estimated time:** 5-10 minutes.
+**Build the code execution sandbox image:**
+```bash
+podman build -t gizmo-sandbox:latest services/sandbox/
+```
+
+This creates a minimal Python image with numpy, pandas, matplotlib, sympy, and scipy for sandboxed code execution. The sandbox runs with no network access, 256MB memory limit, and a read-only filesystem.
+
+**Estimated time:** 5-10 minutes for llama.cpp, ~2 minutes for sandbox.
 
 **Verify:**
 ```bash
 podman images | grep gizmo-llama
 # Should show gizmo-llama:latest
+podman images | grep gizmo-sandbox
+# Should show gizmo-sandbox:latest
 ```
 
 ### Common Build Failures

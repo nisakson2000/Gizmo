@@ -107,7 +107,8 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
   "message": "user message text",
   "thinking": false,
   "conversation_id": "uuid-or-null",
-  "tts": false
+  "tts": false,
+  "voice_id": "optional-voice-id"
 }
 ```
 
@@ -157,6 +158,10 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `/api/search` | GET | Web search via SearXNG (`?q=query`) |
 | `/api/memory/list` | GET | List memory files |
 | `/api/memory/write` | POST | Write memory file |
+| `/api/memory/read` | GET | Read a memory file (`?subdir=&filename=`) |
+| `/api/memory/clear` | DELETE | Delete all memory files |
+| `/api/memory/{subdir}/{filename}` | DELETE | Delete a specific memory file |
+| `/api/run-code` | POST | Execute Python code in sandbox (JSON: `code`, `timeout`) |
 
 ## Thinking Mode Implementation
 
@@ -177,10 +182,11 @@ memory/
 ```
 
 ### Injection Logic
-1. On each message, the orchestrator extracts keywords from the user's input
-2. Memory files are scanned for keyword matches (filename and content)
-3. Top 5 matches (max 300 chars each) are injected into the system prompt
-4. Path traversal protection: filenames sanitized to `[a-zA-Z0-9_\-.]` only
+1. On each message, the orchestrator tokenizes the user's input (lowercase, stop-word filtered)
+2. Memory files are scored via BM25 (TF-IDF ranking) against the tokenized query
+3. A recency boost is applied: `score *= 1.0 + 0.5 * max(0, 1 - age_days/30)`
+4. Top 5 matches (max 800 chars each) are injected into the system prompt
+5. Path traversal protection: `Path.is_relative_to()` validation on all file operations
 
 ## Tool Calling
 
@@ -192,8 +198,9 @@ Tools follow the OpenAI function-calling format. llama.cpp supports this nativel
 |------|-----------|-------------|
 | `web_search` | `query: string` | Search the web via SearXNG |
 | `read_memory` | `filename: string, subdir?: string` | Read a memory file |
-| `write_memory` | `filename: string, content: string, subdir?: string` | Write a memory file |
+| `write_memory` | `filename: string, content: string, subdir?: string` | Write a memory file (only when user explicitly asks) |
 | `list_memories` | `subdir?: string` | List all memory files |
+| `run_code` | `code: string, timeout?: int` | Execute Python in a sandboxed container (only when user asks to run code) |
 
 ### Execution Flow
 1. Tool definitions are included in the API request to llama.cpp
@@ -267,13 +274,14 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │   └── Dockerfile                     # llama.cpp from source with CUDA
 │   ├── orchestrator/
 │   │   ├── Dockerfile                     # Python 3.12 slim
-│   │   ├── requirements.txt               # Python dependencies
+│   │   ├── requirements.txt               # Python dependencies (includes rank_bm25)
 │   │   ├── main.py                        # FastAPI app, WebSocket, REST, voice/video/transcribe endpoints
 │   │   ├── router.py                      # Route placeholder
-│   │   ├── memory.py                      # File-based memory system
+│   │   ├── memory.py                      # BM25-ranked memory system with recency weighting
+│   │   ├── sandbox.py                     # Podman sandbox client (code execution via Unix socket)
 │   │   ├── search.py                      # SearXNG proxy
 │   │   ├── tts.py                         # Qwen3-TTS proxy (voice cloning support)
-│   │   └── tools.py                       # Tool definitions and dispatch
+│   │   └── tools.py                       # Tool definitions and dispatch (web_search, memory, run_code)
 │   ├── ui/
 │   │   ├── Dockerfile                     # Node build → nginx serve
 │   │   ├── nginx.conf                     # Static + API/WS proxy (500MB upload limit)
@@ -283,30 +291,34 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │   └── src/
 │   │       ├── app.html                   # HTML shell
 │   │       ├── app.css                    # TailwindCSS + design tokens
-│   │       ├── routes/+page.svelte        # Main page (VoiceStudio, HTTPS banner)
+│   │       ├── routes/+page.svelte        # Main page (mounts all modals)
 │   │       ├── routes/+layout.svelte      # Root layout
 │   │       └── lib/
 │   │           ├── stores/chat.ts         # Conversation state (videoUrl support)
-│   │           ├── stores/settings.ts     # User preferences (voiceStudioOpen)
+│   │           ├── stores/settings.ts     # User preferences (voiceStudioOpen, codePlaygroundOpen, memoryManagerOpen, ttsVoiceId)
 │   │           ├── stores/connection.ts   # WebSocket state
-│   │           ├── ws/client.ts           # WebSocket manager
+│   │           ├── ws/client.ts           # WebSocket manager (sends voice_id when set)
 │   │           ├── utils/sanitize.ts      # HTML sanitization
 │   │           ├── actions/highlight.ts   # Code syntax highlighting
 │   │           └── components/
-│   │               ├── ChatArea.svelte    # Main chat area
+│   │               ├── ChatArea.svelte    # Main chat area (8 suggestion cards)
 │   │               ├── ChatInput.svelte   # Input with Think/Voice Studio pills
 │   │               ├── ChatMessage.svelte # Message display (video player, audio)
 │   │               ├── Header.svelte      # Top bar with settings
 │   │               ├── Sidebar.svelte     # Conversation list
-│   │               ├── Settings.svelte    # Settings panel
+│   │               ├── Settings.svelte    # Settings panel (TTS voice dropdown, Memory Manager shortcut)
 │   │               ├── VoiceStudio.svelte # Voice Studio modal
+│   │               ├── MemoryManager.svelte # Memory CRUD modal
+│   │               ├── CodePlayground.svelte # Code execution modal (Run + Ask Gizmo)
 │   │               ├── ThinkingBlock.svelte # Collapsible thinking display
-│   │               └── ToolCallBlock.svelte # Tool call display
+│   │               └── ToolCallBlock.svelte # Tool call display (includes run_code)
 │   ├── tts/
 │   │   ├── Dockerfile                     # Qwen3-TTS container (PyTorch + CUDA)
 │   │   ├── requirements.txt               # qwen-tts, fastapi, uvicorn
 │   │   ├── main.py                        # TTS server with voice cloning
 │   │   └── assets/default_voice.wav       # Default reference voice
+│   ├── sandbox/
+│   │   └── Dockerfile                     # Python 3.12 slim (numpy, pandas, matplotlib, sympy, scipy)
 │   └── searxng/
 │       └── config/settings.yml            # SearXNG configuration
 ├── scripts/
