@@ -914,19 +914,17 @@ def tail_file(path: Path, n: int = 100) -> list[str]:
         return []
     with open(path, "rb") as f:
         f.seek(0, 2)
-        size = f.tell()
-        if size == 0:
+        end = f.tell()
+        if end == 0:
             return []
-        chunk_size = min(8192, size)
+        chunk_size = min(8192, end)
         lines = []
-        while len(lines) <= n and f.tell() > 0:
-            pos = max(f.tell() - chunk_size, 0)
-            f.seek(pos)
-            read_size = f.tell() - pos if pos == 0 else chunk_size
-            f.seek(pos)
-            chunk = f.read(read_size)
+        while len(lines) <= n and end > 0:
+            start = max(end - chunk_size, 0)
+            f.seek(start)
+            chunk = f.read(end - start)
             lines = chunk.decode("utf-8", errors="replace").splitlines() + lines
-            f.seek(pos)
+            end = start
         return lines[-n:]
 
 
