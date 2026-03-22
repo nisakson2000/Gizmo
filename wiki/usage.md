@@ -168,7 +168,7 @@ The Code Playground offers two modes:
 - **Delete** a conversation with the X button (hover to reveal)
 - **New Chat** starts a fresh conversation with no history
 
-Conversations are stored as server-side JSON files, accessible from any device on your network (not limited to a single browser origin like localStorage).
+Conversations are stored in a server-side SQLite database, accessible from any device on your network (not limited to a single browser origin like localStorage).
 
 ## Settings
 
@@ -180,7 +180,7 @@ Access via the **gear icon** in the header.
 | **TTS Voice** | Select which cloned voice to use for chat TTS (default or any saved voice) |
 | **Voice Studio** | Shortcut to open Voice Studio |
 | **Memory Manager** | Shortcut to open Memory Manager (view, add, delete memories) |
-| **Context Length** | Slider: 2,048–32,768 tokens. UI-only — model always uses 32,768 configured in compose. |
+| **Context Length** | Slider: 2,048–131,072 tokens. Controls conversation history windowing — orchestrator drops oldest messages to fit within the selected token budget. |
 | **Service Health** | Live status of all backend services |
 
 ## Remote Access via Tailscale

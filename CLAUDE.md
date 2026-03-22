@@ -83,15 +83,14 @@ Everything is containerized via Podman.
 - Vision model analyzes extracted frames
 
 ## Constitution System
-- Split into two files: config/constitution-functionality.txt (prose) + config/constitution-behavior.txt (structured rules)
-- Behavior file has injection points: [system_prompt], [pre_routing], [patterns], [per_model:name]
-- Pattern library: config/patterns/*.md (7 patterns: extract_wisdom, analyze_threat, summarize_content, etc.)
+- Single file: config/constitution.txt (prose base prompt defining identity and capabilities)
+- Lines starting with # are stripped as comments, everything else injected as system prompt
+- No split files, no injection points, no pattern library
 
 ## Server-Side Conversations
-- JSON files at /app/conversations/{uuid}.json (not SQLite)
+- SQLite database at /app/memory/conversations.db (two tables: conversations + messages)
 - Accessible from any origin/device (solves localStorage per-origin limitation)
-- REST: GET/PUT/DELETE /api/conversations/{id}, POST /api/conversations/import
-- localStorage kept as write-through cache for offline/fast-access fallback
+- REST: GET /api/conversations (list), GET /api/conversations/{id}, DELETE /api/conversations/{id}
 
 ## Non-Obvious Facts
 - Qwen3.5 chat template key: tokenizer.ggml.pre = qwen35
@@ -117,13 +116,13 @@ Everything is containerized via Podman.
 - llama.cpp GGML_BACKEND_DL=ON needed for CUDA backend as runtime-loaded .so
 - podman-compose has no `rm` subcommand — use stop+rm via podman directly
 - Model always produces reasoning_content even with enable_thinking: false
-- Context length slider in UI is not wired to backend (always uses 32768)
+- Context length slider (2,048–131,072 tokens) controls conversation history windowing via WebSocket payload; orchestrator drops oldest messages to fit budget
 
 ## Spec Deviations
 - Thinking mode: uses native enable_thinking API, not token injection as originally planned
 - Download script: uses Python heredoc, not huggingface-cli (not available on PATH)
 - TTS Base model has no built-in voice — requires bundled reference audio
-- Conversations stored as JSON files, not SQLite (changed in V3 for multi-origin access)
+- Conversations stored in SQLite (conversations.db), not individual files
 
 ## Documentation Sync Mandate (MANDATORY)
 

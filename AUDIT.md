@@ -2,6 +2,74 @@
 
 ---
 
+## V4 Audit (2026-03-17)
+
+**Auditor:** Claude Code
+**Build:** Gizmo-AI V4, Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf + Qwen3-TTS-12Hz-1.7B-Base + Whisper (faster-whisper-base)
+**Last Commit:** `edde7af` — feat: add error and conversation logging to orchestrator
+**Stack Status:** All 6 services healthy and running
+
+### Audit Summary
+
+| Category | Status | Notes |
+|----------|--------|-------|
+| Infrastructure Health | PASS | All 6 services healthy. VRAM comfortable at ~16.8GB peak. |
+| Orchestrator (main.py) | WARN | 2 critical, 4 warning issues found. See below. |
+| Tool System (tools.py) | PASS | All 5 tools defined, dispatch correct. |
+| Memory System (memory.py) | PASS | BM25 retrieval, path traversal protection, CRUD all correct. |
+| Sandbox (sandbox.py) | PASS | Resource limits enforced, cleanup in finally block. |
+| Search (search.py) | PASS | SearXNG proxy with error handling. |
+| TTS (tts.py) | PASS | Voice cloning, health check, error handling all present. |
+| WebSocket Client (client.ts) | PASS | Reconnect with exponential backoff (1s → 30s). |
+| Chat Store (chat.ts) | PASS | UUID fallback for non-secure contexts, proper state management. |
+| Nginx (nginx.conf) | PASS | DNS resolver configured, 500MB upload limit, WS proxy correct. |
+| Docker Compose | WARN | 2 services missing healthchecks. |
+| CLAUDE.md Accuracy | FAIL | Major documentation drift — 4 sections describe features that don't exist. |
+
+**Overall: 9/12 categories passing (2 WARN, 1 FAIL)**
+
+### Critical Issues
+
+| # | Issue | File:Line | Description |
+|---|-------|-----------|-------------|
+| 1 | **Media endpoint OOM risk** | `main.py:733` | `serve_media` uses `filepath.read_bytes()` — loads entire video (up to 500MB) into memory. Should use `FileResponse` for streaming. |
+| 2 | **CLAUDE.md documentation drift** | `CLAUDE.md` | Multiple sections describe gizmo project features that don't exist in gizmo-ai: constitution split files, pattern library, JSON conversation files, injection points. Every future Claude Code session will operate on false assumptions. |
+
+### Warning Issues
+
+| # | Issue | File:Line | Description |
+|---|-------|-----------|-------------|
+| 3 | **Log endpoint reads full file** | `main.py:856` | `/api/logs/{log_name}` calls `read_text()` on up to 10MB file. Should seek from end. |
+| 4 | **SQLite connections leak on exception** | `main.py:128-165` | `save_message`, `get_conversation_messages`, `list_conversations`, `delete_conversation` don't use `try/finally` around `conn.close()`. |
+| 5 | **Missing healthchecks** | `docker-compose.yml` | `gizmo-ui` and `gizmo-searxng` have no healthchecks. Both have endpoints that could be checked. |
+| 6 | **REST chat ignores stream errors** | `main.py:557-607` | `/api/chat` iterates `stream_chat` events but doesn't log or handle `error` type events. Errors are silently lost. |
+| 7 | **Double video write** | `main.py:654-668` | `upload_video` writes content to both `MEDIA_DIR` and a temp dir. Can use saved path for ffmpeg. |
+
+### Suggestions
+
+| # | Issue | File:Line | Description |
+|---|-------|-----------|-------------|
+| 8 | **No `lines` param cap** | `main.py:848` | `/api/logs` accepts unbounded `lines` param. Consider capping at 1000. |
+| 9 | **Hardcoded subdirs** | `main.py:795` | `api_clear_memories` repeats `["facts", "conversations", "notes"]` — should import `SUBDIRS` from memory.py. |
+| 10 | **Stop status misleading** | `client.ts:161` | `stopGeneration` sets connectionStatus to `'connecting'` during reconnect. |
+
+### V4 Open Issues (Carried Forward + New)
+
+| Issue | Severity | Notes |
+|-------|----------|-------|
+| **Media endpoint OOM risk** | ~~Critical~~ | **Fixed** — `serve_media` now uses `FileResponse` for streaming. |
+| **CLAUDE.md drift** | ~~Critical~~ | **Fixed** — Constitution, conversations, spec deviations, and known issues sections corrected. |
+| **Log endpoint full-file read** | ~~Medium~~ | **Fixed** — `tail_file()` helper seeks from end; `lines` param capped at 1000. |
+| **SQLite connection leaks** | ~~Medium~~ | **Fixed** — All 4 database functions wrapped in `try/finally`. |
+| **Missing healthchecks** | ~~Medium~~ | **Fixed** — `gizmo-ui` and `gizmo-searxng` healthchecks added to docker-compose.yml. |
+| **REST chat silent errors** | ~~Medium~~ | **Fixed** — Stream errors now logged and returned as 502 in `/api/chat`. |
+| **Context length slider UI-only** | ~~Low~~ | **Fixed** — Slider value sent via WebSocket; orchestrator windows conversation history to fit within token budget. |
+| **Double video write** | ~~Low~~ | **Fixed** — `upload_video` reuses saved path for ffmpeg instead of writing twice. |
+| **Whisper runs on CPU** | Low | Intentional — avoids VRAM contention. Not a bug. |
+| **Add model info to orchestrator health** | ~~Low~~ | **Fixed** — `MODEL_NAME` env var added; `/health` now returns model name. |
+
+---
+
 ## V4 Status (2026-03-14)
 
 **Build:** Gizmo-AI V4, Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf + Qwen3-TTS-12Hz-1.7B-Base + Whisper (faster-whisper-base)
@@ -20,6 +88,7 @@
 | **TTS voice selection** | Default voice only in chat | Choose any cloned voice from Voice Studio for chat TTS |
 | **System prompt** | Basic 29-line constitution | Expanded with Response Quality, Vision, Memory, Code Execution sections |
 | **Tool discipline** | Tools triggered freely | Tightened descriptions + constitution rules prevent spurious tool calls |
+| **Logging** | None | Rotating file loggers for errors and conversations + `/api/logs` endpoint |
 
 ### V3 Issues Resolved in V4
 
@@ -30,13 +99,6 @@
 | No way to manage memories from UI | **Fixed** — MemoryManager modal with full CRUD |
 | No code execution capability | **Fixed** — Sandboxed Podman container + run_code tool |
 | Audio upload not discoverable | **Fixed** — Dedicated Audio suggestion card |
-
-### V4 Open Issues
-
-| Issue | Severity | Notes |
-|-------|----------|-------|
-| **Context length slider UI-only** | Low | Settings slider exists but value not sent to backend. Model always uses 32,768 from docker-compose.yml. |
-| **Whisper runs on CPU** | Low | Not a bug — intentional to avoid VRAM contention. Transcription takes a few seconds for short clips. |
 
 ---
 
@@ -54,9 +116,9 @@
 | **Video** | Not supported | Upload, frame extraction, vision analysis, in-chat video playback |
 | **Audio** | Not supported | Upload M4A/MP3/WAV, Whisper transcription, LLM analysis |
 | **Speech-to-text** | Not supported | Microphone dictation via Whisper |
-| **Conversations** | SQLite (single-origin) | Server-side JSON files (accessible from any origin/device) |
+| **Conversations** | SQLite (single-origin) | SQLite persisted to host volume (accessible from any origin/device) |
 | **Thinking toggle** | Header button | Input area pill (like Claude/ChatGPT) |
-| **Constitution** | Single `constitution.txt` | Split: `constitution-functionality.txt` + `constitution-behavior.txt` + pattern library |
+| **Constitution** | Basic `constitution.txt` | Expanded `constitution.txt` with vision, memory, code execution, tool discipline sections |
 | **File limits** | Default (small) | 50MB docs/images, 500MB video |
 | **Tailscale** | HTTP only | HTTPS via `tailscale serve` with Let's Encrypt cert |
 

@@ -19,7 +19,7 @@ from typing import Optional
 import httpx
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from memory import get_relevant_memories, list_memories, write_memory, read_memory, delete_memory
 from search import web_search
@@ -54,6 +54,7 @@ WHISPER_HOST = os.getenv("WHISPER_HOST", "gizmo-whisper")
 WHISPER_PORT = os.getenv("WHISPER_PORT", "8000")
 WHISPER_URL = f"http://{WHISPER_HOST}:{WHISPER_PORT}"
 
+MODEL_NAME = os.getenv("MODEL_NAME", "unknown")
 CONSTITUTION_PATH = Path("/app/config/constitution.txt")
 DB_PATH = Path("/app/memory/conversations.db")
 LOGS_DIR = Path("/app/logs")
@@ -128,41 +129,45 @@ def get_db():
 def save_message(conversation_id: str, role: str, content: str, thinking: str = ""):
     """Save a message to the database."""
     conn = get_db()
-    now = datetime.now(timezone.utc).isoformat()
+    try:
+        now = datetime.now(timezone.utc).isoformat()
 
-    # Create conversation if it doesn't exist
-    existing = conn.execute(
-        "SELECT id FROM conversations WHERE id = ?", (conversation_id,)
-    ).fetchone()
-    if not existing:
-        title = content[:80] if role == "user" else "New conversation"
-        conn.execute(
-            "INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (conversation_id, title, now, now),
-        )
-    else:
-        conn.execute(
-            "UPDATE conversations SET updated_at = ? WHERE id = ?",
-            (now, conversation_id),
-        )
+        # Create conversation if it doesn't exist
+        existing = conn.execute(
+            "SELECT id FROM conversations WHERE id = ?", (conversation_id,)
+        ).fetchone()
+        if not existing:
+            title = content[:80] if role == "user" else "New conversation"
+            conn.execute(
+                "INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (conversation_id, title, now, now),
+            )
+        else:
+            conn.execute(
+                "UPDATE conversations SET updated_at = ? WHERE id = ?",
+                (now, conversation_id),
+            )
 
-    conn.execute(
-        "INSERT INTO messages (conversation_id, role, content, thinking, timestamp) VALUES (?, ?, ?, ?, ?)",
-        (conversation_id, role, content, thinking, now),
-    )
-    conn.commit()
-    conn.close()
+        conn.execute(
+            "INSERT INTO messages (conversation_id, role, content, thinking, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (conversation_id, role, content, thinking, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def get_conversation_messages(conversation_id: str) -> list[dict]:
     """Get all messages for a conversation."""
     conn = get_db()
-    rows = conn.execute(
-        "SELECT role, content, thinking, timestamp FROM messages WHERE conversation_id = ? ORDER BY id",
-        (conversation_id,),
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    try:
+        rows = conn.execute(
+            "SELECT role, content, thinking, timestamp FROM messages WHERE conversation_id = ? ORDER BY id",
+            (conversation_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
 
 
 # --- System Prompt ---
@@ -194,6 +199,57 @@ def build_system_prompt(user_message: str = "", has_vision: bool = False) -> str
     return "\n".join(parts)
 
 
+MAX_RESPONSE_TOKENS = 8192
+
+
+def estimate_tokens(text) -> int:
+    """Estimate token count (~4 chars per token, ~256 per image)."""
+    if not text:
+        return 0
+    if isinstance(text, list):
+        # Multimodal content array
+        total = 0
+        for part in text:
+            if isinstance(part, dict):
+                if part.get("type") == "text":
+                    total += len(part.get("text", "")) // 4
+                elif part.get("type") == "image_url":
+                    total += 256  # conservative estimate for vision models
+            else:
+                total += len(str(part)) // 4
+        return total
+    return len(str(text)) // 4
+
+
+def window_messages(history: list[dict], system_prompt: str, context_length: int) -> list[dict]:
+    """Trim conversation history to fit within the token budget.
+
+    Always keeps: system prompt + latest user message.
+    Drops oldest messages first when budget is exceeded.
+    """
+    system_tokens = estimate_tokens(system_prompt)
+    response_reserve = MAX_RESPONSE_TOKENS + 256
+    budget = context_length - system_tokens - response_reserve
+
+    if budget <= 0 or not history:
+        # Budget too tight — just keep the latest user message
+        return history[-1:] if history else []
+
+    # Walk backwards through history, accumulating tokens
+    kept: list[dict] = []
+    used = 0
+    for msg in reversed(history):
+        msg_tokens = estimate_tokens(msg.get("content", ""))
+        if used + msg_tokens > budget and kept:
+            # Over budget and we already have the latest message — stop
+            break
+        kept.append(msg)
+        used += msg_tokens
+
+    kept.reverse()
+    return kept
+
+
 def build_messages(
     history: list[dict], system_prompt: str
 ) -> list[dict]:
@@ -221,7 +277,7 @@ async def stream_chat(
         "model": "gizmo",
         "messages": messages,
         "stream": True,
-        "max_tokens": 8192,
+        "max_tokens": MAX_RESPONSE_TOKENS,
         "temperature": 0.7,
         "top_p": 0.9,
         "chat_template_kwargs": {"enable_thinking": thinking_enabled},
@@ -334,7 +390,7 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "gizmo-orchestrator"}
+    return {"status": "ok", "service": "gizmo-orchestrator", "model": MODEL_NAME}
 
 
 @app.get("/api/services/health")
@@ -381,6 +437,7 @@ async def ws_chat(ws: WebSocket):
             request_tts = msg.get("tts", False)
             voice_clone_ref = msg.get("voice_clone_ref")  # base64 data URL for voice cloning
             voice_id = msg.get("voice_id")  # saved voice ID for TTS
+            context_length = max(2048, min(int(msg.get("context_length", 32768)), 131072))
             # Resolve voice_id to voice_clone_ref if provided
             if voice_id and not voice_clone_ref:
                 meta_path = VOICES_DIR / f"{voice_id}.json"
@@ -420,6 +477,7 @@ async def ws_chat(ws: WebSocket):
             # Build prompt
             has_vision = bool(image_data or video_frames)
             system_prompt = build_system_prompt(user_text, has_vision=has_vision)
+            history_msgs = window_messages(history_msgs, system_prompt, context_length)
             messages = build_messages(history_msgs, system_prompt)
 
             # Stream response
@@ -534,6 +592,7 @@ async def rest_chat(
     message: str = Form(""),
     thinking: bool = Form(False),
     conversation_id: str = Form(""),
+    context_length: int = Form(32768),
 ):
     """Non-streaming chat endpoint."""
     if not conversation_id:
@@ -548,6 +607,8 @@ async def rest_chat(
     save_message(conversation_id, "user", message)
 
     system_prompt = build_system_prompt(message)
+    context_length = max(2048, min(context_length, 131072))
+    history_msgs = window_messages(history_msgs, system_prompt, context_length)
     messages = build_messages(history_msgs, system_prompt)
 
     full_response = ""
@@ -564,6 +625,9 @@ async def rest_chat(
                 full_thinking += event["content"]
             elif event["type"] == "tool_call":
                 tool_calls_pending.append(event)
+            elif event["type"] == "error":
+                error_log.error("[REST] Stream error: %s", event["error"])
+                return JSONResponse(status_code=502, content={"error": event["error"]})
 
         if not tool_calls_pending:
             break
@@ -663,14 +727,10 @@ async def upload_video(file: UploadFile = File(...)):
     video_url = f"/api/media/{video_id}{ext}"
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        video_path = os.path.join(tmpdir, file.filename or "video.mp4")
-        with open(video_path, "wb") as f:
-            f.write(content)
-
-        # Get video duration
+        # Get video duration using the already-saved file
         probe = subprocess.run(
             ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-             "-of", "csv=p=0", video_path],
+             "-of", "csv=p=0", str(saved_video_path)],
             capture_output=True, text=True
         )
         try:
@@ -694,7 +754,7 @@ async def upload_video(file: UploadFile = File(...)):
         for i, ts in enumerate(timestamps):
             frame_path = os.path.join(frames_dir, f"frame_{i:03d}.jpg")
             subprocess.run(
-                ["ffmpeg", "-ss", str(ts), "-i", video_path,
+                ["ffmpeg", "-ss", str(ts), "-i", str(saved_video_path),
                  "-frames:v", "1", "-q:v", "3", "-y", frame_path],
                 capture_output=True
             )
@@ -730,7 +790,7 @@ async def serve_media(filename: str):
     ext = filepath.suffix.lower()
     ct_map = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".avi": "video/x-msvideo"}
     content_type = ct_map.get(ext, "application/octet-stream")
-    return Response(content=filepath.read_bytes(), media_type=content_type)
+    return FileResponse(filepath, media_type=content_type)
 
 
 # --- Conversations ---
@@ -739,11 +799,13 @@ async def serve_media(filename: str):
 @app.get("/api/conversations")
 async def list_conversations():
     conn = get_db()
-    rows = conn.execute(
-        "SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC"
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    try:
+        rows = conn.execute(
+            "SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
 
 
 @app.get("/api/conversations/{conv_id}")
@@ -757,10 +819,12 @@ async def get_conversation(conv_id: str):
 @app.delete("/api/conversations/{conv_id}")
 async def delete_conversation(conv_id: str):
     conn = get_db()
-    conn.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
-    conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
+        conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
+        conn.commit()
+    finally:
+        conn.close()
     return {"deleted": conv_id}
 
 
@@ -844,17 +908,37 @@ async def api_run_code(request: Request):
 # --- Logs ---
 
 
+def tail_file(path: Path, n: int = 100) -> list[str]:
+    """Read last n lines from a file without loading it all into memory."""
+    if not path.exists():
+        return []
+    with open(path, "rb") as f:
+        f.seek(0, 2)
+        size = f.tell()
+        if size == 0:
+            return []
+        chunk_size = min(8192, size)
+        lines = []
+        while len(lines) <= n and f.tell() > 0:
+            pos = max(f.tell() - chunk_size, 0)
+            f.seek(pos)
+            read_size = f.tell() - pos if pos == 0 else chunk_size
+            f.seek(pos)
+            chunk = f.read(read_size)
+            lines = chunk.decode("utf-8", errors="replace").splitlines() + lines
+            f.seek(pos)
+        return lines[-n:]
+
+
 @app.get("/api/logs/{log_name}")
 async def get_logs(log_name: str, lines: int = 100):
     """Read the last N lines from a log file."""
     allowed = {"error": "error.log", "conversations": "conversations.log"}
     if log_name not in allowed:
         return JSONResponse(status_code=400, content={"error": f"Unknown log. Use: {', '.join(allowed)}"})
+    lines = max(1, min(lines, 1000))
     log_path = LOGS_DIR / allowed[log_name]
-    if not log_path.exists():
-        return {"log": log_name, "lines": []}
-    all_lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    return {"log": log_name, "lines": all_lines[-lines:]}
+    return {"log": log_name, "lines": tail_file(log_path, lines)}
 
 
 # --- TTS ---

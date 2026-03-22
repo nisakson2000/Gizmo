@@ -10,7 +10,7 @@ import {
 	loadConversations,
 } from '$lib/stores/chat';
 import { connectionStatus } from '$lib/stores/connection';
-import { thinkingEnabled, ttsEnabled, ttsVoiceId } from '$lib/stores/settings';
+import { thinkingEnabled, ttsEnabled, ttsVoiceId, contextLength } from '$lib/stores/settings';
 
 let ws: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -141,6 +141,7 @@ export function send(message: string, imageDataUrl?: string, videoFrames?: strin
 		thinking: get(thinkingEnabled),
 		conversation_id: get(activeConversationId),
 		tts: get(ttsEnabled),
+		context_length: get(contextLength),
 	};
 	const voiceId = get(ttsVoiceId);
 	if (voiceId) {

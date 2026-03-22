@@ -66,9 +66,9 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 1. User types message and clicks Send in the SvelteKit UI
 2. UI sends JSON via WebSocket to `ws://gizmo-orchestrator:9100/ws/chat`
 3. Message payload: `{"message": "Search for AI news", "thinking": true, "conversation_id": "uuid"}`
-4. Orchestrator receives message, loads conversation history from server-side JSON file
-5. Orchestrator loads constitution files, scans memory for relevant files
-6. System prompt assembled: constitution-functionality + constitution-behavior rules + relevant memories
+4. Orchestrator receives message, loads conversation history from SQLite database
+5. Orchestrator loads constitution file, scans memory for relevant files
+6. System prompt assembled: constitution.txt + relevant memories
 7. Messages array built in OpenAI format: `[system, ...history, user]`
 8. Orchestrator POSTs to `http://gizmo-llama:8080/v1/chat/completions` with `stream: true`, `enable_thinking: true`, and tool definitions
 9. Model begins generating — llama.cpp separates reasoning into `reasoning_content` field
@@ -83,7 +83,7 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 19. Final response tokens stream as `{"type": "token"}` events
 20. Stream ends → orchestrator sends `{"type": "done", "trace_id": "gizmo-abc123"}`
 21. UI renders complete message with collapsed thinking block above response
-22. Orchestrator saves messages to server-side JSON file
+22. Orchestrator saves messages to SQLite database
 
 ## WebSocket Event Protocol
 
@@ -108,7 +108,8 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
   "thinking": false,
   "conversation_id": "uuid-or-null",
   "tts": false,
-  "voice_id": "optional-voice-id"
+  "voice_id": "optional-voice-id",
+  "context_length": 32768
 }
 ```
 
@@ -141,11 +142,9 @@ Supports up to 5 rounds of automatic tool calling per request.
 |----------|--------|-------------|
 | `/health` | GET | Orchestrator health check |
 | `/api/services/health` | GET | Health of all backend services |
-| `/api/conversations` | GET | List all conversations (server-side JSON) |
+| `/api/conversations` | GET | List all conversations (SQLite) |
 | `/api/conversations/{id}` | GET | Get conversation messages |
-| `/api/conversations/{id}` | PUT | Update conversation |
 | `/api/conversations/{id}` | DELETE | Delete a conversation |
-| `/api/conversations/import` | POST | Import conversations from localStorage |
 | `/api/upload` | POST | Upload document (PDF, text, code — up to 50MB) |
 | `/api/upload-image` | POST | Upload image (returns base64 data URL — up to 50MB) |
 | `/api/upload-video` | POST | Upload video (frame extraction + server storage — up to 500MB) |
@@ -212,15 +211,9 @@ Tools follow the OpenAI function-calling format. llama.cpp supports this nativel
 
 ## Constitution System
 
-The model's persona and behavior are defined by a split constitution system:
+The model's persona and behavior are defined by a single constitution file:
 
-- **`config/constitution-functionality.txt`** — Prose base prompt defining identity and capabilities. Lines starting with `#` stripped as comments.
-- **`config/constitution-behavior.txt`** — Structured rules with injection points:
-  - `[system_prompt]` — Base behavior rules
-  - `[pre_routing]` — Keyword-based routing overrides (`keyword => model`)
-  - `[patterns]` — Pattern activation rules
-  - `[per_model:name]` — Model-specific instructions
-- **`config/patterns/*.md`** — Pattern library (7 patterns: extract_wisdom, analyze_threat, summarize_content, explain_technical, create_analogy, security_review, debug_code)
+- **`config/constitution.txt`** — Prose base prompt defining identity, capabilities, and behavior rules. Lines starting with `#` are stripped as comments. Everything else is injected as the base system prompt. Relevant memories from the BM25 memory system are appended after the constitution content.
 
 ## Configuration Files
 
@@ -257,16 +250,7 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 ├── .gitignore                             # Git ignore rules
 ├── docker-compose.yml                     # Podman compose — all 6 services
 ├── config/
-│   ├── constitution-functionality.txt     # System prompt / persona (prose)
-│   ├── constitution-behavior.txt          # Structured behavior rules
-│   ├── patterns/                          # Pattern library (7 patterns)
-│   │   ├── extract_wisdom.md
-│   │   ├── analyze_threat.md
-│   │   ├── summarize_content.md
-│   │   ├── explain_technical.md
-│   │   ├── create_analogy.md
-│   │   ├── security_review.md
-│   │   └── debug_code.md
+│   ├── constitution.txt                   # System prompt / persona (prose, # = comments)
 │   ├── models.yaml                        # Model configuration
 │   └── services.yaml                      # Service endpoints
 ├── services/
@@ -276,7 +260,6 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │   ├── Dockerfile                     # Python 3.12 slim
 │   │   ├── requirements.txt               # Python dependencies (includes rank_bm25)
 │   │   ├── main.py                        # FastAPI app, WebSocket, REST, voice/video/transcribe endpoints
-│   │   ├── router.py                      # Route placeholder
 │   │   ├── memory.py                      # BM25-ranked memory system with recency weighting
 │   │   ├── sandbox.py                     # Podman sandbox client (code execution via Unix socket)
 │   │   ├── search.py                      # SearXNG proxy
