@@ -11,6 +11,7 @@
 	import { connect, disconnect } from '$lib/ws/client';
 	import { loadConversations, newConversation } from '$lib/stores/chat';
 	import { voiceStudioOpen, sidebarOpen, thinkingEnabled, settingsOpen, memoryManagerOpen, codePlaygroundOpen, focusTrigger } from '$lib/stores/settings';
+	import { theme } from '$lib/stores/theme';
 
 	let showHttpBanner = $state(false);
 
@@ -50,6 +51,16 @@
 		}
 	}
 
+	// Apply theme to <html> element reactively
+	$effect(() => {
+		const t = $theme;
+		if (t === 'default') {
+			delete document.documentElement.dataset.theme;
+		} else {
+			document.documentElement.dataset.theme = t;
+		}
+	});
+
 	onMount(() => {
 		connect();
 		loadConversations();
@@ -69,7 +80,8 @@
 	<title>Gizmo-AI</title>
 </svelte:head>
 
-<div class="flex flex-col h-screen bg-bg-primary">
+<div class="console-frame flex flex-col h-screen bg-bg-primary">
+	{#if $theme !== 'default'}<div class="cd" aria-hidden="true"><span></span><span></span><span></span><span></span></div>{/if}
 	{#if showHttpBanner}
 		<div class="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-xs text-amber-400 flex items-center justify-between">
 			<span>Mic & voice features require HTTPS. Access Gizmo via Tailscale HTTPS or localhost for full access.</span>
@@ -79,7 +91,7 @@
 		</div>
 	{/if}
 	<Header />
-	<div class="flex flex-1 overflow-hidden">
+	<div class="console-screen flex flex-1 overflow-hidden">
 		<Sidebar />
 		<main class="flex flex-col flex-1 overflow-hidden">
 			<ChatArea />

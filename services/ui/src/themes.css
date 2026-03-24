@@ -1,0 +1,1444 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Nintendo Theme System — CSS Custom Property Overrides
+   Each [data-theme="X"] selector overrides the :root / @theme defaults.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── Google Fonts ──────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Fredoka:wght@400;500;600&family=Nunito:wght@400;500;600;700&display=swap');
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NES — 8-bit, black bg, NES red accent, pixel font
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="nes"] {
+	--color-bg-primary: #000000;
+	--color-bg-secondary: #1c1c1c;
+	--color-bg-tertiary: #2a2a2a;
+	--color-bg-hover: #333333;
+	--color-border: #545454;
+	--color-accent: #e40000;
+	--color-accent-dim: #b80000;
+	--color-text-primary: #fcfcfc;
+	--color-text-secondary: #b0b0b0;
+	--color-text-dim: #606060;
+	--color-thinking: #1a0000;
+	--color-thinking-border: #e40000;
+	--color-success: #00a800;
+	--color-error: #e40000;
+	--color-code-bg: #0a0a0a;
+	--color-user-msg: #1a1a3a;
+	--font-sans: 'Press Start 2P', monospace;
+	--font-mono: 'Press Start 2P', monospace;
+}
+
+[data-theme="nes"] body {
+	font-size: 12px;
+	line-height: 2;
+	letter-spacing: 0.5px;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SNES — 16-bit, dark purple bg, lavender accent, pixel font
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="snes"] {
+	--color-bg-primary: #1a1a2e;
+	--color-bg-secondary: #25254a;
+	--color-bg-tertiary: #303066;
+	--color-bg-hover: #3a3a7a;
+	--color-border: #4a4a8a;
+	--color-accent: #c8a0ff;
+	--color-accent-dim: #a080d0;
+	--color-text-primary: #e8e8ff;
+	--color-text-secondary: #a0a0c0;
+	--color-text-dim: #606080;
+	--color-thinking: #1a1a30;
+	--color-thinking-border: #c8a0ff;
+	--color-success: #00c878;
+	--color-error: #ff4040;
+	--color-code-bg: #151530;
+	--color-user-msg: #2a2a50;
+	--font-sans: 'Press Start 2P', monospace;
+	--font-mono: 'Press Start 2P', monospace;
+}
+
+[data-theme="snes"] body {
+	font-size: 12px;
+	line-height: 2;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GBA — Handheld, dark blue-black bg, GBA green accent, pixel font
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="gba"] {
+	--color-bg-primary: #0a1628;
+	--color-bg-secondary: #142040;
+	--color-bg-tertiary: #1c2850;
+	--color-bg-hover: #243060;
+	--color-border: #304070;
+	--color-accent: #7bb860;
+	--color-accent-dim: #5a9040;
+	--color-text-primary: #dce8d0;
+	--color-text-secondary: #a0b890;
+	--color-text-dim: #607850;
+	--color-thinking: #0a1a10;
+	--color-thinking-border: #7bb860;
+	--color-success: #7bb860;
+	--color-error: #d04040;
+	--color-code-bg: #081420;
+	--color-user-msg: #1a2840;
+	--font-sans: 'Press Start 2P', monospace;
+	--font-mono: 'Press Start 2P', monospace;
+}
+
+[data-theme="gba"] body {
+	font-size: 12px;
+	line-height: 2;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   N64 — 3D Era, charcoal bg, multicolor accents, rounded font
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="n64"] {
+	--color-bg-primary: #1a1a1a;
+	--color-bg-secondary: #252525;
+	--color-bg-tertiary: #303030;
+	--color-bg-hover: #3a3a3a;
+	--color-border: #4a4a4a;
+	--color-accent: #e04040;
+	--color-accent-dim: #c03030;
+	--color-text-primary: #f0f0f0;
+	--color-text-secondary: #b0b0b0;
+	--color-text-dim: #707070;
+	--color-thinking: #1a1a10;
+	--color-thinking-border: #40b040;
+	--color-success: #40b040;
+	--color-error: #e04040;
+	--color-code-bg: #141414;
+	--color-user-msg: #2a2530;
+	--font-sans: 'Fredoka', sans-serif;
+	--font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Chunky rounded borders */
+[data-theme="n64"] .rounded-2xl,
+[data-theme="n64"] .rounded-xl,
+[data-theme="n64"] .rounded-lg {
+	border-radius: 12px !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GameCube — 3D Era, indigo bg, indigo accent, rounded plastic feel
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="gamecube"] {
+	--color-bg-primary: #1a1535;
+	--color-bg-secondary: #25204a;
+	--color-bg-tertiary: #302a60;
+	--color-bg-hover: #3a3570;
+	--color-border: #4a4580;
+	--color-accent: #7b6fcf;
+	--color-accent-dim: #5a50a0;
+	--color-text-primary: #e8e0ff;
+	--color-text-secondary: #a8a0c0;
+	--color-text-dim: #686080;
+	--color-thinking: #1a1530;
+	--color-thinking-border: #7b6fcf;
+	--color-success: #50c878;
+	--color-error: #e05050;
+	--color-code-bg: #151030;
+	--color-user-msg: #252050;
+	--font-sans: 'Nunito', sans-serif;
+	--font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Rounded plastic, deeper shadows */
+[data-theme="gamecube"] .rounded-2xl,
+[data-theme="gamecube"] .rounded-xl,
+[data-theme="gamecube"] .rounded-lg {
+	border-radius: 16px !important;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Wii — LIGHT THEME, white bg, Wii blue accent
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="wii"] {
+	--color-bg-primary: #f0f0f0;
+	--color-bg-secondary: #ffffff;
+	--color-bg-tertiary: #e8e8e8;
+	--color-bg-hover: #d8d8d8;
+	--color-border: #c0c0c0;
+	--color-accent: #0088cc;
+	--color-accent-dim: #0070a8;
+	--color-text-primary: #1a1a1a;
+	--color-text-secondary: #505050;
+	--color-text-dim: #909090;
+	--color-thinking: #e8f0ff;
+	--color-thinking-border: #0088cc;
+	--color-success: #40a040;
+	--color-error: #d04040;
+	--color-code-bg: #f8f8f8;
+	--color-user-msg: #e0e8f0;
+	--font-sans: system-ui, -apple-system, sans-serif;
+	--font-mono: monospace;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Switch — Dark gray bg, neon red + neon blue accents, flat minimal
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="switch"] {
+	--color-bg-primary: #2d2d2d;
+	--color-bg-secondary: #383838;
+	--color-bg-tertiary: #454545;
+	--color-bg-hover: #505050;
+	--color-border: #5a5a5a;
+	--color-accent: #e60012;
+	--color-accent-dim: #c0000f;
+	--color-text-primary: #ffffff;
+	--color-text-secondary: #b0b0b0;
+	--color-text-dim: #707070;
+	--color-thinking: #2a2020;
+	--color-thinking-border: #00c3e3;
+	--color-success: #30c060;
+	--color-error: #e60012;
+	--color-code-bg: #252525;
+	--color-user-msg: #353535;
+	--font-sans: system-ui, -apple-system, sans-serif;
+	--font-mono: monospace;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DS — LIGHT THEME, silver metallic
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="ds"] {
+	--color-bg-primary: #c8c8c8;
+	--color-bg-secondary: #d8d8d8;
+	--color-bg-tertiary: #b8b8b8;
+	--color-bg-hover: #b0b0b0;
+	--color-border: #a0a0a0;
+	--color-accent: #3070d0;
+	--color-accent-dim: #2060b0;
+	--color-text-primary: #1a1a1a;
+	--color-text-secondary: #404040;
+	--color-text-dim: #707070;
+	--color-thinking: #d0d8e8;
+	--color-thinking-border: #3070d0;
+	--color-success: #30a030;
+	--color-error: #d03030;
+	--color-code-bg: #c0c0c8;
+	--color-user-msg: #c0d0e0;
+	--font-sans: system-ui, sans-serif;
+	--font-mono: monospace;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   3DS — Dark teal/navy
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="3ds"] {
+	--color-bg-primary: #1a2a3a;
+	--color-bg-secondary: #203040;
+	--color-bg-tertiary: #283848;
+	--color-bg-hover: #304050;
+	--color-border: #3a4a5a;
+	--color-accent: #00bcd4;
+	--color-accent-dim: #009ab0;
+	--color-text-primary: #e0f0f8;
+	--color-text-secondary: #90b0c0;
+	--color-text-dim: #506070;
+	--color-thinking: #1a2530;
+	--color-thinking-border: #00bcd4;
+	--color-success: #40c080;
+	--color-error: #e05050;
+	--color-code-bg: #152030;
+	--color-user-msg: #1a3040;
+	--font-sans: 'Nunito', sans-serif;
+	--font-mono: monospace;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SPECIAL EFFECTS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+
+/* ─── Scanline Overlay (8-bit themes) ───────────────────────────────── */
+
+[data-theme="nes"] body::after,
+[data-theme="snes"] body::after,
+[data-theme="gba"] body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	background: repeating-linear-gradient(
+		0deg,
+		transparent,
+		transparent 2px,
+		rgba(0, 0, 0, 0.08) 2px,
+		rgba(0, 0, 0, 0.08) 4px
+	);
+	pointer-events: none;
+	z-index: 9999;
+}
+
+
+/* ─── Pixel Borders (8-bit themes) ──────────────────────────────────── */
+
+[data-theme="nes"] .rounded-2xl,
+[data-theme="nes"] .rounded-xl,
+[data-theme="nes"] .rounded-lg,
+[data-theme="nes"] .rounded-full { border-radius: 2px !important; }
+
+[data-theme="snes"] .rounded-2xl,
+[data-theme="snes"] .rounded-xl,
+[data-theme="snes"] .rounded-lg,
+[data-theme="snes"] .rounded-full { border-radius: 2px !important; }
+
+[data-theme="gba"] .rounded-2xl,
+[data-theme="gba"] .rounded-xl,
+[data-theme="gba"] .rounded-lg,
+[data-theme="gba"] .rounded-full { border-radius: 2px !important; }
+
+
+/* ─── 8-bit Step Animations ─────────────────────────────────────────── */
+
+[data-theme="nes"] .msg-appear,
+[data-theme="snes"] .msg-appear,
+[data-theme="gba"] .msg-appear {
+	animation-timing-function: steps(4) !important;
+}
+
+[data-theme="nes"] .thinking-dot,
+[data-theme="snes"] .thinking-dot,
+[data-theme="gba"] .thinking-dot {
+	animation-timing-function: steps(2) !important;
+}
+
+
+/* ─── N64 / GameCube Bouncy Animations ──────────────────────────────── */
+
+@keyframes msgBounceIn {
+	0% {
+		opacity: 0;
+		transform: translateY(12px) scale(0.95);
+	}
+	60% {
+		opacity: 1;
+		transform: translateY(-4px) scale(1.02);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+[data-theme="n64"] .msg-appear,
+[data-theme="gamecube"] .msg-appear {
+	animation: msgBounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+
+/* ─── Wii Glossy Buttons ────────────────────────────────────────────── */
+
+[data-theme="wii"] button {
+	background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+	transition: all 0.3s ease;
+}
+
+[data-theme="wii"] button:hover {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+
+/* ─── Switch Neon Glow ──────────────────────────────────────────────── */
+
+[data-theme="switch"] .bg-accent {
+	box-shadow: 0 0 12px rgba(230, 0, 18, 0.3);
+}
+
+/* Smooth rapid sliding animation */
+[data-theme="switch"] .msg-appear {
+	animation: msgSlideIn 0.2s ease-out;
+}
+
+@keyframes msgSlideIn {
+	from {
+		opacity: 0;
+		transform: translateX(-8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+
+/* ─── Light Theme Scrollbar Overrides (Wii, DS) ────────────────────── */
+
+[data-theme="wii"] ::-webkit-scrollbar-thumb,
+[data-theme="ds"] ::-webkit-scrollbar-thumb {
+	background: #b0b0b0;
+}
+
+[data-theme="wii"] ::-webkit-scrollbar-thumb:hover,
+[data-theme="ds"] ::-webkit-scrollbar-thumb:hover {
+	background: #909090;
+}
+
+[data-theme="wii"] ::-webkit-scrollbar-track,
+[data-theme="ds"] ::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CONSOLE FRAMES — Physical Console Bodies
+   Creates recognizable console hardware using CSS. Each theme adds
+   thick bezels, iconic control elements, and screen inset effects.
+   Decorative elements use .cd div with 4 <span> children.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+
+/* ─── Base Structure ─────────────────────────────────────────────────── */
+
+.console-frame { position: relative; }
+
+.cd {
+	display: none;
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 5;
+}
+
+.cd span {
+	position: absolute;
+	display: block;
+}
+
+[data-theme] .cd { display: block; }
+
+
+/* ═══════════════════ NES ═══════════════════════════════════════════════
+   Gray front-loader with red stripe, cartridge slot, controller ports
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="nes"] .console-frame {
+	background: linear-gradient(180deg, #d0d0d0, #c8c8c8 5%, #c0c0c0 50%, #b8b8b8 95%, #aaa) !important;
+	padding: 30px 36px 44px 50px;
+}
+
+/* Red accent stripe — full left edge */
+[data-theme="nes"] .console-frame::before {
+	content: '';
+	position: absolute;
+	left: 0; top: 0; bottom: 0;
+	width: 32px;
+	background: linear-gradient(90deg, #aa0000, #e40000 25%, #e40000 75%, #cc0000);
+	box-shadow: inset -3px 0 8px rgba(0,0,0,0.25);
+}
+
+/* Cartridge loading slot — top center */
+[data-theme="nes"] .console-frame::after {
+	content: '';
+	position: absolute;
+	top: 0; left: 50%;
+	transform: translateX(-50%);
+	width: 45%;
+	height: 16px;
+	background: linear-gradient(180deg, #1a1a1a, #333);
+	border-radius: 0 0 4px 4px;
+	box-shadow: inset 0 -3px 6px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.05);
+	z-index: 1;
+}
+
+/* CRT screen — deep inset with scan-line depth */
+[data-theme="nes"] .console-screen {
+	box-shadow: inset 0 0 30px rgba(0,0,0,0.7), inset 0 0 4px rgba(0,0,0,0.9);
+	border: 4px solid #777;
+	border-top-color: #666;
+	border-bottom-color: #888;
+	border-radius: 3px;
+}
+
+/* Power button */
+[data-theme="nes"] .cd span:nth-child(1) {
+	bottom: 12px; left: 54px;
+	width: 24px; height: 10px;
+	background: linear-gradient(180deg, #ff3030, #cc0000);
+	border-radius: 2px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* Reset button */
+[data-theme="nes"] .cd span:nth-child(2) {
+	bottom: 12px; left: 86px;
+	width: 24px; height: 10px;
+	background: linear-gradient(180deg, #aaa, #888);
+	border-radius: 2px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* Controller port 1 */
+[data-theme="nes"] .cd span:nth-child(3) {
+	bottom: 10px; left: 50%;
+	transform: translateX(calc(-50% - 32px));
+	width: 40px; height: 18px;
+	background: #2a2a2a;
+	border-radius: 3px;
+	border: 2px solid #555;
+	box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+}
+/* Controller port 2 */
+[data-theme="nes"] .cd span:nth-child(3)::after {
+	content: '';
+	position: absolute;
+	left: calc(100% + 24px); top: -2px;
+	width: 40px; height: 18px;
+	background: #2a2a2a;
+	border: 2px solid #555;
+	border-radius: 3px;
+	box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+}
+
+/* Power LED glow */
+[data-theme="nes"] .cd span:nth-child(4) {
+	bottom: 28px; left: 62px;
+	width: 6px; height: 6px;
+	background: #ff0000;
+	border-radius: 50%;
+	box-shadow: 0 0 8px 3px rgba(255,0,0,0.6);
+}
+
+[data-theme="nes"] header .rounded-full {
+	box-shadow: 0 0 8px 3px rgba(228,0,0,0.7);
+}
+
+
+/* ═══════════════════ SNES ═════════════════════════════════════════════
+   Gray-purple body with YXBA colored buttons, eject lever, power slider
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="snes"] .console-frame {
+	background: linear-gradient(180deg, #dcdce0, #d0d0d4 10%, #c8c8cc 50%, #c0c0c4 90%, #b4b4b8) !important;
+	padding: 28px 32px 40px;
+	border-radius: 6px;
+}
+
+/* Eject channel — top center */
+[data-theme="snes"] .console-frame::before {
+	content: '';
+	position: absolute;
+	top: 0; left: 50%;
+	transform: translateX(-50%);
+	width: 40%;
+	height: 14px;
+	background: linear-gradient(180deg, #888, #aaa);
+	border-radius: 0 0 4px 4px;
+	box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
+	z-index: 1;
+}
+
+/* YXBA button cluster — right side of bezel */
+[data-theme="snes"] .console-frame::after {
+	content: '';
+	position: absolute;
+	bottom: 16px; right: 38px;
+	width: 1px; height: 1px;
+	background: transparent;
+	box-shadow:
+		0 -12px 0 6px #4040e0,
+		-15px 2px 0 6px #40b040,
+		15px 2px 0 6px #e04040,
+		0 16px 0 6px #e0c040;
+}
+
+[data-theme="snes"] .console-screen {
+	box-shadow: inset 0 0 25px rgba(0,0,0,0.5);
+	border: 3px solid #999;
+	border-radius: 4px;
+}
+
+/* Power switch track */
+[data-theme="snes"] .cd span:nth-child(1) {
+	bottom: 14px; left: 36px;
+	width: 34px; height: 10px;
+	background: #777;
+	border-radius: 5px;
+	box-shadow: inset 0 2px 3px rgba(0,0,0,0.4);
+}
+/* Switch handle (slid to "on") */
+[data-theme="snes"] .cd span:nth-child(1)::before {
+	content: '';
+	position: absolute;
+	right: 0; top: -3px;
+	width: 16px; height: 16px;
+	background: linear-gradient(180deg, #e8e8e8, #c0c0c0);
+	border-radius: 3px;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+/* Controller ports (2) */
+[data-theme="snes"] .cd span:nth-child(2) {
+	bottom: 10px; left: 50%;
+	transform: translateX(calc(-50% - 26px));
+	width: 34px; height: 14px;
+	background: #666;
+	border-radius: 3px;
+	border: 1px solid #888;
+	box-shadow: inset 0 2px 3px rgba(0,0,0,0.3);
+}
+[data-theme="snes"] .cd span:nth-child(2)::after {
+	content: '';
+	position: absolute;
+	left: calc(100% + 18px); top: -1px;
+	width: 34px; height: 14px;
+	background: #666;
+	border: 1px solid #888;
+	border-radius: 3px;
+	box-shadow: inset 0 2px 3px rgba(0,0,0,0.3);
+}
+
+/* Eject lever */
+[data-theme="snes"] .cd span:nth-child(3) {
+	top: 10px; left: 34px;
+	width: 22px; height: 8px;
+	background: linear-gradient(180deg, #bbb, #999);
+	border-radius: 2px;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+
+/* ═══════════════════ GBA ═════════════════════════════════════════════
+   Indigo handheld — screen window recessed into body, shoulder buttons,
+   D-pad, A/B, speaker grille. Screen constrained for handheld feel.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="gba"] .console-frame {
+	background: linear-gradient(180deg, #5a40a0, #4a3090 10%, #4a3090 70%, #3a2080 90%, #301a70) !important;
+	padding: 28px 44px 64px;
+	border-radius: 12px 12px 30px 30px;
+}
+
+/* L shoulder button */
+[data-theme="gba"] .console-frame::before {
+	content: '';
+	position: absolute;
+	top: 3px; left: 8px;
+	width: 70px; height: 12px;
+	background: linear-gradient(180deg, #5a40a0, #3a2070);
+	border-radius: 0 0 8px 8px;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 -1px 0 rgba(255,255,255,0.1);
+}
+
+/* R shoulder button */
+[data-theme="gba"] .console-frame::after {
+	content: '';
+	position: absolute;
+	top: 3px; right: 8px;
+	width: 70px; height: 12px;
+	background: linear-gradient(180deg, #5a40a0, #3a2070);
+	border-radius: 0 0 8px 8px;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 -1px 0 rgba(255,255,255,0.1);
+}
+
+/* "GAME BOY ADVANCE" label — above screen */
+[data-theme="gba"] header::before {
+	content: 'GAME BOY\a0\a0\a0\a0ADVANCE';
+	position: absolute;
+	top: 17px; left: 50%;
+	transform: translateX(-50%);
+	font-size: 7px;
+	font-family: system-ui, sans-serif;
+	font-weight: 800;
+	letter-spacing: 2.5px;
+	color: rgba(255,255,255,0.28);
+	text-transform: uppercase;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Power LED (green) */
+[data-theme="gba"] header::after {
+	content: '';
+	position: absolute;
+	top: 19px; right: 50px;
+	width: 5px; height: 5px;
+	background: #40cc40;
+	border-radius: 50%;
+	box-shadow: 0 0 6px 2px rgba(64,204,64,0.5);
+	pointer-events: none;
+}
+
+/* Screen window — recessed into plastic body */
+[data-theme="gba"] .console-screen {
+	border: 3px solid #1a0e40;
+	border-radius: 4px;
+	box-shadow:
+		inset 0 0 20px rgba(0,0,0,0.5),
+		0 0 0 3px #2a1860,
+		0 0 0 6px #362578;
+	max-width: 840px;
+	margin: 0 auto;
+	width: 100%;
+}
+
+/* D-pad — cross shape via box-shadow */
+[data-theme="gba"] .cd span:nth-child(1) {
+	bottom: 26px; left: 44px;
+	width: 14px; height: 14px;
+	background: #3a2070;
+	border-radius: 3px;
+	box-shadow:
+		0 -16px 0 0 #3a2070,
+		16px 0 0 0 #3a2070,
+		0 16px 0 0 #3a2070,
+		-16px 0 0 0 #3a2070;
+}
+/* D-pad center nub */
+[data-theme="gba"] .cd span:nth-child(1)::after {
+	content: '';
+	position: absolute;
+	left: 50%; top: 50%;
+	transform: translate(-50%,-50%);
+	width: 8px; height: 8px;
+	background: #2a1560;
+	border-radius: 50%;
+}
+
+/* A button */
+[data-theme="gba"] .cd span:nth-child(2) {
+	bottom: 28px; right: 44px;
+	width: 20px; height: 20px;
+	background: radial-gradient(circle, #8050d0, #6a3ab0);
+	border-radius: 50%;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+[data-theme="gba"] .cd span:nth-child(2)::before {
+	content: 'A';
+	position: absolute;
+	inset: 0;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 9px;
+	font-family: system-ui, sans-serif;
+	font-weight: 700;
+	color: rgba(255,255,255,0.5);
+}
+/* B button */
+[data-theme="gba"] .cd span:nth-child(2)::after {
+	content: 'B';
+	position: absolute;
+	left: -26px; top: 10px;
+	width: 20px; height: 20px;
+	background: radial-gradient(circle, #6a3ab0, #5a2a90);
+	border-radius: 50%;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+	display: flex; align-items: center; justify-content: center;
+	font-size: 9px;
+	font-family: system-ui, sans-serif;
+	font-weight: 700;
+	color: rgba(255,255,255,0.5);
+}
+
+/* Speaker grille (dot pattern) */
+[data-theme="gba"] .cd span:nth-child(3) {
+	bottom: 10px; right: 16px;
+	width: 28px; height: 20px;
+	background: radial-gradient(circle, #3a2070 1.5px, transparent 1.5px);
+	background-size: 5px 5px;
+	opacity: 0.5;
+}
+
+/* SELECT / START buttons */
+[data-theme="gba"] .cd span:nth-child(4) {
+	bottom: 12px; left: 50%;
+	transform: translateX(calc(-50% - 18px));
+	width: 22px; height: 6px;
+	background: #3a2070;
+	border-radius: 3px;
+	box-shadow: 36px 0 0 0 #3a2070;
+}
+
+
+/* ═══════════════════ N64 ═════════════════════════════════════════════
+   Charcoal console with 4-color strip, expansion pak, controller ports
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="n64"] .console-frame {
+	background: linear-gradient(180deg, #3a3a3a, #333 5%, #333 50%, #2a2a2a 95%, #222) !important;
+	padding: 26px 30px 38px;
+	border-radius: 18px;
+}
+
+/* Rainbow accent strip — bold 4-color band across top */
+[data-theme="n64"] .console-frame::before {
+	content: '';
+	position: absolute;
+	top: 0; left: 18px; right: 18px;
+	height: 8px;
+	background: linear-gradient(90deg, #e04040 0%, #e04040 25%, #40b040 25%, #40b040 50%, #4080e0 50%, #4080e0 75%, #e0c040 75%);
+	border-radius: 0 0 3px 3px;
+	z-index: 1;
+}
+
+/* Expansion pak bay — top center */
+[data-theme="n64"] .console-frame::after {
+	content: '';
+	position: absolute;
+	top: 14px; left: 50%;
+	transform: translateX(-50%);
+	width: 32px; height: 16px;
+	background: #1a1a1a;
+	border: 2px solid #444;
+	border-radius: 3px;
+	box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
+}
+
+[data-theme="n64"] .console-screen {
+	box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+	border: 3px solid #555;
+	border-radius: 10px;
+}
+
+/* Controller port 1 (center) — ports 2,3 via pseudo-elements */
+[data-theme="n64"] .cd span:nth-child(1) {
+	bottom: 10px; left: 50%;
+	transform: translateX(-50%);
+	width: 26px; height: 14px;
+	background: #1a1a1a;
+	border: 2px solid #444;
+	border-radius: 3px;
+	box-shadow: inset 0 2px 3px rgba(0,0,0,0.5);
+}
+[data-theme="n64"] .cd span:nth-child(1)::before {
+	content: '';
+	position: absolute;
+	right: calc(100% + 16px); top: -2px;
+	width: 26px; height: 14px;
+	background: #1a1a1a;
+	border: 2px solid #444;
+	border-radius: 3px;
+}
+[data-theme="n64"] .cd span:nth-child(1)::after {
+	content: '';
+	position: absolute;
+	left: calc(100% + 16px); top: -2px;
+	width: 26px; height: 14px;
+	background: #1a1a1a;
+	border: 2px solid #444;
+	border-radius: 3px;
+}
+
+/* Power button (green circle) */
+[data-theme="n64"] .cd span:nth-child(2) {
+	bottom: 12px; left: 34px;
+	width: 16px; height: 16px;
+	background: radial-gradient(circle, #50c050, #30a030);
+	border-radius: 50%;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+/* Reset button */
+[data-theme="n64"] .cd span:nth-child(3) {
+	bottom: 14px; left: 58px;
+	width: 14px; height: 10px;
+	background: linear-gradient(180deg, #555, #444);
+	border-radius: 2px;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+
+/* ═══════════════════ GameCube ═════════════════════════════════════════
+   Deep indigo body with handle, disc cover, controller ports
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="gamecube"] .console-frame {
+	background: linear-gradient(180deg, #352a70, #2a2060 10%, #2a2060 80%, #201850) !important;
+	padding: 34px 28px 36px;
+	border-radius: 28px 28px 14px 14px;
+	box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+}
+
+/* Handle groove — top center */
+[data-theme="gamecube"] .console-frame::before {
+	content: '';
+	position: absolute;
+	top: 6px; left: 50%;
+	transform: translateX(-50%);
+	width: 90px; height: 14px;
+	background: linear-gradient(180deg, #201850, #2a2060);
+	border-radius: 0 0 24px 24px;
+	border: 2px solid #3a2a7a;
+	border-top: none;
+	z-index: 1;
+}
+
+/* Disc cover — circle top right */
+[data-theme="gamecube"] .console-frame::after {
+	content: '';
+	position: absolute;
+	top: 8px; right: 22px;
+	width: 32px; height: 32px;
+	border: 3px solid #4a3a8a;
+	border-radius: 50%;
+	box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+}
+
+[data-theme="gamecube"] .console-screen {
+	box-shadow: inset 0 0 25px rgba(0,0,0,0.6), 0 3px 10px rgba(0,0,0,0.3);
+	border: 3px solid #4a3a8a;
+	border-radius: 10px;
+}
+
+/* Controller port 1 (circle, center) */
+[data-theme="gamecube"] .cd span:nth-child(1) {
+	bottom: 8px; left: 50%;
+	transform: translateX(-50%);
+	width: 18px; height: 18px;
+	border: 2px solid #4a3a8a;
+	border-radius: 50%;
+	background: #1a1535;
+}
+[data-theme="gamecube"] .cd span:nth-child(1)::before {
+	content: '';
+	position: absolute;
+	right: calc(100% + 12px); top: -2px;
+	width: 18px; height: 18px;
+	border: 2px solid #4a3a8a;
+	border-radius: 50%;
+	background: #1a1535;
+}
+[data-theme="gamecube"] .cd span:nth-child(1)::after {
+	content: '';
+	position: absolute;
+	left: calc(100% + 12px); top: -2px;
+	width: 18px; height: 18px;
+	border: 2px solid #4a3a8a;
+	border-radius: 50%;
+	background: #1a1535;
+}
+
+/* Power button */
+[data-theme="gamecube"] .cd span:nth-child(2) {
+	bottom: 10px; left: 30px;
+	width: 14px; height: 14px;
+	background: radial-gradient(circle, #5a50a0, #4a3a8a);
+	border-radius: 50%;
+	box-shadow: 0 2px 3px rgba(0,0,0,0.4);
+}
+
+
+/* ═══════════════════ Wii ═════════════════════════════════════════════
+   White glossy body, disc slot, blue LED, minimal design
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="wii"] .console-frame {
+	background: linear-gradient(180deg, #fff, #f8f8f8 10%, #f4f4f4 50%, #eee 90%, #e8e8e8) !important;
+	padding: 26px 26px 32px;
+	border-radius: 12px;
+	box-shadow: 0 4px 24px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Disc slot — thin dark line across top */
+[data-theme="wii"] .console-frame::before {
+	content: '';
+	position: absolute;
+	top: 10px; left: 25%; right: 25%;
+	height: 4px;
+	background: linear-gradient(90deg, transparent, #ccc 15%, #bbb 50%, #ccc 85%, transparent);
+	border-radius: 2px;
+	box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+}
+
+/* Blue power LED — bottom center */
+[data-theme="wii"] .console-frame::after {
+	content: '';
+	position: absolute;
+	bottom: 10px; left: 50%;
+	transform: translateX(-50%);
+	width: 8px; height: 8px;
+	background: #00aaff;
+	border-radius: 50%;
+	box-shadow: 0 0 12px 4px rgba(0,170,255,0.5), 0 0 30px 10px rgba(0,170,255,0.15);
+}
+
+/* Frosted glass screen */
+[data-theme="wii"] .console-screen {
+	border: 2px solid #ddd;
+	border-radius: 8px;
+	box-shadow: inset 0 0 40px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.05);
+}
+
+/* Sync button (red, bottom-right) */
+[data-theme="wii"] .cd span:nth-child(1) {
+	bottom: 8px; right: 32px;
+	width: 10px; height: 10px;
+	background: #d04040;
+	border-radius: 50%;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* Eject button (near disc slot) */
+[data-theme="wii"] .cd span:nth-child(2) {
+	top: 8px; right: 24%;
+	width: 8px; height: 8px;
+	background: #eee;
+	border: 1px solid #ccc;
+	border-radius: 50%;
+}
+
+
+/* ═══════════════════ Switch ═══════════════════════════════════════════
+   Dark tablet with neon red (left) and blue (right) Joy-Con rails.
+   Each rail has analog stick, buttons, and minus/plus controls.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="switch"] .console-frame {
+	background: linear-gradient(180deg, #222, #1a1a1a 10%, #1a1a1a 90%, #111) !important;
+	padding: 12px 56px;
+	border-radius: 10px;
+}
+
+/* Left Joy-Con — neon red rail (wider, with rail groove) */
+[data-theme="switch"] .console-frame::before {
+	content: '';
+	position: absolute;
+	left: 0; top: 0; bottom: 0;
+	width: 44px;
+	background: linear-gradient(90deg, #aa0010, #e60012 20%, #e60012 85%, #ff2a3e);
+	border-radius: 10px 0 0 10px;
+	box-shadow: inset -3px 0 8px rgba(0,0,0,0.2), inset -1px 0 0 rgba(0,0,0,0.3);
+}
+
+/* Right Joy-Con — neon blue rail (wider, with rail groove) */
+[data-theme="switch"] .console-frame::after {
+	content: '';
+	position: absolute;
+	right: 0; top: 0; bottom: 0;
+	width: 44px;
+	background: linear-gradient(90deg, #00b8d4, #00c3e3 15%, #00c3e3 80%, #009ab8);
+	border-radius: 0 10px 10px 0;
+	box-shadow: inset 3px 0 8px rgba(0,0,0,0.2), inset 1px 0 0 rgba(0,0,0,0.3);
+}
+
+/* "NINTENDO SWITCH" branding — bottom bezel */
+[data-theme="switch"] header::before {
+	content: 'NINTENDO  SWITCH';
+	position: absolute;
+	bottom: 4px; left: 50%;
+	transform: translateX(-50%);
+	font-size: 5px;
+	font-family: system-ui, sans-serif;
+	font-weight: 600;
+	letter-spacing: 3px;
+	color: rgba(255,255,255,0.1);
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Screen border with tablet bezel */
+[data-theme="switch"] .console-screen {
+	border: 3px solid #111;
+	border-radius: 4px;
+	box-shadow:
+		inset 0 0 12px rgba(0,0,0,0.4),
+		0 0 0 2px #2a2a2a,
+		0 0 0 4px #1a1a1a;
+}
+
+/* Left analog stick (larger) */
+[data-theme="switch"] .cd span:nth-child(1) {
+	top: 22%; left: 10px;
+	width: 28px; height: 28px;
+	border: 3px solid rgba(255,255,255,0.18);
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(255,255,255,0.12) 25%, rgba(0,0,0,0.15) 70%);
+	box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+/* Left arrow cross (below stick) */
+[data-theme="switch"] .cd span:nth-child(1)::after {
+	content: '';
+	position: absolute;
+	top: 280%; left: 50%;
+	transform: translateX(-50%);
+	width: 8px; height: 8px;
+	background: rgba(255,255,255,0.18);
+	border-radius: 2px;
+	box-shadow:
+		0 -14px 0 0 rgba(255,255,255,0.14),
+		0 14px 0 0 rgba(255,255,255,0.14),
+		-14px 0 0 0 rgba(255,255,255,0.14);
+}
+
+/* Right analog stick (larger) */
+[data-theme="switch"] .cd span:nth-child(2) {
+	top: 36%; right: 8px;
+	width: 28px; height: 28px;
+	border: 3px solid rgba(255,255,255,0.18);
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(255,255,255,0.12) 25%, rgba(0,0,0,0.15) 70%);
+	box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+/* Right ABXY diamond (below stick) */
+[data-theme="switch"] .cd span:nth-child(2)::after {
+	content: '';
+	position: absolute;
+	bottom: -55px; left: 50%;
+	transform: translateX(-50%);
+	width: 1px; height: 1px;
+	background: transparent;
+	box-shadow:
+		0 -11px 0 4px rgba(255,255,255,0.14),
+		-11px 0 0 4px rgba(255,255,255,0.14),
+		11px 0 0 4px rgba(255,255,255,0.14),
+		0 11px 0 4px rgba(255,255,255,0.14);
+}
+
+/* Minus button (left rail) */
+[data-theme="switch"] .cd span:nth-child(3) {
+	top: 52%; left: 16px;
+	width: 12px; height: 2px;
+	background: rgba(255,255,255,0.22);
+	border-radius: 1px;
+}
+
+/* Plus button (right rail) */
+[data-theme="switch"] .cd span:nth-child(4) {
+	top: 50%; right: 16px;
+	width: 12px; height: 2px;
+	background: rgba(255,255,255,0.22);
+	border-radius: 1px;
+}
+[data-theme="switch"] .cd span:nth-child(4)::before {
+	content: '';
+	position: absolute;
+	top: 50%; left: 50%;
+	transform: translate(-50%,-50%);
+	width: 2px; height: 12px;
+	background: rgba(255,255,255,0.22);
+	border-radius: 1px;
+}
+
+
+/* ═══════════════════ DS ═══════════════════════════════════════════════
+   Silver metallic clamshell with thick hinge, D-pad, ABXY, start/select
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="ds"] .console-frame {
+	background: linear-gradient(180deg, #d0d0d8, #c8c8d0 10%, #c4c4cc 50%, #bcbcc4 90%, #b4b4bc) !important;
+	padding: 22px 18px 44px;
+	border-radius: 10px;
+}
+
+/* Speaker grille — top left */
+[data-theme="ds"] .console-frame::before {
+	content: '';
+	position: absolute;
+	top: 8px; left: 24px;
+	width: 22px; height: 12px;
+	background: radial-gradient(circle, #aaa 1px, transparent 1px);
+	background-size: 4px 4px;
+	opacity: 0.4;
+}
+
+/* Mic hole — top center */
+[data-theme="ds"] .console-frame::after {
+	content: '';
+	position: absolute;
+	top: 6px; left: 50%;
+	transform: translateX(-50%);
+	width: 8px; height: 8px;
+	background: #333;
+	border-radius: 50%;
+	border: 1px solid #777;
+}
+
+/* "NINTENDO DS" label */
+[data-theme="ds"] header::before {
+	content: 'NINTENDO DS';
+	position: absolute;
+	top: 7px; left: 50%;
+	transform: translateX(-50%);
+	font-size: 6px;
+	font-family: system-ui, sans-serif;
+	font-weight: 700;
+	letter-spacing: 2px;
+	color: rgba(0,0,0,0.18);
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Outer shell — subtle containment */
+[data-theme="ds"] .console-screen {
+	border: 2px solid #aaa;
+	border-radius: 6px;
+	box-shadow: 0 0 0 2px #bbb;
+}
+
+/* Dual-screen: gap between screens = visible hinge */
+[data-theme="ds"] .console-screen main {
+	gap: 12px;
+}
+
+/* Top screen bezel */
+[data-theme="ds"] .console-screen main > :first-child {
+	border: 3px solid #777;
+	border-radius: 5px;
+	box-shadow: inset 0 0 20px rgba(0,0,0,0.35);
+}
+
+/* Bottom screen (touch) bezel — override border-t hinge */
+[data-theme="ds"] .console-screen main > :last-child {
+	border: 3px solid #777 !important;
+	border-top: 3px solid #777 !important;
+	border-radius: 5px;
+	box-shadow: inset 0 0 20px rgba(0,0,0,0.35);
+}
+
+/* Reset the old border-image hinge */
+[data-theme="ds"] .console-screen main .border-t {
+	border-image: none !important;
+}
+
+/* D-pad (cross via box-shadow) */
+[data-theme="ds"] .cd span:nth-child(1) {
+	bottom: 18px; left: 22px;
+	width: 12px; height: 12px;
+	background: #999;
+	border-radius: 2px;
+	box-shadow:
+		0 -14px 0 0 #999,
+		14px 0 0 0 #999,
+		0 14px 0 0 #999,
+		-14px 0 0 0 #999;
+}
+[data-theme="ds"] .cd span:nth-child(1)::after {
+	content: '';
+	position: absolute;
+	left: 50%; top: 50%;
+	transform: translate(-50%,-50%);
+	width: 6px; height: 6px;
+	background: #888;
+	border-radius: 50%;
+}
+
+/* ABXY buttons (diamond) */
+[data-theme="ds"] .cd span:nth-child(2) {
+	bottom: 20px; right: 26px;
+	width: 1px; height: 1px;
+	background: transparent;
+	box-shadow:
+		0 -10px 0 4px #aaa,
+		-12px 0 0 4px #aaa,
+		12px 0 0 4px #aaa,
+		0 10px 0 4px #aaa;
+}
+
+/* Start button */
+[data-theme="ds"] .cd span:nth-child(3) {
+	bottom: 10px; left: 50%;
+	transform: translateX(calc(-50% + 14px));
+	width: 18px; height: 5px;
+	background: #aaa;
+	border-radius: 3px;
+}
+/* Select button */
+[data-theme="ds"] .cd span:nth-child(3)::after {
+	content: '';
+	position: absolute;
+	right: calc(100% + 10px); top: 0;
+	width: 18px; height: 5px;
+	background: #aaa;
+	border-radius: 3px;
+}
+
+/* Stylus-tap active effect */
+[data-theme="ds"] button:active {
+	transform: scale(0.95);
+}
+
+
+/* ═══════════════════ 3DS ═════════════════════════════════════════════
+   Dark body, teal accents, circle pad, hinge, 3D slider, home button
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="3ds"] .console-frame {
+	background: linear-gradient(180deg, #1e2830, #151e28 10%, #151e28 80%, #101820) !important;
+	padding: 18px 16px 38px;
+	border-radius: 12px;
+}
+
+/* Teal accent strip — top */
+[data-theme="3ds"] .console-frame::before {
+	content: '';
+	position: absolute;
+	top: 0; left: 12px; right: 12px;
+	height: 4px;
+	background: linear-gradient(90deg, transparent, #00bcd4 30%, #00bcd4 70%, transparent);
+	border-radius: 0 0 2px 2px;
+}
+
+/* Camera cluster — dual lens top center */
+[data-theme="3ds"] .console-frame::after {
+	content: '';
+	position: absolute;
+	top: 6px; left: 50%;
+	transform: translateX(-50%);
+	width: 6px; height: 6px;
+	background: #111;
+	border-radius: 50%;
+	border: 1px solid #3a4a5a;
+	box-shadow: -12px 0 0 0 #111, -12px 0 0 1px #3a4a5a;
+}
+
+/* "NINTENDO 3DS" label */
+[data-theme="3ds"] header::before {
+	content: 'NINTENDO 3DS';
+	position: absolute;
+	top: 6px; left: 50%;
+	transform: translateX(-50%);
+	font-size: 6px;
+	font-family: system-ui, sans-serif;
+	font-weight: 700;
+	letter-spacing: 2px;
+	color: rgba(0,188,212,0.2);
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Outer shell */
+[data-theme="3ds"] .console-screen {
+	border: 2px solid #2a3a4a;
+	border-radius: 8px;
+	box-shadow: 0 0 0 2px #1e2e3e, 0 0 20px rgba(0,188,212,0.04);
+}
+
+/* Dual-screen: thinner gap than DS (modern hinge) */
+[data-theme="3ds"] .console-screen main {
+	gap: 8px;
+}
+
+/* Top screen bezel */
+[data-theme="3ds"] .console-screen main > :first-child {
+	border: 2px solid #2a3a4a;
+	border-radius: 4px;
+	box-shadow: inset 0 0 15px rgba(0,0,0,0.35);
+}
+
+/* Bottom screen (touch) bezel */
+[data-theme="3ds"] .console-screen main > :last-child {
+	border: 2px solid #2a3a4a !important;
+	border-top: 2px solid #2a3a4a !important;
+	border-radius: 4px;
+	box-shadow: inset 0 0 15px rgba(0,0,0,0.35);
+}
+
+/* Reset old border-image hinge */
+[data-theme="3ds"] .console-screen main .border-t {
+	border-image: none !important;
+}
+
+/* Circle pad (raised analog nub) */
+[data-theme="3ds"] .cd span:nth-child(1) {
+	bottom: 18px; left: 20px;
+	width: 24px; height: 24px;
+	border: 3px solid #3a4a5a;
+	border-radius: 50%;
+	background: radial-gradient(circle, #304050 40%, #253545 70%);
+	box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* ABXY buttons (diamond) */
+[data-theme="3ds"] .cd span:nth-child(2) {
+	bottom: 22px; right: 22px;
+	width: 1px; height: 1px;
+	background: transparent;
+	box-shadow:
+		0 -9px 0 4px #3a4a5a,
+		-10px 0 0 4px #3a4a5a,
+		10px 0 0 4px #3a4a5a,
+		0 9px 0 4px #3a4a5a;
+}
+
+/* Home button — glowing circle bottom center */
+[data-theme="3ds"] .cd span:nth-child(3) {
+	bottom: 8px; left: 50%;
+	transform: translateX(-50%);
+	width: 14px; height: 14px;
+	border: 2px solid #3a4a5a;
+	border-radius: 50%;
+	background: #1a2a3a;
+	box-shadow: 0 0 6px rgba(0,188,212,0.15);
+}
+
+/* 3D depth slider — right side of bezel */
+[data-theme="3ds"] .cd span:nth-child(4) {
+	top: 45%; right: 4px;
+	width: 6px; height: 32px;
+	background: #2a3a4a;
+	border-radius: 3px;
+	box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+}
+/* Slider knob */
+[data-theme="3ds"] .cd span:nth-child(4)::before {
+	content: '';
+	position: absolute;
+	top: 8px; left: -1px;
+	width: 8px; height: 10px;
+	background: linear-gradient(180deg, #4a5a6a, #3a4a5a);
+	border-radius: 2px;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* 3D parallax text effect */
+[data-theme="3ds"] .msg-appear {
+	text-shadow: 1px 1px 0 rgba(0,188,212,0.04);
+}
+
+
+/* ─── Console Frame — Responsive ─────────────────────────────────────── */
+/* Strip all console chrome on small screens for usability */
+
+@media (max-width: 640px) {
+	[data-theme] .console-frame {
+		padding: 0 !important;
+		border-radius: 0 !important;
+		background: var(--color-bg-primary) !important;
+		box-shadow: none !important;
+	}
+
+	[data-theme] .console-frame::before,
+	[data-theme] .console-frame::after,
+	[data-theme] .cd,
+	[data-theme] header::before,
+	[data-theme] header::after {
+		display: none !important;
+	}
+
+	[data-theme] .console-screen {
+		border: none !important;
+		box-shadow: none !important;
+		border-radius: 0 !important;
+		max-width: none !important;
+	}
+
+	[data-theme] .console-screen main .border-t {
+		border-top-width: 1px !important;
+		border-image: none !important;
+	}
+}

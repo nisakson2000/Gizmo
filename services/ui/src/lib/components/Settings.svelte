@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { thinkingEnabled, ttsEnabled, contextLength, settingsOpen, voiceStudioOpen, memoryManagerOpen, ttsVoiceId } from '$lib/stores/settings';
+	import { theme, themeOptions } from '$lib/stores/theme';
+	import type { ThemeName } from '$lib/stores/theme';
 
 	interface ServiceHealth {
 		[key: string]: { status: string; error?: string };
@@ -64,6 +66,25 @@
 			</div>
 
 			<div class="p-5 space-y-5">
+
+				<!-- ═══ Theme ═══ -->
+				<div>
+					<p class="text-[11px] uppercase tracking-wider text-text-dim/70 font-medium mb-3">Theme</p>
+					<div class="grid grid-cols-5 gap-1.5">
+						{#each themeOptions as t (t.id)}
+							<button
+								onclick={() => theme.set(t.id)}
+								class="flex flex-col items-center gap-1 p-2 rounded-lg transition-all {$theme === t.id
+									? 'bg-accent/15 border border-accent/40 ring-1 ring-accent/20'
+									: 'bg-bg-tertiary/30 border border-border/30 hover:border-border/60'}"
+								aria-label="Set theme to {t.label}"
+							>
+								<div class="w-5 h-5 rounded-full border border-border/40" style="background-color: {t.swatch}"></div>
+								<span class="text-[10px] text-text-secondary leading-tight">{t.label}</span>
+							</button>
+						{/each}
+					</div>
+				</div>
 
 				<!-- ═══ Model ═══ -->
 				<div>
