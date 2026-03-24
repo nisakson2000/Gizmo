@@ -96,6 +96,7 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 | `token` | `content` | Response token (streamed incrementally) |
 | `tool_call` | `tool`, `status` | Tool execution started |
 | `tool_result` | `tool`, `result` | Tool execution result |
+| `tts_info` | `message` | TTS truncation notice (when response exceeds 4,000 chars) |
 | `audio` | `url` | Audio data URL (base64 WAV) |
 | `title` | `title`, `conversation_id` | LLM-generated conversation title (async, after first exchange) |
 | `done` | `trace_id`, `conversation_id` | Generation complete |
@@ -145,7 +146,9 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `/health` | GET | Orchestrator health check |
 | `/api/services/health` | GET | Health of all backend services |
 | `/api/conversations` | GET | List all conversations (SQLite) |
+| `/api/conversations/search` | GET | Full-text search across messages (`?q=query`) |
 | `/api/conversations/{id}` | GET | Get conversation messages |
+| `/api/conversations/{id}/export` | GET | Export as markdown or JSON (`?format=markdown\|json`) |
 | `/api/conversations/{id}` | DELETE | Delete a conversation |
 | `/api/conversations/{id}/messages-from/{index}` | DELETE | Truncate messages from index onward (0-based) |
 | `/api/upload` | POST | Upload document (PDF, text, code — up to 50MB) |

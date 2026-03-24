@@ -10,6 +10,9 @@
 
 	let search = $state('');
 	let isMobile = $state(false);
+	let searchResults = $state<{ id: string; title: string; updated_at: string; snippet: string }[]>([]);
+	let searching = $state(false);
+	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function checkMobile() {
 		isMobile = window.innerWidth < 768;
@@ -64,6 +67,57 @@
 		deleteConversation(id);
 	}
 
+	async function handleExportClick(e: MouseEvent, id: string) {
+		e.stopPropagation();
+		try {
+			const resp = await fetch(`/api/conversations/${id}/export?format=markdown`);
+			if (!resp.ok) return;
+			const blob = await resp.blob();
+			const disposition = resp.headers.get('Content-Disposition') || '';
+			const match = disposition.match(/filename="(.+)"/);
+			const filename = match ? match[1] : 'conversation.md';
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = filename;
+			a.click();
+			URL.revokeObjectURL(url);
+		} catch {
+			// Export failed silently
+		}
+	}
+
+	async function doFullTextSearch() {
+		const q = search.trim();
+		if (!q || q.length < 2) { searchResults = []; return; }
+		searching = true;
+		try {
+			const resp = await fetch(`/api/conversations/search?q=${encodeURIComponent(q)}`);
+			if (resp.ok) searchResults = await resp.json();
+		} catch {
+			searchResults = [];
+		}
+		searching = false;
+	}
+
+	async function handleSearchKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && search.trim()) {
+			if (searchTimer) { clearTimeout(searchTimer); searchTimer = null; }
+			doFullTextSearch();
+		}
+	}
+
+	// Auto-trigger full-text search after 500ms of no typing
+	$effect(() => {
+		const q = search.trim();
+		if (searchTimer) clearTimeout(searchTimer);
+		if (!q || q.length < 2) { searchResults = []; return; }
+		searchTimer = setTimeout(() => {
+			doFullTextSearch();
+			searchTimer = null;
+		}, 500);
+	});
+
 	function handleNewChat() {
 		newConversation();
 		if (isMobile) sidebarOpen.set(false);
@@ -93,13 +147,34 @@
 		<div class="px-3 pb-2">
 			<input
 				type="text"
-				placeholder="Search..."
+				placeholder="Search conversations..."
 				bind:value={search}
+				onkeydown={handleSearchKeydown}
 				class="w-full px-2.5 py-1.5 bg-bg-primary/50 border border-border/30 rounded-lg text-sm text-text-primary placeholder:text-text-dim focus:outline-none focus:border-border transition-colors"
 			/>
 		</div>
 
 		<div class="flex-1 overflow-y-auto px-2">
+			{#if searching}
+				<div class="px-3 py-2 text-xs text-text-dim">Searching messages...</div>
+			{/if}
+			{#if searchResults.length > 0}
+				<div class="px-2 pt-2 pb-1 text-[11px] uppercase tracking-wider text-accent/70 font-medium">
+					Message matches
+				</div>
+				{#each searchResults as result (result.id)}
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
+						onclick={() => handleConvClick(result.id)}
+						class="px-3 py-2 rounded-lg mb-0.5 cursor-pointer hover:bg-bg-hover/50 transition-colors"
+					>
+						<div class="text-sm text-text-primary truncate">{result.title}</div>
+						<div class="text-xs text-text-dim italic mt-0.5 line-clamp-2">{result.snippet}</div>
+					</div>
+				{/each}
+				<div class="border-b border-border/20 my-2"></div>
+			{/if}
 			{#each grouped as group}
 				<div class="px-2 pt-4 pb-1 text-[11px] uppercase tracking-wider text-text-dim/70 font-medium">
 					{group.label}
@@ -115,15 +190,26 @@
 								: 'text-text-secondary hover:bg-bg-hover/50 hover:text-text-primary'}"
 					>
 						<span class="truncate text-sm flex-1">{conv.title}</span>
-						<button
-							onclick={(e) => handleDeleteClick(e, conv.id)}
-							class="ml-1 text-text-dim hover:text-error opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-							aria-label="Delete conversation"
-						>
-							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-							</svg>
-						</button>
+						<div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+							<button
+								onclick={(e) => handleExportClick(e, conv.id)}
+								class="text-text-dim hover:text-accent transition-colors p-0.5"
+								aria-label="Export conversation"
+							>
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+								</svg>
+							</button>
+							<button
+								onclick={(e) => handleDeleteClick(e, conv.id)}
+								class="text-text-dim hover:text-error transition-colors p-0.5"
+								aria-label="Delete conversation"
+							>
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+								</svg>
+							</button>
+						</div>
 					</div>
 				{/each}
 			{/each}

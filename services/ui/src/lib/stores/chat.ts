@@ -33,6 +33,7 @@ export interface Message {
 	videoUrl?: string;
 	videoFrames?: string[];
 	toolCalls?: { tool: string; status: string; result?: string }[];
+	ttsInfo?: string;
 	variants?: MessageVariant[];
 	variantIndex?: number;
 }
@@ -52,15 +53,14 @@ export const streamingThinking = writable('');
 export const streamingContent = writable('');
 export const streamingToolCalls = writable<{ tool: string; status: string; result?: string }[]>([]);
 export const currentTraceId = writable('');
+export const generatingConversationId = writable<string | null>(null);
 export const pendingVariants = writable<MessageVariant[]>([]);
 export const pendingPromptIndex = writable<number>(0);
+export const pendingTtsInfo = writable<string>('');
 
 export function newConversation() {
 	activeConversationId.set(null);
 	messages.set([]);
-	streamingThinking.set('');
-	streamingContent.set('');
-	streamingToolCalls.set([]);
 }
 
 export function addUserMessage(content: string, imageUrl?: string, videoFrames?: string[], videoUrl?: string, variants?: MessageVariant[], variantIndex?: number): string {
@@ -107,6 +107,8 @@ export function finalizeAssistantMessage(traceId: string, audioUrl?: string) {
 		pendingPromptIndex.set(0);
 	}
 
+	const ttsInfo = get(pendingTtsInfo) || undefined;
+
 	const msg: Message = {
 		id: uuid(),
 		role: 'assistant',
@@ -116,6 +118,7 @@ export function finalizeAssistantMessage(traceId: string, audioUrl?: string) {
 		traceId,
 		audioUrl,
 		toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+		ttsInfo,
 		variants,
 		variantIndex,
 	};
@@ -123,6 +126,7 @@ export function finalizeAssistantMessage(traceId: string, audioUrl?: string) {
 	streamingThinking.set('');
 	streamingContent.set('');
 	streamingToolCalls.set([]);
+	pendingTtsInfo.set('');
 }
 
 export async function loadConversations() {
@@ -150,6 +154,7 @@ export async function loadConversation(id: string) {
 					content: m.content,
 					thinking: m.thinking || '',
 					timestamp: m.timestamp,
+					audioUrl: m.audio_url || undefined,
 				}))
 			);
 		}

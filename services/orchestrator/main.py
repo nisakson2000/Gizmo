@@ -116,6 +116,10 @@ def init_db():
             FOREIGN KEY (conversation_id) REFERENCES conversations(id)
         )
     """)
+    # Add audio_url column if missing (migration for existing DBs)
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(messages)").fetchall()]
+    if "audio_url" not in cols:
+        conn.execute("ALTER TABLE messages ADD COLUMN audio_url TEXT")
     conn.commit()
     conn.close()
 
@@ -126,7 +130,7 @@ def get_db():
     return conn
 
 
-def save_message(conversation_id: str, role: str, content: str, thinking: str = ""):
+def save_message(conversation_id: str, role: str, content: str, thinking: str = "", audio_url: str = ""):
     """Save a message to the database."""
     conn = get_db()
     try:
@@ -149,8 +153,8 @@ def save_message(conversation_id: str, role: str, content: str, thinking: str = 
             )
 
         conn.execute(
-            "INSERT INTO messages (conversation_id, role, content, thinking, timestamp) VALUES (?, ?, ?, ?, ?)",
-            (conversation_id, role, content, thinking, now),
+            "INSERT INTO messages (conversation_id, role, content, thinking, timestamp, audio_url) VALUES (?, ?, ?, ?, ?, ?)",
+            (conversation_id, role, content, thinking, now, audio_url or None),
         )
         conn.commit()
     finally:
@@ -162,7 +166,7 @@ def get_conversation_messages(conversation_id: str) -> list[dict]:
     conn = get_db()
     try:
         rows = conn.execute(
-            "SELECT role, content, thinking, timestamp FROM messages WHERE conversation_id = ? ORDER BY id",
+            "SELECT role, content, thinking, timestamp, audio_url FROM messages WHERE conversation_id = ? ORDER BY id",
             (conversation_id,),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -617,20 +621,29 @@ async def ws_chat(ws: WebSocket):
                         await ws.send_json(event)
 
             # TTS if requested
+            audio_file_url = ""
             if request_tts and full_response:
+                if len(full_response) > 4000:
+                    await ws.send_json({
+                        "type": "tts_info",
+                        "message": f"Audio covers the first ~4,000 of {len(full_response)} characters",
+                    })
                 audio_data = await synthesize(
                     full_response[:4000],
                     voice_clone_data_url=voice_clone_ref,
                 )
                 if audio_data:
-                    audio_b64 = base64.b64encode(audio_data).decode()
+                    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+                    audio_filename = f"tts-{trace_id}.wav"
+                    (MEDIA_DIR / audio_filename).write_bytes(audio_data)
+                    audio_file_url = f"/api/media/{audio_filename}"
                     await ws.send_json({
                         "type": "audio",
-                        "url": f"data:audio/wav;base64,{audio_b64}",
+                        "url": audio_file_url,
                     })
 
             # Save assistant response
-            save_message(conversation_id, "assistant", full_response, full_thinking)
+            save_message(conversation_id, "assistant", full_response, full_thinking, audio_url=audio_file_url)
             conv_log.info("[%s] ASSISTANT (%s): %s", trace_id, conversation_id, full_response[:500])
 
             await ws.send_json({
@@ -874,12 +887,101 @@ async def list_conversations():
         conn.close()
 
 
+@app.get("/api/conversations/search")
+async def search_conversations(q: str = ""):
+    """Full-text search across conversation messages."""
+    if not q.strip():
+        return []
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """SELECT DISTINCT c.id, c.title, c.updated_at, m.content
+               FROM conversations c
+               JOIN messages m ON c.id = m.conversation_id
+               WHERE LOWER(m.content) LIKE '%' || LOWER(?) || '%'
+               ORDER BY c.updated_at DESC
+               LIMIT 20""",
+            (q,),
+        ).fetchall()
+    finally:
+        conn.close()
+    results = []
+    seen = set()
+    for r in rows:
+        if r["id"] in seen:
+            continue
+        seen.add(r["id"])
+        content = r["content"]
+        idx = content.lower().find(q.lower())
+        start = max(0, idx - 40)
+        snippet = content[start:start + 150]
+        if start > 0:
+            snippet = "..." + snippet
+        if start + 150 < len(content):
+            snippet += "..."
+        results.append({"id": r["id"], "title": r["title"], "updated_at": r["updated_at"], "snippet": snippet})
+    return results
+
+
 @app.get("/api/conversations/{conv_id}")
 async def get_conversation(conv_id: str):
     messages = get_conversation_messages(conv_id)
     if not messages:
         return JSONResponse(status_code=404, content={"error": "Conversation not found"})
     return {"id": conv_id, "messages": messages}
+
+
+@app.get("/api/conversations/{conv_id}/export")
+async def export_conversation(conv_id: str, format: str = "markdown"):
+    """Export a conversation as markdown or JSON."""
+    conn = get_db()
+    try:
+        conv = conn.execute(
+            "SELECT id, title, created_at, updated_at FROM conversations WHERE id = ?", (conv_id,)
+        ).fetchone()
+        if not conv:
+            return JSONResponse(status_code=404, content={"error": "Conversation not found"})
+        msgs = conn.execute(
+            "SELECT role, content, thinking, timestamp FROM messages WHERE conversation_id = ? ORDER BY id",
+            (conv_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    conv_data = dict(conv)
+    messages_data = [dict(m) for m in msgs]
+
+    if format == "json":
+        return JSONResponse(content={**conv_data, "messages": messages_data})
+
+    # Markdown export
+    title = conv_data.get("title", "Untitled")
+    export_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    lines = [f"# {title}", f"*Exported from Gizmo-AI on {export_date}*", "", "---", ""]
+    for m in messages_data:
+        role_label = "User" if m["role"] == "user" else "Gizmo"
+        ts = m.get("timestamp", "")
+        lines.append(f"**{role_label}** ({ts})")
+        lines.append("")
+        lines.append(m["content"])
+        lines.append("")
+        if m.get("thinking"):
+            lines.append("<details><summary>Thinking</summary>")
+            lines.append("")
+            lines.append(m["thinking"])
+            lines.append("")
+            lines.append("</details>")
+            lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60] or "conversation"
+    md_content = "\n".join(lines)
+    return Response(
+        content=md_content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{slug}.md"'},
+    )
 
 
 @app.delete("/api/conversations/{conv_id}")

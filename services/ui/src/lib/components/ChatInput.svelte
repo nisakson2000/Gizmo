@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { generating, addUserMessage } from '$lib/stores/chat';
+	import { generating, generatingConversationId, activeConversationId, addUserMessage } from '$lib/stores/chat';
 	import { send, stopGeneration } from '$lib/ws/client';
 	import { connectionStatus } from '$lib/stores/connection';
 	import { pendingSuggestion, thinkingEnabled, voiceStudioOpen } from '$lib/stores/settings';
@@ -41,11 +41,12 @@
 		const text = input.trim();
 		if (!text && !pendingImage && !pendingFile && !pendingVideo) return;
 		if (uploading) return;
-		if ($generating) {
+		const generatingHere = $generating && $generatingConversationId === $activeConversationId;
+		if (generatingHere) {
 			showError('Still generating — wait or click stop.');
 			return;
 		}
-		if ($connectionStatus !== 'connected') {
+		if ($connectionStatus !== 'connected' && $connectionStatus !== 'generating') {
 			showError(`Not connected (${$connectionStatus}). WebSocket may be down — check the status indicator in the header.`);
 			return;
 		}
@@ -315,7 +316,7 @@
 				onclick={handleFileUpload}
 				class="p-1.5 text-text-dim hover:text-text-secondary transition-colors flex-shrink-0 mb-0.5"
 				aria-label="Upload file"
-				disabled={$generating}
+				disabled={$generating && $generatingConversationId === $activeConversationId}
 			>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
@@ -339,14 +340,14 @@
 					? 'bg-error/20 text-error animate-pulse'
 					: 'text-text-dim hover:text-text-secondary'}"
 				aria-label={recording ? 'Stop recording' : 'Voice input'}
-				disabled={$generating}
+				disabled={$generating && $generatingConversationId === $activeConversationId}
 			>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
 				</svg>
 			</button>
 
-			{#if $generating}
+			{#if $generating && $generatingConversationId === $activeConversationId}
 				<button
 					onclick={() => stopGeneration()}
 					class="p-1.5 rounded-lg bg-text-dim/20 text-text-secondary hover:bg-text-dim/30 transition-colors flex-shrink-0 mb-0.5"

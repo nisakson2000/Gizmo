@@ -18,6 +18,11 @@
 | **Message editing** | Not supported | Hover user message → edit → resubmit |
 | **Message truncation API** | Not supported | `DELETE /api/conversations/{id}/messages-from/{index}` |
 | **Response history** | Not supported | Variant navigation with `< 1/N >` arrows, prompt-aware sync |
+| **Streaming perf** | rAF parse (~60/sec) | Debounced 150ms (~7/sec), final parse on done |
+| **Conversation export** | Not supported | Markdown/JSON export from sidebar |
+| **Full-text search** | Title-only filter | SQLite LIKE search across all messages |
+| **TTS truncation** | Silent truncation at 4,000 chars | Info message below audio player |
+| **Constitution** | 61 lines | 71 lines — added formatting and web search guidance |
 
 ### V4 Issues Resolved in V5
 

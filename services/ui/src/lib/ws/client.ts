@@ -9,6 +9,8 @@ import {
 	activeConversationId,
 	loadConversations,
 	updateConversationTitle,
+	pendingTtsInfo,
+	generatingConversationId,
 } from '$lib/stores/chat';
 import { connectionStatus } from '$lib/stores/connection';
 import { thinkingEnabled, ttsEnabled, ttsVoiceId, contextLength } from '$lib/stores/settings';
@@ -100,25 +102,47 @@ function handleEvent(data: any) {
 				});
 			});
 			break;
-		case 'audio':
-			// Audio will be attached to finalized message
-			finalizeAssistantMessage(get(currentTraceId), data.url);
+		case 'tts_info':
+			pendingTtsInfo.set(data.message || '');
+			break;
+		case 'audio': {
+			// Finalize with audio if on the right conversation
+			const genId = get(generatingConversationId);
+			const curId = get(activeConversationId);
+			if (genId === curId || curId === null) {
+				finalizeAssistantMessage(get(currentTraceId), data.url);
+			}
 			generating.set(false);
 			connectionStatus.set('connected');
 			loadConversations();
-			return; // Don't finalize again in 'done'
-		case 'done':
+			return; // done event will handle conversation_id and cleanup
+		}
+		case 'done': {
+			// Always set conversation ID if user is still on this conversation
 			if (data.conversation_id) {
-				activeConversationId.set(data.conversation_id);
+				const curId = get(activeConversationId);
+				if (curId === null || curId === data.conversation_id) {
+					activeConversationId.set(data.conversation_id);
+				}
 			}
-			// Only finalize if audio handler hasn't already done it
+			// Finalize if still generating (audio handler didn't already do it)
 			if (get(generating)) {
-				finalizeAssistantMessage(get(currentTraceId));
+				const genConvId = get(generatingConversationId);
+				const activeId = get(activeConversationId);
+				if (genConvId === activeId) {
+					finalizeAssistantMessage(get(currentTraceId));
+				}
 				generating.set(false);
 				connectionStatus.set('connected');
 			}
+			// Always cleanup
+			generatingConversationId.set(null);
+			streamingThinking.set('');
+			streamingContent.set('');
+			streamingToolCalls.set([]);
 			loadConversations();
 			break;
+		}
 		case 'title':
 			if (data.conversation_id && data.title) {
 				updateConversationTitle(data.conversation_id, data.title);
@@ -137,6 +161,7 @@ export function send(message: string, imageDataUrl?: string, videoFrames?: strin
 	if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
 	generating.set(true);
+	generatingConversationId.set(get(activeConversationId));
 	connectionStatus.set('generating');
 	streamingThinking.set('');
 	streamingContent.set('');

@@ -119,6 +119,11 @@ Everything is containerized via Podman.
 - Response history: regenerate/edit preserves all previous responses as variants with < 1/N > navigation arrows
 - Prompt-aware variants: each response tracks which prompt generated it (promptVariantIndex). Navigating responses syncs the prompt display; navigating prompts jumps to the latest response for that prompt.
 - Backend regenerate flag: WS payload `regenerate: true` skips saving duplicate user message and preserves multimodal content
+- Streaming markdown: debounced at 150ms (~7 parses/sec) instead of rAF (~60/sec), final parse on stream end
+- Conversation export: GET /api/conversations/{id}/export?format=markdown|json, download button in sidebar
+- Full-text search: GET /api/conversations/search?q=, press Enter in sidebar to search message content
+- TTS truncation info: tts_info WS event shows "Audio covers first ~4,000 of N characters" below audio player
+- Constitution: added Output Formatting and Web Search sections, tightened tool discipline and conciseness rules
 
 ## Known Issues
 - SELinux requires :Z suffix on ALL volume mounts in docker-compose.yml

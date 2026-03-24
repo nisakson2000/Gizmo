@@ -303,6 +303,9 @@
 				<audio controls src={displayAudioUrl} class="w-full h-9 rounded-lg" aria-label="TTS audio">
 					<track kind="captions" src="" default />
 				</audio>
+				{#if message.ttsInfo}
+					<p class="text-xs text-text-dim mt-1">{message.ttsInfo}</p>
+				{/if}
 			</div>
 		{/if}
 

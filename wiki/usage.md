@@ -165,7 +165,8 @@ The Code Playground offers two modes:
 - **Sidebar** shows all past conversations sorted by recency
 - **Auto-titles** — after the first exchange, the LLM generates a concise 3-5 word title (replaces truncated first message)
 - **Click a conversation** to load its history (auto-scrolls to the latest message)
-- **Search** conversations using the search box in the sidebar
+- **Search** conversations by title (instant filter as you type) or by message content (press **Enter** for full-text search across all messages)
+- **Export** a conversation as Markdown using the download button (hover to reveal) next to each conversation
 - **Delete** a conversation with the X button (hover to reveal)
 - **New Chat** starts a fresh conversation with no history
 

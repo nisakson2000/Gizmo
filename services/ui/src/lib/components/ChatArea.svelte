@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { marked } from 'marked';
 	import { tick } from 'svelte';
-	import { messages, generating, streamingThinking, streamingContent, streamingToolCalls, activeConversationId } from '$lib/stores/chat';
+	import { messages, generating, streamingThinking, streamingContent, streamingToolCalls, activeConversationId, generatingConversationId } from '$lib/stores/chat';
 	import { pendingSuggestion, voiceStudioOpen, codePlaygroundOpen } from '$lib/stores/settings';
 	import { sanitize } from '$lib/utils/sanitize';
 	import { highlightCode } from '$lib/actions/highlight';
@@ -41,7 +41,7 @@
 	let chatContainer: HTMLDivElement;
 	let userScrolled = $state(false);
 	let parsedStreamingHtml = $state('');
-	let rafId: number | null = null;
+	let parseTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function scrollToBottom() {
 		if (chatContainer && !userScrolled) {
@@ -55,22 +55,35 @@
 		userScrolled = scrollHeight - scrollTop - clientHeight > 100;
 	}
 
-	// Throttled markdown parsing for streaming content
+	function parseStreamingContent(raw: string) {
+		try {
+			parsedStreamingHtml = sanitize(marked.parse(raw) as string);
+		} catch {
+			parsedStreamingHtml = raw;
+		}
+	}
+
+	// Debounced markdown parsing — ~5-7 parses/sec instead of ~60
 	$effect(() => {
 		const raw = $streamingContent;
 		if (!raw) {
 			parsedStreamingHtml = '';
+			if (parseTimer) { clearTimeout(parseTimer); parseTimer = null; }
 			return;
 		}
-		if (rafId) cancelAnimationFrame(rafId);
-		rafId = requestAnimationFrame(() => {
-			try {
-				parsedStreamingHtml = sanitize(marked.parse(raw) as string);
-			} catch {
-				parsedStreamingHtml = raw;
-			}
-			rafId = null;
-		});
+		if (parseTimer) clearTimeout(parseTimer);
+		parseTimer = setTimeout(() => {
+			parseStreamingContent(raw);
+			parseTimer = null;
+		}, 150);
+	});
+
+	// Final parse when streaming ends
+	$effect(() => {
+		if (!$generating && $streamingContent) {
+			if (parseTimer) { clearTimeout(parseTimer); parseTimer = null; }
+			parseStreamingContent($streamingContent);
+		}
 	});
 
 	// Scroll to bottom when loading a conversation
@@ -149,7 +162,7 @@
 				</div>
 			{/each}
 
-			{#if $generating}
+			{#if $generating && $generatingConversationId === $activeConversationId}
 				<div class="mb-6 msg-appear">
 					{#if $streamingThinking}
 						<ThinkingBlock content={$streamingThinking} streaming={true} />
