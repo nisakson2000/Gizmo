@@ -483,6 +483,7 @@ async def ws_chat(ws: WebSocket):
             voice_clone_ref = msg.get("voice_clone_ref")  # base64 data URL for voice cloning
             voice_id = msg.get("voice_id")  # saved voice ID for TTS
             context_length = max(2048, min(int(msg.get("context_length", 32768)), 131072))
+            regenerate = msg.get("regenerate", False)
             # Resolve voice_id to voice_clone_ref if provided
             if voice_id and not voice_clone_ref:
                 meta_path = VOICES_DIR / f"{voice_id}.json"
@@ -502,22 +503,37 @@ async def ws_chat(ws: WebSocket):
             history_msgs = [{"role": m["role"], "content": m["content"]} for m in history]
 
             # Build user message — multimodal if image/video attached
-            if video_frames:
-                user_content = [{"type": "text", "text": user_text}]
-                for frame_url in video_frames:
-                    user_content.append({"type": "image_url", "image_url": {"url": frame_url}})
-                history_msgs.append({"role": "user", "content": user_content})
-            elif image_data:
-                user_content = [
-                    {"type": "text", "text": user_text},
-                    {"type": "image_url", "image_url": {"url": image_data}},
-                ]
-                history_msgs.append({"role": "user", "content": user_content})
+            if regenerate:
+                # User message already in DB history — replace with multimodal version if needed
+                if (image_data or video_frames) and history_msgs:
+                    history_msgs.pop()  # Remove text-only DB version
+                    if video_frames:
+                        user_content = [{"type": "text", "text": user_text}]
+                        for frame_url in video_frames:
+                            user_content.append({"type": "image_url", "image_url": {"url": frame_url}})
+                        history_msgs.append({"role": "user", "content": user_content})
+                    elif image_data:
+                        user_content = [
+                            {"type": "text", "text": user_text},
+                            {"type": "image_url", "image_url": {"url": image_data}},
+                        ]
+                        history_msgs.append({"role": "user", "content": user_content})
             else:
-                history_msgs.append({"role": "user", "content": user_text})
-
-            # Save user message
-            save_message(conversation_id, "user", user_text)
+                if video_frames:
+                    user_content = [{"type": "text", "text": user_text}]
+                    for frame_url in video_frames:
+                        user_content.append({"type": "image_url", "image_url": {"url": frame_url}})
+                    history_msgs.append({"role": "user", "content": user_content})
+                elif image_data:
+                    user_content = [
+                        {"type": "text", "text": user_text},
+                        {"type": "image_url", "image_url": {"url": image_data}},
+                    ]
+                    history_msgs.append({"role": "user", "content": user_content})
+                else:
+                    history_msgs.append({"role": "user", "content": user_text})
+                # Save user message
+                save_message(conversation_id, "user", user_text)
 
             # Build prompt
             has_vision = bool(image_data or video_frames)
@@ -625,7 +641,7 @@ async def ws_chat(ws: WebSocket):
 
             # Generate title on first exchange (exactly 2 messages: user + assistant)
             msg_count = len(get_conversation_messages(conversation_id))
-            if msg_count == 2:
+            if msg_count == 2 and not regenerate:
                 asyncio.create_task(generate_title(conversation_id, user_text, full_response, ws))
 
     except WebSocketDisconnect:

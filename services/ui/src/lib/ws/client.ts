@@ -133,7 +133,7 @@ function handleEvent(data: any) {
 	}
 }
 
-export function send(message: string, imageDataUrl?: string, videoFrames?: string[]) {
+export function send(message: string, imageDataUrl?: string, videoFrames?: string[], options?: { regenerate?: boolean }) {
 	if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
 	generating.set(true);
@@ -152,6 +152,9 @@ export function send(message: string, imageDataUrl?: string, videoFrames?: strin
 	const voiceId = get(ttsVoiceId);
 	if (voiceId) {
 		payload.voice_id = voiceId;
+	}
+	if (options?.regenerate) {
+		payload.regenerate = true;
 	}
 	if (videoFrames && videoFrames.length > 0) {
 		payload.video_frames = videoFrames;

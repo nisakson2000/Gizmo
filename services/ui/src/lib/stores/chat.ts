@@ -11,6 +11,16 @@ function uuid(): string {
 	);
 }
 
+export interface MessageVariant {
+	content: string;
+	thinking: string;
+	traceId?: string;
+	timestamp: string;
+	toolCalls?: { tool: string; status: string; result?: string }[];
+	audioUrl?: string;
+	promptVariantIndex?: number; // which user prompt variant generated this response
+}
+
 export interface Message {
 	id: string;
 	role: 'user' | 'assistant';
@@ -21,7 +31,10 @@ export interface Message {
 	audioUrl?: string;
 	imageUrl?: string;
 	videoUrl?: string;
+	videoFrames?: string[];
 	toolCalls?: { tool: string; status: string; result?: string }[];
+	variants?: MessageVariant[];
+	variantIndex?: number;
 }
 
 export interface Conversation {
@@ -39,6 +52,8 @@ export const streamingThinking = writable('');
 export const streamingContent = writable('');
 export const streamingToolCalls = writable<{ tool: string; status: string; result?: string }[]>([]);
 export const currentTraceId = writable('');
+export const pendingVariants = writable<MessageVariant[]>([]);
+export const pendingPromptIndex = writable<number>(0);
 
 export function newConversation() {
 	activeConversationId.set(null);
@@ -48,7 +63,7 @@ export function newConversation() {
 	streamingToolCalls.set([]);
 }
 
-export function addUserMessage(content: string, imageUrl?: string, videoFrames?: string[], videoUrl?: string): string {
+export function addUserMessage(content: string, imageUrl?: string, videoFrames?: string[], videoUrl?: string, variants?: MessageVariant[], variantIndex?: number): string {
 	const id = uuid();
 	const msg: Message = {
 		id,
@@ -58,6 +73,9 @@ export function addUserMessage(content: string, imageUrl?: string, videoFrames?:
 		timestamp: new Date().toISOString(),
 		imageUrl: imageUrl || (videoFrames?.length ? videoFrames[0] : undefined),
 		videoUrl,
+		videoFrames,
+		variants,
+		variantIndex,
 	};
 	messages.update((msgs) => [...msgs, msg]);
 	return id;
@@ -67,6 +85,28 @@ export function finalizeAssistantMessage(traceId: string, audioUrl?: string) {
 	const thinking = get(streamingThinking);
 	const content = get(streamingContent);
 	const toolCalls = get(streamingToolCalls);
+	const pending = get(pendingVariants);
+	const promptIdx = get(pendingPromptIndex);
+
+	const newVariant: MessageVariant = {
+		content,
+		thinking,
+		traceId,
+		timestamp: new Date().toISOString(),
+		toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+		audioUrl,
+		promptVariantIndex: pending.length > 0 ? promptIdx : undefined,
+	};
+
+	let variants: MessageVariant[] | undefined;
+	let variantIndex: number | undefined;
+	if (pending.length > 0) {
+		variants = [...pending, newVariant];
+		variantIndex = variants.length - 1;
+		pendingVariants.set([]);
+		pendingPromptIndex.set(0);
+	}
+
 	const msg: Message = {
 		id: uuid(),
 		role: 'assistant',
@@ -76,6 +116,8 @@ export function finalizeAssistantMessage(traceId: string, audioUrl?: string) {
 		traceId,
 		audioUrl,
 		toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+		variants,
+		variantIndex,
 	};
 	messages.update((msgs) => [...msgs, msg]);
 	streamingThinking.set('');
@@ -119,6 +161,12 @@ export async function loadConversation(id: string) {
 export function updateConversationTitle(id: string, title: string) {
 	conversations.update((convs) =>
 		convs.map((c) => (c.id === id ? { ...c, title } : c))
+	);
+}
+
+export function setVariantIndex(messageId: string, index: number) {
+	messages.update((msgs) =>
+		msgs.map((m) => (m.id === messageId ? { ...m, variantIndex: index } : m))
 	);
 }
 
