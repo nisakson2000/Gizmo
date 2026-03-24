@@ -1,6 +1,6 @@
 # Architecture
 
-Full technical reference for Gizmo-AI. Assumes familiarity with containers and REST APIs. <!-- v5-audit -->
+Full technical reference for Gizmo-AI. Assumes familiarity with containers and REST APIs.
 
 ---
 
