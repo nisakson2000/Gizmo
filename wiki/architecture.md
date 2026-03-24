@@ -97,6 +97,7 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 | `tool_call` | `tool`, `status` | Tool execution started |
 | `tool_result` | `tool`, `result` | Tool execution result |
 | `audio` | `url` | Audio data URL (base64 WAV) |
+| `title` | `title`, `conversation_id` | LLM-generated conversation title (async, after first exchange) |
 | `done` | `trace_id`, `conversation_id` | Generation complete |
 | `error` | `error`, `trace_id` | Error occurred |
 
@@ -145,6 +146,7 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `/api/conversations` | GET | List all conversations (SQLite) |
 | `/api/conversations/{id}` | GET | Get conversation messages |
 | `/api/conversations/{id}` | DELETE | Delete a conversation |
+| `/api/conversations/{id}/messages-from/{index}` | DELETE | Truncate messages from index onward (0-based) |
 | `/api/upload` | POST | Upload document (PDF, text, code — up to 50MB) |
 | `/api/upload-image` | POST | Upload image (returns base64 data URL — up to 50MB) |
 | `/api/upload-video` | POST | Upload video (frame extraction + server storage — up to 500MB) |

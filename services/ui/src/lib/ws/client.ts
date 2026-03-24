@@ -8,6 +8,7 @@ import {
 	finalizeAssistantMessage,
 	activeConversationId,
 	loadConversations,
+	updateConversationTitle,
 } from '$lib/stores/chat';
 import { connectionStatus } from '$lib/stores/connection';
 import { thinkingEnabled, ttsEnabled, ttsVoiceId, contextLength } from '$lib/stores/settings';
@@ -117,6 +118,11 @@ function handleEvent(data: any) {
 				connectionStatus.set('connected');
 			}
 			loadConversations();
+			break;
+		case 'title':
+			if (data.conversation_id && data.title) {
+				updateConversationTitle(data.conversation_id, data.title);
+			}
 			break;
 		case 'error':
 			generating.set(false);

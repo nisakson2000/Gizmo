@@ -40,6 +40,7 @@
 	function handleSubmit() {
 		const text = input.trim();
 		if (!text && !pendingImage && !pendingFile && !pendingVideo) return;
+		if (uploading) return;
 		if ($generating) {
 			showError('Still generating — wait or click stop.');
 			return;
@@ -78,7 +79,7 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter' && !e.shiftKey) {
+		if (e.key === 'Enter' && !e.shiftKey && !uploading) {
 			e.preventDefault();
 			handleSubmit();
 		}
@@ -358,11 +359,13 @@
 			{:else}
 				<button
 					onclick={handleSubmit}
-					disabled={!input.trim() && !pendingImage && !pendingFile && !pendingVideo}
-					class="p-1.5 rounded-lg flex-shrink-0 mb-0.5 transition-all {input.trim() || pendingImage || pendingFile || pendingVideo
-						? 'bg-accent text-white hover:bg-accent-dim'
-						: 'bg-transparent text-text-dim'}"
-					aria-label="Send message"
+					disabled={uploading || (!input.trim() && !pendingImage && !pendingFile && !pendingVideo)}
+					class="p-1.5 rounded-lg flex-shrink-0 mb-0.5 transition-all {uploading
+						? 'bg-transparent text-text-dim animate-pulse'
+						: input.trim() || pendingImage || pendingFile || pendingVideo
+							? 'bg-accent text-white hover:bg-accent-dim'
+							: 'bg-transparent text-text-dim'}"
+					aria-label={uploading ? 'Uploading...' : 'Send message'}
 				>
 					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />

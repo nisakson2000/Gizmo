@@ -109,6 +109,14 @@ Everything is containerized via Podman.
 - Voice reference audio truncated via ffmpeg to prevent TTS CUDA OOM
 - Whisper container needs security_opt: label=disable for SELinux (HuggingFace cache mount)
 
+## V5 UX Enhancements
+- Waiting indicator: pulsing "Gizmo is thinking..." with accent-colored dots shown during pre-stream delay
+- Upload guard: send button and Enter disabled during file uploads
+- Scroll-to-bottom: auto-scrolls on conversation load via $activeConversationId watch
+- LLM-generated titles: first exchange triggers async title generation (5-word max), sent via WebSocket "title" event
+- Regenerate response: hover last assistant message → regenerate button. Uses DELETE /api/conversations/{id}/messages-from/{index}
+- Message editing: hover user message → edit button → inline textarea → Save truncates history and resubmits
+
 ## Known Issues
 - SELinux requires :Z suffix on ALL volume mounts in docker-compose.yml
 - GPU container requires security_opt: ["label=disable"] for NVML access

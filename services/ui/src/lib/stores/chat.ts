@@ -116,6 +116,23 @@ export async function loadConversation(id: string) {
 	}
 }
 
+export function updateConversationTitle(id: string, title: string) {
+	conversations.update((convs) =>
+		convs.map((c) => (c.id === id ? { ...c, title } : c))
+	);
+}
+
+export async function truncateMessagesFrom(index: number): Promise<boolean> {
+	const convId = get(activeConversationId);
+	if (!convId) return false;
+	try {
+		const resp = await fetch(`/api/conversations/${convId}/messages-from/${index}`, { method: 'DELETE' });
+		return resp.ok;
+	} catch {
+		return false;
+	}
+}
+
 export async function deleteConversation(id: string) {
 	try {
 		await fetch(`/api/conversations/${id}`, { method: 'DELETE' });

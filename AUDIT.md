@@ -2,6 +2,28 @@
 
 ---
 
+## V5 Status (2026-03-23)
+
+**Build:** Gizmo-AI V5, Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf + Qwen3-TTS-12Hz-1.7B-Base + Whisper (faster-whisper-base)
+
+### Changes from V4
+
+| Change | V4 | V5 |
+|--------|----|----|
+| **Waiting indicator** | No feedback during pre-stream delay | Pulsing "Gizmo is thinking..." with accent dots |
+| **Upload guard** | Send button active during uploads | Send/Enter disabled while uploading |
+| **Scroll on load** | No auto-scroll on conversation load | Auto-scrolls to latest message |
+| **Conversation titles** | First 80 chars of first message (truncated) | LLM-generated concise titles (max 5 words) |
+| **Regenerate response** | Not supported | Hover last assistant message → regenerate button |
+| **Message editing** | Not supported | Hover user message → edit → resubmit |
+| **Message truncation API** | Not supported | `DELETE /api/conversations/{id}/messages-from/{index}` |
+
+### V4 Issues Resolved in V5
+
+All V4 code issues were resolved in the previous commit (b313c53). V5 focuses on UX enhancements.
+
+---
+
 ## V4 Audit (2026-03-17)
 
 **Auditor:** Claude Code

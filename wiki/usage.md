@@ -163,12 +163,18 @@ The Code Playground offers two modes:
 ## Conversation Management
 
 - **Sidebar** shows all past conversations sorted by recency
-- **Click a conversation** to load its history
+- **Auto-titles** — after the first exchange, the LLM generates a concise 3-5 word title (replaces truncated first message)
+- **Click a conversation** to load its history (auto-scrolls to the latest message)
 - **Search** conversations using the search box in the sidebar
 - **Delete** a conversation with the X button (hover to reveal)
 - **New Chat** starts a fresh conversation with no history
 
 Conversations are stored in a server-side SQLite database, accessible from any device on your network (not limited to a single browser origin like localStorage).
+
+## Regenerate & Edit
+
+- **Regenerate**: Hover the last assistant message to reveal the **Regenerate** button (cycle icon). Click it to delete the response and re-send the same user message for a fresh answer.
+- **Edit**: Hover any user message to reveal the **Edit** button (pencil icon). Click it to open an inline editor. Modify the text and click **Save** — everything from that message onward is deleted and the edited message is resubmitted. Press **Escape** or **Cancel** to discard changes.
 
 ## Settings
 

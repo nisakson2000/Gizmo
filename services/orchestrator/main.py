@@ -385,6 +385,51 @@ app.add_middleware(
 )
 
 
+# --- Title Generation ---
+
+
+async def generate_title(conv_id: str, user_message: str, assistant_response: str, ws: WebSocket):
+    """Generate a concise conversation title via the LLM. Fire-and-forget."""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{LLAMA_URL}/v1/chat/completions",
+                json={
+                    "model": "gizmo",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "Generate a concise title (maximum 5 words) for this conversation. "
+                                       "Respond with ONLY the title text, nothing else. "
+                                       "No quotes, no punctuation unless part of the title.",
+                        },
+                        {"role": "user", "content": user_message[:500]},
+                    ],
+                    "max_tokens": 30,
+                    "temperature": 0.3,
+                    "stream": False,
+                    "chat_template_kwargs": {"enable_thinking": False},
+                },
+            )
+            if resp.status_code != 200:
+                return
+            data = resp.json()
+            title = data["choices"][0]["message"]["content"].strip().strip('"\'')
+            if not title:
+                return
+
+        conn = get_db()
+        try:
+            conn.execute("UPDATE conversations SET title = ? WHERE id = ?", (title, conv_id))
+            conn.commit()
+        finally:
+            conn.close()
+
+        await ws.send_json({"type": "title", "title": title, "conversation_id": conv_id})
+    except Exception as e:
+        error_log.error("Title generation failed for %s: %s", conv_id, e)
+
+
 # --- Health ---
 
 
@@ -577,6 +622,11 @@ async def ws_chat(ws: WebSocket):
                 "trace_id": trace_id,
                 "conversation_id": conversation_id,
             })
+
+            # Generate title on first exchange (exactly 2 messages: user + assistant)
+            msg_count = len(get_conversation_messages(conversation_id))
+            if msg_count == 2:
+                asyncio.create_task(generate_title(conversation_id, user_text, full_response, ws))
 
     except WebSocketDisconnect:
         pass
@@ -826,6 +876,28 @@ async def delete_conversation(conv_id: str):
     finally:
         conn.close()
     return {"deleted": conv_id}
+
+
+@app.delete("/api/conversations/{conv_id}/messages-from/{index}")
+async def delete_messages_from(conv_id: str, index: int):
+    """Delete all messages at position `index` and after (0-based insertion order)."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id FROM messages WHERE conversation_id = ? ORDER BY id ASC",
+            (conv_id,),
+        ).fetchall()
+        if not rows:
+            return JSONResponse(status_code=404, content={"error": "Conversation not found"})
+        if index < 0 or index >= len(rows):
+            return JSONResponse(status_code=400, content={"error": f"Index {index} out of range (0-{len(rows)-1})"})
+        ids_to_delete = [r["id"] for r in rows[index:]]
+        placeholders = ",".join("?" * len(ids_to_delete))
+        conn.execute(f"DELETE FROM messages WHERE id IN ({placeholders})", ids_to_delete)
+        conn.commit()
+    finally:
+        conn.close()
+    return {"deleted": len(ids_to_delete)}
 
 
 # --- Memory ---

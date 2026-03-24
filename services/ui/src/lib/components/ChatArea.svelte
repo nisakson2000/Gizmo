@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { marked } from 'marked';
-	import { messages, generating, streamingThinking, streamingContent, streamingToolCalls } from '$lib/stores/chat';
+	import { tick } from 'svelte';
+	import { messages, generating, streamingThinking, streamingContent, streamingToolCalls, activeConversationId } from '$lib/stores/chat';
 	import { pendingSuggestion, voiceStudioOpen, codePlaygroundOpen } from '$lib/stores/settings';
 	import { sanitize } from '$lib/utils/sanitize';
 	import { highlightCode } from '$lib/actions/highlight';
@@ -69,6 +70,17 @@
 				parsedStreamingHtml = raw;
 			}
 			rafId = null;
+		});
+	});
+
+	// Scroll to bottom when loading a conversation
+	$effect(() => {
+		$activeConversationId;
+		tick().then(() => {
+			if (chatContainer) {
+				userScrolled = false;
+				chatContainer.scrollTop = chatContainer.scrollHeight;
+			}
 		});
 	});
 
@@ -153,10 +165,13 @@
 							<span class="streaming-cursor">|</span>
 						</div>
 					{:else if !$streamingThinking && $streamingToolCalls.length === 0}
-						<div class="flex gap-1 py-2">
-							<div class="w-1.5 h-1.5 bg-text-dim rounded-full animate-bounce" style="animation-delay: 0ms"></div>
-							<div class="w-1.5 h-1.5 bg-text-dim rounded-full animate-bounce" style="animation-delay: 150ms"></div>
-							<div class="w-1.5 h-1.5 bg-text-dim rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+						<div class="flex items-center gap-2 py-2">
+							<div class="flex gap-1">
+								<div class="w-1.5 h-1.5 bg-accent-dim rounded-full thinking-dot"></div>
+								<div class="w-1.5 h-1.5 bg-accent-dim rounded-full thinking-dot" style="animation-delay: 150ms"></div>
+								<div class="w-1.5 h-1.5 bg-accent-dim rounded-full thinking-dot" style="animation-delay: 300ms"></div>
+							</div>
+							<span class="text-xs text-accent-dim thinking-pulse">Gizmo is thinking...</span>
 						</div>
 					{/if}
 				</div>
