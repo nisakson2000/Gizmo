@@ -603,8 +603,12 @@ async def ws_chat(ws: WebSocket):
                     })
                     break
 
-            # Execute tool calls if any
-            if tool_calls_pending:
+            # Execute tool calls — multi-round loop (up to 5 rounds)
+            max_tool_rounds = 5
+            tool_round = 0
+            while tool_calls_pending and tool_round < max_tool_rounds:
+                tool_round += 1
+
                 # Build single assistant message with all tool calls (matches OpenAI protocol)
                 messages.append({
                     "role": "assistant",
@@ -620,7 +624,7 @@ async def ws_chat(ws: WebSocket):
                 })
 
                 for tc in tool_calls_pending:
-                    conv_log.info("[%s] TOOL_CALL: %s(%s)", trace_id, tc["name"], tc["arguments"][:200])
+                    conv_log.info("[%s] TOOL_CALL [round %d]: %s(%s)", trace_id, tool_round, tc["name"], tc["arguments"][:200])
                     try:
                         args = json.loads(tc["arguments"]) if isinstance(tc["arguments"], str) else tc["arguments"]
                         result = await execute_tool(tc["name"], args)
@@ -642,13 +646,30 @@ async def ws_chat(ws: WebSocket):
                     })
 
                 # Continue generation with tool results
-                async for event in stream_chat(messages, thinking_enabled=False, tools=False):
+                tool_calls_pending = []
+                async for event in stream_chat(messages, thinking_enabled=False, tools=True):
                     if event["type"] == "token":
                         full_response += event["content"]
                         await ws.send_json(event)
                     elif event["type"] == "thinking":
                         full_thinking += event["content"]
                         await ws.send_json(event)
+                    elif event["type"] == "tool_call":
+                        tool_calls_pending.append(event)
+                        await ws.send_json({
+                            "type": "tool_call",
+                            "tool": event["name"],
+                            "status": "running",
+                        })
+                    elif event["type"] == "error":
+                        error_log.error("[%s] Stream error (tool round %d): %s", trace_id, tool_round, event["error"])
+                        await ws.send_json({
+                            "type": "error",
+                            "error": event["error"],
+                            "trace_id": trace_id,
+                        })
+                        tool_calls_pending = []  # stop looping on error
+                        break
 
             # TTS if requested
             audio_file_url = ""

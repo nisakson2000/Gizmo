@@ -35,7 +35,7 @@ TOOL_DEFINITIONS = [
                 "properties": {
                     "filename": {
                         "type": "string",
-                        "description": "The memory filename to read",
+                        "description": "The memory filename to read (e.g. 'user_name.txt')",
                     },
                     "subdir": {
                         "type": "string",
@@ -87,6 +87,7 @@ TOOL_DEFINITIONS = [
                         "description": "Filter to specific subdirectory (optional)",
                     },
                 },
+                "required": [],
             },
         },
     },
@@ -105,6 +106,8 @@ TOOL_DEFINITIONS = [
                     "timeout": {
                         "type": "integer",
                         "description": "Execution timeout in seconds (default 10, max 30)",
+                        "minimum": 1,
+                        "maximum": 30,
                     },
                 },
                 "required": ["code"],

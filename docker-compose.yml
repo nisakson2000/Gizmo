@@ -30,6 +30,10 @@ services:
       --ctx-size 32768
       --n-gpu-layers 99
       --flash-attn on
+      --cache-type-k q8_0
+      --cache-type-v q8_0
+      --batch-size 4096
+      --ubatch-size 1024
       --threads 8
       --parallel 2
       --cont-batching
