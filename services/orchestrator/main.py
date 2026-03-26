@@ -21,9 +21,12 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
+from llm import stream_chat as _llm_stream_chat, LLAMA_URL
 from memory import get_relevant_memories, list_memories, write_memory, read_memory, delete_memory
 from search import web_search
 from tools import TOOL_DEFINITIONS, execute_tool
+from tracker import router as tracker_router
+from tracker_db import init_tracker_db
 from tts import synthesize
 
 VISION_PROMPT = """
@@ -311,107 +314,14 @@ def build_messages(
 
 
 # --- Streaming ---
+# Core streaming logic lives in llm.py. This wrapper passes TOOL_DEFINITIONS.
 
 
-async def stream_chat(
-    messages: list[dict],
-    thinking_enabled: bool = False,
-    tools: bool = True,
-):
-    """Stream chat completion from llama.cpp, yielding parsed events.
-
-    Uses llama.cpp's native enable_thinking API which separates thinking
-    into reasoning_content field in the streaming delta.
-    """
-    payload = {
-        "model": "gizmo",
-        "messages": messages,
-        "stream": True,
-        "max_tokens": MAX_RESPONSE_TOKENS,
-        "temperature": 0.7,
-        "top_p": 0.9,
-        "chat_template_kwargs": {"enable_thinking": thinking_enabled},
-    }
-
-    if tools:
-        payload["tools"] = TOOL_DEFINITIONS
-
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        async with client.stream(
-            "POST",
-            f"{LLAMA_URL}/v1/chat/completions",
-            json=payload,
-        ) as resp:
-            if resp.status_code != 200:
-                body = await resp.aread()
-                yield {"type": "error", "error": f"llama.cpp error {resp.status_code}: {body.decode()}"}
-                return
-
-            tool_calls_accum = {}
-            line_iter = resp.aiter_lines().__aiter__()
-
-            while True:
-                try:
-                    async with asyncio.timeout(60):
-                        line = await line_iter.__anext__()
-                except StopAsyncIteration:
-                    break
-                except TimeoutError:
-                    yield {"type": "error", "error": "Model response timed out (no activity for 60s). Try again."}
-                    return
-
-                if not line.startswith("data: "):
-                    continue
-                data_str = line[6:]
-                if data_str.strip() == "[DONE]":
-                    break
-
-                try:
-                    data = json.loads(data_str)
-                except json.JSONDecodeError:
-                    continue
-
-                choice = data.get("choices", [{}])[0]
-                delta = choice.get("delta", {})
-                finish = choice.get("finish_reason")
-
-                # Handle tool calls from structured API response
-                if "tool_calls" in delta:
-                    for tc in delta["tool_calls"]:
-                        idx = tc.get("index", 0)
-                        if idx not in tool_calls_accum:
-                            tool_calls_accum[idx] = {
-                                "id": tc.get("id", f"call_{idx}"),
-                                "name": "",
-                                "arguments": "",
-                            }
-                        if "function" in tc:
-                            if "name" in tc["function"]:
-                                tool_calls_accum[idx]["name"] = tc["function"]["name"]
-                            if "arguments" in tc["function"]:
-                                tool_calls_accum[idx]["arguments"] += tc["function"]["arguments"]
-                    continue
-
-                # Handle reasoning_content (thinking tokens)
-                reasoning = delta.get("reasoning_content")
-                if reasoning:
-                    yield {"type": "thinking", "content": reasoning}
-
-                # Handle content (response tokens)
-                content = delta.get("content")
-                if content:
-                    yield {"type": "token", "content": content}
-
-                # Handle finish with tool calls
-                if finish == "tool_calls" and tool_calls_accum:
-                    for idx in sorted(tool_calls_accum.keys()):
-                        tc = tool_calls_accum[idx]
-                        yield {
-                            "type": "tool_call",
-                            "id": tc["id"],
-                            "name": tc["name"],
-                            "arguments": tc["arguments"],
-                        }
+async def stream_chat(messages, thinking_enabled=False, tools=True):
+    """Stream chat from llama.cpp. Wrapper around llm.stream_chat that passes chat tool definitions."""
+    tool_defs = TOOL_DEFINITIONS if tools else None
+    async for event in _llm_stream_chat(messages, tools=tool_defs, thinking_enabled=thinking_enabled):
+        yield event
 
 
 # --- App ---
@@ -420,6 +330,7 @@ async def stream_chat(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    init_tracker_db()
     prune_conversations()
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     yield
@@ -434,6 +345,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(tracker_router)
 
 
 # --- Title Generation ---

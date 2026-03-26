@@ -318,7 +318,7 @@
 		</div>
 	{/if}
 	<div class="max-w-3xl mx-auto">
-		<div class="flex items-end gap-2 bg-bg-secondary border border-border/60 rounded-2xl px-3 py-2 focus-within:border-accent/40 transition-colors">
+		<div class="flex items-end gap-2 bg-bg-secondary border border-border/60 rounded-2xl px-4 py-2.5 focus-within:border-accent/40 transition-colors">
 			<button
 				onclick={handleFileUpload}
 				class="p-1.5 text-text-dim hover:text-text-secondary transition-colors flex-shrink-0 mb-0.5"
@@ -338,7 +338,7 @@
 				placeholder={$connectionStatus === 'connected' || $connectionStatus === 'generating' ? (pendingVideo ? 'Ask about the video...' : pendingImage ? 'Ask about the image...' : pendingFile ? 'Ask about the file...' : 'Message Gizmo...') : 'Connecting...'}
 				disabled={$connectionStatus === 'disconnected'}
 				rows="1"
-				class="flex-1 resize-none bg-transparent text-text-primary placeholder:text-text-dim focus:outline-none text-[15px] leading-[1.5] max-h-[200px] py-1"
+				class="flex-1 resize-none bg-transparent text-text-primary placeholder:text-text-dim focus:outline-none text-[15px] leading-[1.5] max-h-[200px] py-1 pl-1"
 			></textarea>
 
 			<button

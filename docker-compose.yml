@@ -111,6 +111,7 @@ services:
       - ./logs:/app/logs:rw,Z
       - ./voices:/app/voices:rw,Z
       - ./media:/app/media:rw,Z
+      - ./tracker:/app/tracker:rw,Z
       - /run/user/1000/podman/podman.sock:/run/podman/podman.sock
     environment:
       - LLAMA_HOST=gizmo-llama

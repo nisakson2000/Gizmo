@@ -10,6 +10,7 @@ memory/
 logs/
 media/
 voices/
+/tracker/
 *.log
 *.jsonl
 
@@ -33,6 +34,9 @@ build/
 # System
 .DS_Store
 *.swp
+
+# Claude Code sessions
+.claude/
 
 # Tasks (local only)
 tasks/

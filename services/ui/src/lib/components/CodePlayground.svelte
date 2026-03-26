@@ -1,12 +1,34 @@
 <script lang="ts">
 	import { codePlaygroundOpen } from '$lib/stores/settings';
 	import { pendingSuggestion } from '$lib/stores/settings';
+	import { toast } from '$lib/stores/toast';
 
 	let code = $state('');
 	let running = $state(false);
 	let output = $state<{ stdout: string; stderr: string; exit_code: number; timed_out: boolean } | null>(null);
 	let error = $state('');
 	let timeout = $state(10);
+	let copied = $state(false);
+
+	// Reset state when modal opens
+	$effect(() => {
+		if ($codePlaygroundOpen) {
+			code = '';
+			output = null;
+			error = '';
+			running = false;
+			copied = false;
+		}
+	});
+
+	async function copyOutput() {
+		if (!output) return;
+		const text = [output.stdout, output.stderr].filter(Boolean).join('\n');
+		await navigator.clipboard.writeText(text);
+		copied = true;
+		toast('Copied to clipboard', 'success');
+		setTimeout(() => { copied = false; }, 1500);
+	}
 
 	async function runDirect() {
 		if (!code.trim() || running) return;
@@ -188,6 +210,21 @@
 								<span class="text-xs font-mono {output.exit_code === 0 ? 'text-success' : 'text-error'}">
 									exit {output.exit_code}
 								</span>
+								<button
+									onclick={copyOutput}
+									class="p-0.5 rounded text-text-dim hover:text-text-primary transition-colors"
+									aria-label="Copy output"
+								>
+									{#if copied}
+										<svg class="w-3.5 h-3.5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+										</svg>
+									{:else}
+										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+										</svg>
+									{/if}
+								</button>
 							</div>
 						</div>
 						<div class="px-4 py-3 max-h-64 overflow-y-auto">

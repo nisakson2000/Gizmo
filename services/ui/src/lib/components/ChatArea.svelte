@@ -155,13 +155,13 @@
 	{:else}
 		<div class="max-w-3xl mx-auto px-4 py-6">
 			{#each $messages as message (message.id)}
-				<div class="msg-appear">
+				<div class="msg-appear" data-role={message.role}>
 					<ChatMessage {message} />
 				</div>
 			{/each}
 
 			{#if $generating && $generatingConversationId === $activeConversationId}
-				<div class="mb-6 msg-appear">
+				<div class="mb-6 msg-appear" data-role="assistant">
 					{#if $streamingThinking}
 						<ThinkingBlock content={$streamingThinking} streaming={true} />
 					{/if}

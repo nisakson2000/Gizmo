@@ -1,0 +1,229 @@
+import { writable, get } from 'svelte/store';
+
+// ── Persisted writable (same pattern as settings.ts) ──────────────────
+
+function persistedWritable<T>(key: string, defaultValue: T) {
+	const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+	const initial = stored !== null ? JSON.parse(stored) : defaultValue;
+	const store = writable<T>(initial);
+	if (typeof localStorage !== 'undefined') {
+		store.subscribe((value) => localStorage.setItem(key, JSON.stringify(value)));
+	}
+	return store;
+}
+
+// ── Interfaces ────────────────────────────────────────────────────────
+
+export interface Task {
+	id: string;
+	parent_id: string | null;
+	title: string;
+	description: string;
+	status: 'todo' | 'in_progress' | 'done' | 'blocked';
+	priority: 'urgent' | 'high' | 'medium' | 'low';
+	due_date: string | null;
+	tags: string[];
+	recurrence: string | null;
+	created_at: string;
+	updated_at: string;
+	completed_at: string | null;
+	subtasks?: Task[];
+}
+
+export interface Note {
+	id: string;
+	title: string;
+	content: string;
+	tags: string[];
+	pinned: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface TaskFilter {
+	status: string;
+	priority: string;
+	tag: string;
+	sort: string;
+}
+
+// ── Stores ────────────────────────────────────────────────────────────
+
+export const tasks = writable<Task[]>([]);
+export const notes = writable<Note[]>([]);
+export const allTags = writable<string[]>([]);
+
+export const activeTab = persistedWritable<'tasks' | 'notes'>('gizmo:tracker:tab', 'tasks');
+export const taskFilter = persistedWritable<TaskFilter>('gizmo:tracker:filter', {
+	status: '',
+	priority: '',
+	tag: '',
+	sort: 'priority',
+});
+export const selectedTaskId = writable<string | null>(null);
+export const selectedNoteId = writable<string | null>(null);
+export const trackerChatOpen = persistedWritable<boolean>('gizmo:tracker:chat', true);
+
+// ── Task API ──────────────────────────────────────────────────────────
+
+export async function loadTasks(filters?: Partial<TaskFilter>) {
+	try {
+		const params = new URLSearchParams();
+		const f = filters || get(taskFilter);
+		if (f.status) params.set('status', f.status);
+		if (f.priority) params.set('priority', f.priority);
+		if (f.tag) params.set('tag', f.tag);
+		if (f.sort) params.set('sort', f.sort);
+		const qs = params.toString();
+		const resp = await fetch(`/api/tracker/tasks${qs ? '?' + qs : ''}`);
+		if (resp.ok) {
+			const data = await resp.json();
+			tasks.set(data.tasks || []);
+		}
+	} catch {
+		// Service unavailable
+	}
+}
+
+export async function createTask(data: Partial<Task>) {
+	try {
+		const resp = await fetch('/api/tracker/tasks', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data),
+		});
+		if (resp.ok) {
+			await loadTasks();
+			await loadTags();
+		}
+	} catch {
+		// Service unavailable
+	}
+}
+
+export async function updateTask(id: string, data: Partial<Task>) {
+	try {
+		const resp = await fetch(`/api/tracker/tasks/${id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data),
+		});
+		if (resp.ok) {
+			await loadTasks();
+			await loadTags();
+		}
+	} catch {
+		// Service unavailable
+	}
+}
+
+export async function completeTask(id: string) {
+	try {
+		const resp = await fetch(`/api/tracker/tasks/${id}/complete`, {
+			method: 'PATCH',
+		});
+		if (resp.ok) {
+			await loadTasks();
+		}
+	} catch {
+		// Service unavailable
+	}
+}
+
+export async function deleteTask(id: string) {
+	try {
+		const resp = await fetch(`/api/tracker/tasks/${id}`, {
+			method: 'DELETE',
+		});
+		if (resp.ok) {
+			tasks.update((t) => t.filter((task) => task.id !== id));
+			if (get(selectedTaskId) === id) {
+				selectedTaskId.set(null);
+			}
+			await loadTags();
+		}
+	} catch {
+		// Service unavailable
+	}
+}
+
+// ── Note API ──────────────────────────────────────────────────────────
+
+export async function loadNotes(filters?: { search?: string; pinned?: boolean }) {
+	try {
+		const params = new URLSearchParams();
+		if (filters?.search) params.set('search', filters.search);
+		if (filters?.pinned !== undefined) params.set('pinned', String(filters.pinned));
+		const qs = params.toString();
+		const resp = await fetch(`/api/tracker/notes${qs ? '?' + qs : ''}`);
+		if (resp.ok) {
+			const data = await resp.json();
+			notes.set(data.notes || []);
+		}
+	} catch {
+		// Service unavailable
+	}
+}
+
+export async function createNote(data: Partial<Note>) {
+	try {
+		const resp = await fetch('/api/tracker/notes', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data),
+		});
+		if (resp.ok) {
+			await loadNotes();
+			await loadTags();
+		}
+	} catch {
+		// Service unavailable
+	}
+}
+
+export async function updateNote(id: string, data: Partial<Note>) {
+	try {
+		const resp = await fetch(`/api/tracker/notes/${id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data),
+		});
+		if (resp.ok) {
+			await loadNotes();
+			await loadTags();
+		}
+	} catch {
+		// Service unavailable
+	}
+}
+
+export async function deleteNote(id: string) {
+	try {
+		const resp = await fetch(`/api/tracker/notes/${id}`, {
+			method: 'DELETE',
+		});
+		if (resp.ok) {
+			notes.update((n) => n.filter((note) => note.id !== id));
+			if (get(selectedNoteId) === id) {
+				selectedNoteId.set(null);
+			}
+			await loadTags();
+		}
+	} catch {
+		// Service unavailable
+	}
+}
+
+// ── Tags API ──────────────────────────────────────────────────────────
+
+export async function loadTags() {
+	try {
+		const resp = await fetch('/api/tracker/tags');
+		if (resp.ok) {
+			const data = await resp.json();
+			allTags.set(data.tags || []);
+		}
+	} catch {
+		// Service unavailable
+	}
+}
