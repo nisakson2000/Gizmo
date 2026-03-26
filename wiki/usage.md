@@ -150,8 +150,10 @@ Open the Code Playground via the **Code** suggestion card on the home screen or 
 
 The Code Playground offers two modes:
 
-- **Run** — Execute Python code directly in a sandboxed container. You see stdout, stderr, and exit code immediately. The sandbox has no network access, 256MB RAM limit, and a read-only filesystem. Libraries available: numpy, pandas, matplotlib, sympy, scipy.
+- **Run** — Execute Python code directly in a sandboxed container. You see stdout, stderr, and exit code immediately. Click the **clipboard icon** in the output header to copy results. The sandbox has no network access, 256MB RAM limit, and a read-only filesystem. Libraries available: numpy, pandas, matplotlib, sympy, scipy.
 - **Ask Gizmo** — Send your code to the chat as a markdown code block for Gizmo to run and explain.
+
+The playground resets to a clean state each time you open it.
 
 **Shortcuts:**
 - **Ctrl+Enter** — Run the code
@@ -200,15 +202,45 @@ Gizmo-AI includes a Nintendo console-inspired theme system. Select a theme in **
 
 Handheld themes (GBA, DS, 3DS, Switch) feature physical console elements — buttons, analog sticks, branded labels, and screen bezels that make the UI resemble the actual device. DS and 3DS themes show two separate screen bezels with a visible hinge gap between the chat area and input area.
 
-All console chrome is stripped on mobile screens (< 640px) for usability.
+**Per-console enhancements:**
+- **Sound effects** — each console has its own unique sonic identity (NES harsh square waves, SNES warm echo, GBA tinny chimes, N64 bassy pitch bends, GameCube crystalline plinks, Wii bubbly detuned tones, Switch ultra-short tactile clicks, DS cute sine, 3DS refined delay). Enable in Settings → Sounds.
+- **Screen effects** — subtle display technology overlays: CRT phosphor vignette (NES), warm phosphor glow (SNES), LCD dot matrix grid (GBA), distance fog (N64), ambient indigo glow (GameCube), horizontal stripes (Wii), neon Joy-Con bleed (Switch), touch crosshair (DS), stereoscopic parallax (3DS)
+- **Message styling** — assistant and user messages styled per console: RPG dialog boxes with double borders and blinking prompt (8-bit), Gouraud-gradient panels (N64), glassy translucent cards (GameCube), white glossy plastic with sheen (Wii), flat neon-accent cards (Switch), blue/cyan bordered cards (DS/3DS)
+- **Boot sequences** — animated startup screen plays once per session when switching themes, with per-console sound. Includes CRT static (NES), converging stars (SNES), white flash (GBA), 3D spinning cube (N64), dropping cube with impact flash (GameCube), expanding ring ripples (Wii), Joy-Con click flash (Switch), screen flash pulse (DS), parallax depth text (3DS). Click to dismiss or wait 2.8s.
+- **Interactive buttons** — console frame buttons are clickable: power replays boot sequence, reset starts new chat, eject opens file picker
+
+All console chrome and screen effects are stripped on mobile screens (< 640px) for usability.
+
+## Task Tracker
+
+Access via the **Tasks** icon in the left navigation rail, or navigate to `/tracker`.
+
+The Tracker is a built-in task and note management system with LLM integration.
+
+**Tasks:**
+- Create, edit, and delete tasks with title, description, status, priority, tags, and due date
+- Set recurrence (daily, weekly, monthly) for repeating tasks
+- Add subtasks for breaking work into smaller pieces
+- Filter by status, priority, or tag
+- Mark complete with a single click
+
+**Notes:**
+- Create and edit freeform notes with title, content, and tags
+- Filter by tag
+
+**LLM Chat:**
+- Use the chat panel within the Tracker to create tasks via natural language
+- Example: "Add a high priority task to review the security audit by Friday"
+- The LLM parses your intent and creates structured tasks automatically
 
 ## Settings
 
-Access via the **gear icon** in the header.
+Access via the **Settings** icon at the bottom of the left navigation rail.
 
 | Setting | Description |
 |---------|-------------|
 | **Theme** | Select a visual theme (Default + 9 Nintendo console themes) |
+| **Sounds** | Toggle per-console sound effects for UI interactions |
 | **Read Responses Aloud** | Toggle spoken responses ON/OFF (Qwen3-TTS, GPU-accelerated) |
 | **TTS Voice** | Select which cloned voice to use for chat TTS (default or any saved voice) |
 | **Voice Studio** | Shortcut to open Voice Studio |

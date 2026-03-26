@@ -87,7 +87,7 @@ The UI is a SvelteKit app using Svelte 5 runes mode:
 - **Props:** Use `$props()` with `$bindable()` for two-way binding
 - **Styling:** TailwindCSS with custom design tokens defined in `app.css`
 - **Components:** `services/ui/src/lib/components/`
-- **Stores:** `services/ui/src/lib/stores/` (chat.ts, settings.ts, connection.ts, theme.ts, toast.ts)
+- **Stores:** `services/ui/src/lib/stores/` (chat.ts, settings.ts, connection.ts, theme.ts, toast.ts, sounds.ts, tracker.ts)
 
 **Important:** UI changes require rebuilding the container image:
 ```bash
