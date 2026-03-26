@@ -1102,7 +1102,7 @@ async def api_search(q: str):
 
 @app.post("/api/run-code")
 async def api_run_code(request: Request):
-    """Execute Python code in the sandbox container."""
+    """Execute code in the sandbox container."""
     from sandbox import run_code as sandbox_run
     try:
         body = await request.json()
@@ -1111,9 +1111,10 @@ async def api_run_code(request: Request):
     code = body.get("code", "")
     if not code.strip():
         return JSONResponse(status_code=400, content={"error": "No code provided"})
+    language = body.get("language", "python")
     timeout = min(max(int(body.get("timeout", 10)), 1), 30)
     try:
-        result = await sandbox_run(code, timeout)
+        result = await sandbox_run(code, language, timeout)
     except Exception as e:
         error_log.error("Sandbox execution error: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": f"Sandbox error: {e}"})

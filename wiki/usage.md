@@ -148,19 +148,30 @@ Open the Memory Manager from **Settings → Memory Manager** to view and manage 
 
 Open the Code Playground via the **Code** suggestion card on the home screen or from the chat area.
 
-The Code Playground offers two modes:
+Select a language from the dropdown in the header. Languages are grouped into **Executable** (server-side sandbox) and **Preview** (client-side rendering).
 
-- **Run** — Execute Python code directly in a sandboxed container. You see stdout, stderr, and exit code immediately. Click the **clipboard icon** in the output header to copy results. The sandbox has no network access, 256MB RAM limit, and a read-only filesystem. Libraries available: numpy, pandas, matplotlib, sympy, scipy.
-- **Ask Gizmo** — Send your code to the chat as a markdown code block for Gizmo to run and explain.
+**Executable languages** (Python, JavaScript, Bash, C, C++, Go, Lua):
+- Code runs in an isolated Podman container with no network, 256MB RAM, read-only filesystem
+- Python includes numpy, pandas, matplotlib, sympy, scipy
+- Compiled languages (C, C++, Go) compile and run in one step — use higher timeouts (15-20s)
+- See stdout, stderr, exit code; click the clipboard icon to copy output
+- **Ask Gizmo** — send code to chat for Gizmo to run and explain
 
-The playground resets to a clean state each time you open it.
+**Markup preview** (HTML, CSS, SVG, Markdown):
+- Renders client-side in an iframe — no server execution
+- CSS provides sample HTML elements for styling preview
+- SVG renders on a dark background
+- Markdown renders with dark-themed styling
+- The "Ask Gizmo" button and timeout selector are hidden for markup languages
+
+The playground resets to a clean state each time you open it (including language selection).
 
 **Shortcuts:**
-- **Ctrl+Enter** — Run the code
+- **Ctrl+Enter** — Run / Preview
 - **Tab** — Insert 4 spaces (instead of moving focus)
 - **Escape** — Close the playground
 
-**Timeout options:** 5s, 10s, 20s, 30s (default 10s)
+**Timeout options** (executable only): 5s, 10s, 20s, 30s (default 10s)
 
 ## Conversation Management
 

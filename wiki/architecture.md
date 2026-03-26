@@ -183,7 +183,7 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `/api/memory/read` | GET | Read a memory file (`?subdir=&filename=`) |
 | `/api/memory/clear` | DELETE | Delete all memory files |
 | `/api/memory/{subdir}/{filename}` | DELETE | Delete a specific memory file |
-| `/api/run-code` | POST | Execute Python code in sandbox (JSON: `code`, `timeout`) |
+| `/api/run-code` | POST | Execute code in sandbox (JSON: `code`, `language?`, `timeout?`). Languages: python, javascript, bash, c, cpp, go, lua |
 
 ## Thinking Mode Implementation
 
@@ -223,7 +223,7 @@ Tools follow the OpenAI function-calling format. llama.cpp supports this nativel
 | `read_memory` | `filename: string, subdir?: string` | Read a memory file |
 | `write_memory` | `filename: string, content: string, subdir?: string` | Write a memory file (only when user explicitly asks) |
 | `list_memories` | `subdir?: string` | List all memory files |
-| `run_code` | `code: string, timeout?: int` | Execute Python in a sandboxed container (only when user asks to run code) |
+| `run_code` | `code: string, language?: string, timeout?: int` | Execute code in a sandboxed container. Languages: python, javascript, bash, c, cpp, go, lua (default: python) |
 
 ### Execution Flow
 1. Tool definitions are included in the API request to llama.cpp

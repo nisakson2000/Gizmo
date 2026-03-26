@@ -95,17 +95,22 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "run_code",
-            "description": "Execute Python code in a sandboxed container. Use ONLY when the user asks you to run code, do a calculation, or when a task clearly requires computation. Do not use for conversational or creative tasks. Available libraries: numpy, pandas, matplotlib, sympy, scipy. No network access.",
+            "description": "Execute code in a sandboxed container. Use ONLY when the user asks you to run code, do a calculation, or when a task clearly requires computation. Do not use for conversational or creative tasks. Supported languages: python (with numpy, pandas, matplotlib, sympy, scipy), javascript (Node.js), bash, c, cpp, go, lua. No network access.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "code": {
                         "type": "string",
-                        "description": "Python code to execute",
+                        "description": "Source code to execute",
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Programming language (default: python)",
+                        "enum": ["python", "javascript", "bash", "c", "cpp", "go", "lua"],
                     },
                     "timeout": {
                         "type": "integer",
-                        "description": "Execution timeout in seconds (default 10, max 30)",
+                        "description": "Execution timeout in seconds (default 10, max 30). Use higher values for compiled languages.",
                         "minimum": 1,
                         "maximum": 30,
                     },
@@ -148,6 +153,7 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
     elif name == "run_code":
         result = await run_code(
             arguments["code"],
+            arguments.get("language", "python"),
             arguments.get("timeout", 10),
         )
         parts = []
