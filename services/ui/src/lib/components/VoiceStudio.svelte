@@ -6,6 +6,7 @@
 		name: string;
 		filename: string;
 		size: number;
+		transcript?: string;
 	}
 
 	let text = $state('');
@@ -28,6 +29,22 @@
 	let clipDuration = $state(30);
 	let showUploadForm = $state(false);
 	let pendingFile = $state<File | null>(null);
+	let migrating = $state(false);
+
+	async function migrateTranscripts() {
+		migrating = true;
+		try {
+			const resp = await fetch('/api/voices/migrate-transcripts', { method: 'POST' });
+			if (resp.ok) {
+				const result = await resp.json();
+				if (result.migrated > 0) await loadVoices();
+			}
+		} catch {
+			error = 'Migration failed.';
+		} finally {
+			migrating = false;
+		}
+	}
 
 	async function loadVoices() {
 		try {
@@ -271,6 +288,11 @@
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6a6 6 0 00-4.243 10.243" />
 									</svg>
 									<span class="flex-1 truncate">{voice.name}</span>
+									{#if voice.transcript}
+										<span class="text-[9px] px-1.5 py-0.5 rounded bg-success/15 text-success font-medium">ICL</span>
+									{:else}
+										<span class="text-[9px] px-1.5 py-0.5 rounded bg-warning/15 text-warning font-medium">x-vec</span>
+									{/if}
 									<span class="text-text-dim">{formatSize(voice.size)}</span>
 								</button>
 								<button
@@ -287,6 +309,24 @@
 					</div>
 					{#if voices.length === 0 && !showUploadForm}
 						<p class="text-xs text-text-dim text-center py-2">No saved voices yet. Click "+ Add Voice" to upload one.</p>
+					{/if}
+					{#if voices.length > 0 && voices.some(v => !v.transcript)}
+						<button
+							onclick={migrateTranscripts}
+							disabled={migrating}
+							class="w-full mt-2 py-1.5 rounded-lg text-[11px] font-medium bg-bg-tertiary/50 text-text-dim hover:text-text-secondary border border-border/30 hover:border-border/50 transition-all"
+						>
+							{migrating ? 'Transcribing...' : 'Auto-transcribe missing voices'}
+						</button>
+					{/if}
+					{#if selectedVoiceId}
+						{@const selectedVoice = voices.find(v => v.id === selectedVoiceId)}
+						{#if selectedVoice?.transcript}
+							<div class="mt-2 bg-bg-tertiary/30 rounded-lg px-3 py-2">
+								<p class="text-[10px] text-text-dim uppercase tracking-wider mb-0.5">Transcript</p>
+								<p class="text-xs text-text-secondary italic">"{selectedVoice.transcript}"</p>
+							</div>
+						{/if}
 					{/if}
 				</div>
 

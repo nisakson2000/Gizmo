@@ -18,6 +18,9 @@ async def synthesize(
     text: str,
     voice: str = "default",
     voice_clone_data_url: Optional[str] = None,
+    voice_reference_text: str = "",
+    speed: float = 1.0,
+    language: str = "Auto",
 ) -> Optional[bytes]:
     """Generate speech from text via Qwen3-TTS.
 
@@ -29,7 +32,8 @@ async def synthesize(
         "input": text,
         "voice": voice,
         "response_format": "wav",
-        "speed": 1.0,
+        "speed": speed,
+        "language": language,
     }
 
     if voice_clone_data_url:
@@ -39,10 +43,12 @@ async def synthesize(
         else:
             raw_b64 = voice_clone_data_url
         payload["voice_reference"] = raw_b64
+        if voice_reference_text:
+            payload["voice_reference_text"] = voice_reference_text
 
     for attempt in range(2):
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=180.0) as client:
                 resp = await client.post(TTS_URL, json=payload)
                 resp.raise_for_status()
                 return resp.content

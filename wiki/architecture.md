@@ -97,7 +97,7 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 | `token` | `content` | Response token (streamed incrementally) |
 | `tool_call` | `tool`, `status` | Tool execution started |
 | `tool_result` | `tool`, `result` | Tool execution result |
-| `tts_info` | `message` | TTS truncation notice (when response exceeds 4,000 chars) |
+| `tts_info` | `message` | TTS synthesis status info |
 | `audio` | `url` | Audio file URL (server-stored WAV) |
 | `title` | `title`, `conversation_id` | LLM-generated conversation title (async, after first exchange) |
 | `done` | `trace_id`, `conversation_id` | Generation complete |
@@ -112,6 +112,8 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
   "conversation_id": "uuid-or-null",
   "tts": false,
   "voice_id": "optional-voice-id",
+  "tts_speed": 1.0,
+  "tts_language": "auto",
   "context_length": 32768,
   "regenerate": false
 }
@@ -157,10 +159,11 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `/api/upload-image` | POST | Upload image (returns base64 data URL — up to 50MB) |
 | `/api/upload-video` | POST | Upload video (frame extraction + server storage — up to 500MB) |
 | `/api/transcribe` | POST | Transcribe audio via Whisper |
-| `/api/tts` | POST | Synthesize speech (JSON: `text`, `voice_id`) |
+| `/api/tts` | POST | Synthesize speech (JSON: `text`, `voice_id`, `speed?`, `language?`) |
 | `/api/voices` | GET | List saved voice profiles |
 | `/api/voices` | POST | Upload and save a voice profile (FormData: file, name, max_duration) |
 | `/api/voices/{id}` | DELETE | Delete a saved voice profile |
+| `/api/voices/migrate-transcripts` | POST | Backfill Whisper transcripts for existing voice profiles (enables ICL mode) |
 | `/api/tracker/tasks` | GET | List tasks (query: `?status=`, `?tag=`, `?priority=`) |
 | `/api/tracker/tasks` | POST | Create task (JSON: title, description, priority, tags, due_date, recurrence) |
 | `/api/tracker/tasks/{id}` | GET | Get single task |
@@ -331,8 +334,8 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │               └── Toast.svelte       # Global toast notification overlay
 │   ├── tts/
 │   │   ├── Dockerfile                     # Qwen3-TTS container (PyTorch + CUDA)
-│   │   ├── requirements.txt               # qwen-tts, fastapi, uvicorn
-│   │   ├── main.py                        # TTS server with voice cloning
+│   │   ├── requirements.txt               # qwen-tts, fastapi, uvicorn, scipy
+│   │   ├── main.py                        # TTS server with voice cloning, caching, chunking, speed control
 │   │   └── assets/default_voice.wav       # Default reference voice
 │   ├── sandbox/
 │   │   └── Dockerfile                     # Python 3.12 slim (numpy, pandas, matplotlib, sympy, scipy)

@@ -17,6 +17,8 @@
 	} from '$lib/ws/code-client';
 
 	let code = $state('');
+	let stdinData = $state('');
+	let stdinOpen = $state(false);
 	let running = $state(false);
 	let output = $state<{ stdout: string; stderr: string; exit_code: number; timed_out: boolean } | null>(null);
 	let error = $state('');
@@ -29,25 +31,51 @@
 	let language = $derived($codeLanguage);
 	let isMarkup = $derived(MARKUP_LANGUAGES.includes(language));
 
+	// Auto-detect if code reads from stdin
+	let codeNeedsInput = $derived(() => {
+		if (!code.trim() || isMarkup) return false;
+		const t = code;
+		return /\binput\s*\(/.test(t)           // Python
+			|| /\bscanf\s*\(/.test(t)           // C
+			|| /\bcin\s*>>/.test(t)              // C++
+			|| /\bfmt\.Scan/.test(t)             // Go
+			|| /\breadline\s*\(/.test(t)         // Node.js
+			|| /\bio\.read/.test(t)              // Lua
+			|| /\bread\s/.test(t);               // Bash
+	});
+
 	let lineNumbers = $derived(() => {
 		const lines = code.split('\n').length;
 		return Array.from({ length: Math.max(lines, 1) }, (_, i) => i + 1);
 	});
 
-	// Reset output when language changes (skip code clear if triggered by paste detection)
+	// Reset output when language changes — keep code intact (user may be correcting detection)
 	let lastLang = $state<Language>('python');
 	let pasteDetectedLangChange = false;
 	$effect(() => {
 		const lang = $codeLanguage;
 		if (lang !== lastLang) {
 			lastLang = lang;
-			if (!pasteDetectedLangChange) {
-				code = '';
-			}
 			pasteDetectedLangChange = false;
 			output = null;
 			previewHtml = '';
 			error = '';
+		}
+	});
+
+	// Auto-expand stdin when code needs input
+	$effect(() => {
+		if (codeNeedsInput()) stdinOpen = true;
+	});
+
+	// Clear everything when code is emptied
+	$effect(() => {
+		if (!code.trim()) {
+			stdinData = '';
+			stdinOpen = false;
+			output = null;
+			error = '';
+			previewHtml = '';
 		}
 	});
 
@@ -108,7 +136,7 @@
 			const resp = await fetch('/api/run-code', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code: code.trim(), language, timeout }),
+				body: JSON.stringify({ code: code.trim(), language, timeout, stdin: stdinData }),
 			});
 			if (!resp.ok) {
 				const err = await resp.json().catch(() => null);
@@ -155,8 +183,9 @@
 		if (t.includes('<svg') && t.includes('xmlns')) return 'svg';
 		// HTML
 		if (/^<!DOCTYPE/i.test(t) || /^<html/i.test(t) || (/^<\w/.test(t) && /<\/\w+>\s*$/.test(t))) return 'html';
-		// Markdown (headings, bold, lists, code fences)
-		if (/^#{1,3}\s/.test(t) || /\*\*\w/.test(t) || /^```\w/m.test(t) || /^- \w/m.test(t)) return 'markdown';
+		// Markdown (headings, bold, lists, code fences) — but not if it looks like code with comments
+		const hasCodePatterns = /\b(import |from |def |class |print\(|printf\(|cout|func |console\.log|local\b)/.test(t);
+		if (!hasCodePatterns && (/^#{1,3}\s/.test(t) || /\*\*\w/.test(t) || /^```\w/m.test(t) || /^- \w/m.test(t))) return 'markdown';
 		// CSS (selector { property: value; })
 		if (/[\w.#\-]+\s*\{[\s\S]*?:\s*[\s\S]*?;[\s\S]*?\}/.test(t) && !t.includes('int main') && !t.includes('#include')) return 'css';
 		// C++ (before C — more specific)
@@ -350,8 +379,35 @@
 			</div>
 		</div>
 
-		<!-- Right: output/preview -->
+		<!-- Right: I/O panel -->
 		<div class="w-[45%] flex flex-col overflow-hidden min-w-[300px]">
+			<!-- Stdin section (executable languages only) -->
+			{#if !isMarkup && (codeNeedsInput() || stdinOpen || stdinData.trim())}
+				<div class="shrink-0 border-b border-border/30">
+					<div class="flex items-center justify-between px-3 py-2 bg-bg-secondary/30">
+						<div class="flex items-center gap-2">
+							<span class="text-xs text-text-dim font-medium">Input</span>
+							{#if stdinData.trim()}
+								<span class="text-[9px] px-1.5 py-0.5 rounded bg-accent/15 text-accent font-medium">{stdinData.split('\n').length} line{stdinData.split('\n').length === 1 ? '' : 's'}</span>
+							{/if}
+						</div>
+						{#if stdinData.trim()}
+							<button
+								onclick={() => stdinData = ''}
+								class="text-[10px] text-text-dim hover:text-text-secondary transition-colors"
+							>Clear</button>
+						{/if}
+					</div>
+					<textarea
+						bind:value={stdinData}
+						placeholder="One value per line — each line feeds one input() call"
+						rows={3}
+						spellcheck="false"
+						class="w-full resize-none bg-bg-primary/50 text-text-primary text-xs font-mono leading-relaxed px-3 py-2 outline-none placeholder:text-text-dim/30"
+					></textarea>
+				</div>
+			{/if}
+
 			{#if error}
 				<div class="m-3 px-3 py-2 bg-error/10 border border-error/20 rounded-lg text-xs text-error">{error}</div>
 			{/if}

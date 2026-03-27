@@ -59,6 +59,14 @@ WHISPER_PORT = os.getenv("WHISPER_PORT", "8000")
 WHISPER_URL = f"http://{WHISPER_HOST}:{WHISPER_PORT}"
 
 MODEL_NAME = os.getenv("MODEL_NAME", "unknown")
+MAX_CONVERSATIONS = int(os.getenv("MAX_CONVERSATIONS", "500"))
+CONSTITUTION_PATH = Path("/app/config/constitution.txt")
+DB_PATH = Path("/app/memory/conversations.db")
+LOGS_DIR = Path("/app/logs")
+VOICES_DIR = Path("/app/voices")
+MEDIA_DIR = Path("/app/media")
+
+
 def voice_data_url(voice_id: str) -> str | None:
     """Build a base64 data URL from a saved voice WAV file."""
     wav_path = VOICES_DIR / f"{voice_id}.wav"
@@ -67,12 +75,17 @@ def voice_data_url(voice_id: str) -> str | None:
     b64 = base64.b64encode(wav_path.read_bytes()).decode()
     return f"data:audio/wav;base64,{b64}"
 
-MAX_CONVERSATIONS = int(os.getenv("MAX_CONVERSATIONS", "500"))
-CONSTITUTION_PATH = Path("/app/config/constitution.txt")
-DB_PATH = Path("/app/memory/conversations.db")
-LOGS_DIR = Path("/app/logs")
-VOICES_DIR = Path("/app/voices")
-MEDIA_DIR = Path("/app/media")
+
+def voice_transcript(voice_id: str) -> str:
+    """Read the saved transcript for a voice."""
+    meta_path = VOICES_DIR / f"{voice_id}.json"
+    if not meta_path.exists():
+        return ""
+    try:
+        meta = json.loads(meta_path.read_text())
+        return meta.get("transcript", "")
+    except Exception:
+        return ""
 
 
 # --- Logging ---
@@ -448,11 +461,15 @@ async def ws_chat(ws: WebSocket):
             request_tts = msg.get("tts", False)
             voice_clone_ref = msg.get("voice_clone_ref")  # base64 data URL for voice cloning
             voice_id = msg.get("voice_id")  # saved voice ID for TTS
+            tts_speed = max(0.5, min(float(msg.get("tts_speed", 1.0)), 2.0))
+            tts_language = msg.get("tts_language", "Auto")
             context_length = max(2048, min(int(msg.get("context_length", 32768)), 131072))
             regenerate = msg.get("regenerate", False)
             # Resolve voice_id to voice_clone_ref if provided
+            voice_ref_text = ""
             if voice_id and not voice_clone_ref:
                 voice_clone_ref = voice_data_url(voice_id)
+                voice_ref_text = voice_transcript(voice_id)
             trace_id = f"gizmo-{uuid.uuid4().hex[:8]}"
 
             await ws.send_json({"type": "trace_id", "trace_id": trace_id})
@@ -621,11 +638,14 @@ async def ws_chat(ws: WebSocket):
                 if len(full_response) > 4000:
                     await ws.send_json({
                         "type": "tts_info",
-                        "message": f"Audio covers the first ~4,000 of {len(full_response)} characters",
+                        "message": f"Generating audio for {len(full_response)} characters — this may take a moment",
                     })
                 audio_data = await synthesize(
-                    full_response[:4000],
+                    full_response,
                     voice_clone_data_url=voice_clone_ref,
+                    voice_reference_text=voice_ref_text,
+                    speed=tts_speed,
+                    language=tts_language,
                 )
                 if audio_data:
                     MEDIA_DIR.mkdir(parents=True, exist_ok=True)
@@ -1115,8 +1135,9 @@ async def api_run_code(request: Request):
         return JSONResponse(status_code=400, content={"error": "No code provided"})
     language = body.get("language", "python")
     timeout = min(max(int(body.get("timeout", 10)), 1), 30)
+    stdin_data = body.get("stdin", "")
     try:
-        result = await sandbox_run(code, language, timeout)
+        result = await sandbox_run(code, language, timeout, stdin_data=stdin_data)
     except Exception as e:
         error_log.error("Sandbox execution error: %s", e, exc_info=True)
         return JSONResponse(status_code=500, content={"error": f"Sandbox error: {e}"})
@@ -1172,14 +1193,19 @@ async def api_tts(request: Request):
     voice = body.get("voice", "default")
     voice_clone_data_url = body.get("voice_clone_data_url")
     voice_id = body.get("voice_id")
+    speed = max(0.5, min(float(body.get("speed", 1.0)), 2.0))
+    language = body.get("language", "Auto")
     if not text:
         return JSONResponse(status_code=400, content={"error": "Missing 'text' field"})
 
     # If voice_id is provided, load the saved voice reference
+    voice_ref_text = ""
     if voice_id and not voice_clone_data_url:
         voice_clone_data_url = voice_data_url(voice_id)
+        voice_ref_text = voice_transcript(voice_id)
 
-    audio = await synthesize(text, voice, voice_clone_data_url=voice_clone_data_url)
+    audio = await synthesize(text, voice, voice_clone_data_url=voice_clone_data_url,
+                              voice_reference_text=voice_ref_text, speed=speed, language=language)
     if audio is None:
         return JSONResponse(status_code=503, content={"error": "TTS service unavailable"})
     return Response(content=audio, media_type="audio/wav")
@@ -1223,7 +1249,8 @@ async def save_voice(file: UploadFile = File(...), name: str = Form(...), max_du
 
         wav_path = str(VOICES_DIR / f"{voice_id}.wav")
         subprocess.run(
-            ["ffmpeg", "-i", raw_path, "-t", str(dur), "-ar", "16000", "-ac", "1", "-y", wav_path],
+            ["ffmpeg", "-i", raw_path, "-t", str(dur), "-ar", "24000", "-ac", "1",
+             "-af", "apad=pad_dur=0.5", "-y", wav_path],
             capture_output=True,
         )
 
@@ -1232,11 +1259,28 @@ async def save_voice(file: UploadFile = File(...), name: str = Form(...), max_du
 
     wav_size = (VOICES_DIR / f"{voice_id}.wav").stat().st_size
 
+    # Auto-transcribe via Whisper
+    transcript = ""
+    try:
+        whisper_url = f"http://{WHISPER_HOST}:{WHISPER_PORT}/v1/audio/transcriptions"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            with open(wav_path, "rb") as audio_file:
+                files = {"file": ("voice.wav", audio_file, "audio/wav")}
+                data = {"model": "Systran/faster-whisper-base"}
+                resp = await client.post(whisper_url, files=files, data=data)
+                if resp.status_code == 200:
+                    result = resp.json()
+                    transcript = result.get("text", "").strip()
+                    conv_log.info("Voice %s transcribed: %s", voice_id, transcript[:100])
+    except Exception as e:
+        error_log.warning("Whisper transcription failed for voice %s: %s", voice_id, e)
+
     meta = {
         "id": voice_id,
         "name": name,
         "filename": file.filename,
         "size": wav_size,
+        "transcript": transcript,
     }
     meta_path = VOICES_DIR / f"{voice_id}.json"
     meta_path.write_text(json.dumps(meta))
@@ -1247,7 +1291,6 @@ async def save_voice(file: UploadFile = File(...), name: str = Form(...), max_du
 @app.delete("/api/voices/{voice_id}")
 async def delete_voice(voice_id: str):
     """Delete a saved voice reference."""
-    import re
     if not re.match(r'^[a-f0-9]{8}$', voice_id):
         raise HTTPException(status_code=400, detail="Invalid voice ID format")
     for f in VOICES_DIR.glob(f"{voice_id}.*"):
@@ -1268,10 +1311,42 @@ async def preview_voice(voice_id: str, request: Request):
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
     text = body.get("text", "Hello, this is a voice preview.")
 
-    audio = await synthesize(text, voice_clone_data_url=data_url)
+    ref_text = voice_transcript(voice_id)
+    audio = await synthesize(text, voice_clone_data_url=data_url, voice_reference_text=ref_text)
     if audio is None:
         return JSONResponse(status_code=503, content={"error": "TTS service unavailable"})
     return Response(content=audio, media_type="audio/wav")
+
+
+@app.post("/api/voices/migrate-transcripts")
+async def migrate_voice_transcripts():
+    """Backfill transcripts for existing voices using Whisper."""
+    VOICES_DIR.mkdir(parents=True, exist_ok=True)
+    migrated = 0
+    for json_file in VOICES_DIR.glob("*.json"):
+        try:
+            meta = json.loads(json_file.read_text())
+            if meta.get("transcript"):
+                continue  # already has transcript
+            voice_id = meta["id"]
+            wav_path = VOICES_DIR / f"{voice_id}.wav"
+            if not wav_path.exists():
+                continue
+            whisper_url = f"http://{WHISPER_HOST}:{WHISPER_PORT}/v1/audio/transcriptions"
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                with open(wav_path, "rb") as audio_file:
+                    files = {"file": ("voice.wav", audio_file, "audio/wav")}
+                    data = {"model": "Systran/faster-whisper-base"}
+                    resp = await client.post(whisper_url, files=files, data=data)
+                    if resp.status_code == 200:
+                        transcript = resp.json().get("text", "").strip()
+                        meta["transcript"] = transcript
+                        json_file.write_text(json.dumps(meta))
+                        migrated += 1
+                        conv_log.info("Migrated voice %s transcript: %s", voice_id, transcript[:80])
+        except Exception as e:
+            error_log.warning("Migration failed for %s: %s", json_file.name, e)
+    return {"migrated": migrated}
 
 
 # --- Transcription (Whisper STT) ---

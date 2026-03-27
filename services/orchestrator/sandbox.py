@@ -20,6 +20,14 @@ MAX_OUTPUT = 8000
 # Supported languages and their execution commands
 
 INTERPRETED_LANGS = {
+    "python":     {"ext": "code.py",  "run": "python3 /tmp/code.py"},
+    "javascript": {"ext": "code.js",  "run": "node /tmp/code.js"},
+    "bash":       {"ext": "code.sh",  "run": "bash /tmp/code.sh"},
+    "lua":        {"ext": "code.lua", "run": "lua5.4 /tmp/code.lua"},
+}
+
+# Direct execution (no file) for interpreted langs when no stdin needed
+INTERPRETED_DIRECT = {
     "python":     lambda code: ["python3", "-c", code],
     "javascript": lambda code: ["node", "-e", code],
     "bash":       lambda code: ["bash", "-c", code],
@@ -54,10 +62,11 @@ async def _api(method: str, path: str, **kwargs) -> httpx.Response:
         return await client.request(method, f"{API_BASE}{path}", **kwargs)
 
 
-async def run_code(code: str, language: str = "python", timeout: int = DEFAULT_TIMEOUT) -> dict:
+async def run_code(code: str, language: str = "python", timeout: int = DEFAULT_TIMEOUT, stdin_data: str = "") -> dict:
     """Execute code in an isolated container.
 
     Returns dict with stdout, stderr, exit_code, timed_out, and language.
+    If stdin_data is provided, it is piped to the process as standard input.
     """
     timeout = max(1, min(timeout, MAX_TIMEOUT))
     language = language.lower().strip()
@@ -71,17 +80,36 @@ async def run_code(code: str, language: str = "python", timeout: int = DEFAULT_T
             "language": language,
         }
 
+    use_stdin = bool(stdin_data)
+    stdin_redirect = " < /tmp/stdin.txt" if use_stdin else ""
+
     # Build the Cmd for the container
+    env_vars = []
+
     if language in INTERPRETED_LANGS:
-        cmd = INTERPRETED_LANGS[language](code)
+        if use_stdin:
+            # File-based execution with stdin redirect
+            spec = INTERPRETED_LANGS[language]
+            shell_cmd = f'printenv SOURCE_CODE > /tmp/{spec["ext"]} && printenv STDIN_DATA > /tmp/stdin.txt && {spec["run"]}{stdin_redirect}'
+            cmd = ["sh", "-c", shell_cmd]
+            env_vars = [f"SOURCE_CODE={code}", f"STDIN_DATA={stdin_data}"]
+        else:
+            # Direct execution (current behavior, unchanged)
+            cmd = INTERPRETED_DIRECT[language](code)
     else:
         # Compiled language: write source via env var, compile, run
         spec = COMPILED_LANGS[language]
-        if spec["compile"]:
-            shell_cmd = f'printenv SOURCE_CODE > /tmp/{spec["ext"]} && {spec["compile"]} && {spec["run"]}'
+        if use_stdin:
+            stdin_setup = "printenv STDIN_DATA > /tmp/stdin.txt && "
+            env_vars = [f"SOURCE_CODE={code}", f"STDIN_DATA={stdin_data}"]
         else:
-            # Go: no separate compile step
-            shell_cmd = f'printenv SOURCE_CODE > /tmp/{spec["ext"]} && {spec["run"]}'
+            stdin_setup = ""
+            env_vars = [f"SOURCE_CODE={code}"]
+
+        if spec["compile"]:
+            shell_cmd = f'{stdin_setup}printenv SOURCE_CODE > /tmp/{spec["ext"]} && {spec["compile"]} && {spec["run"]}{stdin_redirect}'
+        else:
+            shell_cmd = f'{stdin_setup}printenv SOURCE_CODE > /tmp/{spec["ext"]} && {spec["run"]}{stdin_redirect}'
         cmd = ["sh", "-c", shell_cmd]
 
     # Create container with strict resource limits
@@ -99,9 +127,8 @@ async def run_code(code: str, language: str = "python", timeout: int = DEFAULT_T
         },
     }
 
-    # Pass source code via environment variable for compiled languages
-    if language in COMPILED_LANGS:
-        create_body["Env"] = [f"SOURCE_CODE={code}"]
+    if env_vars:
+        create_body["Env"] = env_vars
 
     container_id = None
     try:

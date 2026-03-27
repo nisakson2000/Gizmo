@@ -73,13 +73,15 @@ Open the **Voice Studio** via the pill button below the input box or from Settin
 
 Voice Studio is a dedicated TTS playground where you can:
 
-1. **Upload voice references** — provide a sample of any voice
+1. **Upload voice references** — provide a sample of any voice. The audio is automatically transcribed via Whisper on upload, enabling ICL (in-context learning) mode for dramatically better speaker similarity.
 2. **Name and save voices** — build a library of cloned voices
-3. **Select a voice** — choose which saved voice to use for synthesis
-4. **Set clip duration** — choose how much of the reference audio to use (30s, 60s, 90s, or 120s)
-5. **Type and speak** — enter text and hear it spoken in the selected voice
+3. **Quality indicators** — each voice shows an **ICL** badge (has transcript, best quality) or **x-vec** badge (no transcript, basic cloning). ICL voices sound significantly closer to the original speaker.
+4. **Migrate existing voices** — click the migrate button to backfill Whisper transcripts for voices uploaded before auto-transcription was added
+5. **Select a voice** — choose which saved voice to use for synthesis
+6. **Set clip duration** — choose how much of the reference audio to use (30s, 60s, 90s, or 120s)
+7. **Type and speak** — enter text and hear it spoken in the selected voice
 
-Voice references are processed server-side: truncated to the selected duration, downsampled to 16kHz mono WAV to prevent VRAM issues. Saved voices persist across sessions.
+Voice references are processed server-side: truncated to the selected duration, downsampled to 24kHz mono WAV (matches the model's speaker encoder), with 0.5s silence padding appended to prevent phoneme bleed. Saved voices persist across sessions.
 
 ## Text-to-Speech
 
@@ -87,7 +89,13 @@ Toggle TTS in Settings under "Read Responses Aloud."
 
 When enabled, Gizmo speaks responses aloud. An audio player appears below each assistant message. The TTS engine is Qwen3-TTS — a GPU-accelerated neural voice cloning model. It loads into VRAM on demand and auto-unloads after 60 seconds of idle time to free memory for the LLM.
 
+Full responses are now synthesized without truncation — text is split at ~200 character sentence boundaries and chunked, so even long responses get complete TTS audio (no more silent 4,000 character cutoff).
+
 By default, the bundled voice is used. To use a cloned voice for chat TTS, go to **Settings** and select a voice from the **TTS Voice** dropdown. Any voices you've created in Voice Studio will appear here.
+
+**Speed control:** Adjust speech speed from 0.5x (half speed) to 2.0x (double speed) using the **TTS Speed** slider in Settings. Speed is applied via post-synthesis resampling.
+
+**Language selection:** Choose a TTS language from the **TTS Language** dropdown in Settings. Options: Auto (default), English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian. "Auto" lets the model detect the language from the text.
 
 ## Web Search
 
@@ -275,6 +283,8 @@ Access via the **Settings** icon at the bottom of the left navigation rail.
 | **Sounds** | Toggle per-console sound effects for UI interactions |
 | **Read Responses Aloud** | Toggle spoken responses ON/OFF (Qwen3-TTS, GPU-accelerated) |
 | **TTS Voice** | Select which cloned voice to use for chat TTS (default or any saved voice) |
+| **TTS Speed** | Speech speed slider: 0.5x–2.0x (default 1.0x) |
+| **TTS Language** | Language for TTS synthesis: Auto, English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian |
 | **Voice Studio** | Shortcut to open Voice Studio |
 | **Memory Manager** | Shortcut to open Memory Manager (view, add, delete memories) |
 | **Context Length** | Slider: 2,048–131,072 tokens. Controls conversation history windowing — orchestrator drops oldest messages to fit within the selected token budget. |

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { thinkingEnabled, ttsEnabled, contextLength, settingsOpen, voiceStudioOpen, memoryManagerOpen, ttsVoiceId } from '$lib/stores/settings';
+	import { thinkingEnabled, ttsEnabled, contextLength, settingsOpen, voiceStudioOpen, memoryManagerOpen, ttsVoiceId, ttsSpeed, ttsLanguage } from '$lib/stores/settings';
 	import { theme, themeOptions } from '$lib/stores/theme';
 	import type { ThemeName } from '$lib/stores/theme';
 	import { soundsEnabled, bootAnimationsEnabled } from '$lib/stores/sounds';
@@ -201,6 +201,50 @@
 								{#each savedVoices as v (v.id)}
 									<option value={v.id}>{v.name}</option>
 								{/each}
+							</select>
+						</div>
+
+						<div class="border-t border-border/20"></div>
+
+						<div class="flex items-center justify-between">
+							<div class="flex-1 mr-4">
+								<p class="text-sm font-medium">Speech Speed</p>
+								<p class="text-xs text-text-dim mt-0.5">{$ttsSpeed.toFixed(1)}x</p>
+							</div>
+							<input
+								type="range"
+								min="0.5"
+								max="2.0"
+								step="0.1"
+								value={$ttsSpeed}
+								oninput={(e) => ttsSpeed.set(parseFloat((e.target as HTMLInputElement).value))}
+								class="w-28 accent-accent"
+							/>
+						</div>
+
+						<div class="border-t border-border/20"></div>
+
+						<div class="flex items-center justify-between">
+							<div class="flex-1 mr-4">
+								<p class="text-sm font-medium">TTS Language</p>
+								<p class="text-xs text-text-dim mt-0.5">Auto-detect or specify explicitly.</p>
+							</div>
+							<select
+								value={$ttsLanguage}
+								onchange={(e) => ttsLanguage.set((e.target as HTMLSelectElement).value)}
+								class="bg-bg-primary border border-border/50 rounded-lg px-2.5 py-1.5 text-xs text-text-secondary focus:outline-none focus:border-accent/40 max-w-[140px]"
+							>
+								<option value="Auto">Auto-detect</option>
+								<option value="English">English</option>
+								<option value="Chinese">Chinese</option>
+								<option value="Japanese">Japanese</option>
+								<option value="Korean">Korean</option>
+								<option value="German">German</option>
+								<option value="French">French</option>
+								<option value="Russian">Russian</option>
+								<option value="Portuguese">Portuguese</option>
+								<option value="Spanish">Spanish</option>
+								<option value="Italian">Italian</option>
 							</select>
 						</div>
 

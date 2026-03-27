@@ -56,15 +56,28 @@ Everything is containerized via Podman.
 - Default voice: bundled espeak-ng generated WAV at /app/assets/default_voice.wav
 - API: POST /v1/audio/speech (OpenAI-compatible JSON body)
 - Voice cloning: accepts voice_reference (base64 WAV) + voice_reference_text
+- Auto-transcribe: Whisper transcribes voice reference audio on upload, enabling ICL (in-context learning) mode for dramatically better speaker similarity vs x-vector-only mode
+- Clone prompt caching: speaker embeddings cached in memory, reused across requests for the same voice (no redundant re-encoding)
+- Long text chunking: text split at ~200 char sentence boundaries instead of truncating at 4,000 chars — full responses get TTS now
+- Speed control: 0.5x–2.0x speech speed via scipy resampling (applied post-synthesis)
+- Language selection: Auto, English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian
+- Tuned generation params: temperature=0.8, top_p=0.9, repetition_penalty=1.05
+- Proxy forwards voice_reference_text, speed, language to TTS server; timeout increased 60→180s
 - Auto-unloads from VRAM after TTS_IDLE_UNLOAD_SECONDS (default 60)
 - Reloads automatically on next request
 - Container base: docker.io/pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+- scipy>=1.12.0 required in TTS container for speed control resampling
 
 ## Voice Studio
 - Dedicated TTS playground component (VoiceStudio.svelte)
 - Upload voice reference audio, name it, save to server (/api/voices endpoints)
+- Auto-transcription: Whisper transcribes reference audio on upload for ICL mode
+- Quality badges: ICL (has transcript, better similarity) vs x-vec (no transcript, basic cloning)
+- Transcript display: shows transcribed text for each saved voice
+- Migrate endpoint: POST /api/voices/migrate-transcripts backfills transcripts for existing voices
 - Select from saved voices when synthesizing
-- Clip duration selector: 30s, 60s, 90s, 120s (ffmpeg truncation + 16kHz mono downsample)
+- Clip duration selector: 30s, 60s, 90s, 120s (ffmpeg truncation + 24kHz mono downsample — was 16kHz, now matches model's speaker encoder)
+- 0.5s silence padding appended to reference audio to prevent phoneme bleed
 - Voices stored server-side in /app/voices/ (JSON metadata + processed WAV data URL)
 - Opens via pill button in input area or from Settings panel
 
@@ -107,6 +120,7 @@ Everything is containerized via Podman.
 - Tailscale HTTPS: `tailscale serve --https=443 http://127.0.0.1:3100` provides valid cert at `https://<your-tailscale-hostname>/`
 - File upload limits: docs/images 50MB, video 500MB
 - Voice reference audio truncated via ffmpeg to prevent TTS CUDA OOM
+- scipy>=1.12.0 is required in the TTS container for speech speed control (resampling)
 - Whisper container needs security_opt: label=disable for SELinux (HuggingFace cache mount)
 
 ## V5 UX Enhancements
@@ -122,7 +136,7 @@ Everything is containerized via Podman.
 - Streaming markdown: debounced at 150ms (~7 parses/sec) instead of rAF (~60/sec), final parse on stream end
 - Conversation export: GET /api/conversations/{id}/export?format=markdown|json, download button in sidebar
 - Full-text search: GET /api/conversations/search?q=, press Enter in sidebar to search message content
-- TTS truncation info: tts_info WS event shows "Audio covers first ~4,000 of N characters" below audio player
+- TTS long-text chunking: full response synthesized via ~200 char sentence-boundary chunking (replaced 4,000 char truncation)
 - Constitution: added Output Formatting and Web Search sections, tightened tool discipline and conciseness rules
 - Toast notification system: global toast store + component, replaces inline error/success states across all components
 - Keyboard shortcuts: Ctrl+Shift+N (new chat), Ctrl+Shift+T (toggle think), Ctrl+Shift+S (toggle sidebar), Ctrl+/ (focus input), Escape (close modals)
@@ -253,3 +267,4 @@ Every code change, feature addition, or configuration update MUST include corres
 - [2026-03-26] V5.2 — Tracker redesign (overlay panels, card-based items, auto-save, segmented controls, tag pills, progress ring), AI task completion fix (ID-first context format, verification prompt)
 - [2026-03-26] V5.3 — Multi-language code execution (Python, JavaScript, Bash, C, C++, Go, Lua) + markup preview (HTML, CSS, SVG, Markdown), language selector in Code Playground, 150MB tmpfs for Go compilation
 - [2026-03-26] V5.4 — Code Playground promoted to /code route (split-pane, line numbers, AI chat overlay with /ws/code-chat), boot animations on every theme switch + opt-out toggle, conversation name in header, auto language detection on paste, icon rail Code nav
+- [2026-03-26] V5.5 — TTS enhancements: auto-transcribe voice uploads via Whisper (ICL mode), clone prompt caching, long text chunking (no more 4,000 char truncation), speech speed control (0.5x–2.0x via scipy), language selection (10 languages), 24kHz sample rate fix, silence padding, tuned generation params, ICL/x-vec quality badges in Voice Studio, migrate-transcripts endpoint
