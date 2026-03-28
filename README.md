@@ -39,8 +39,8 @@ The model used is an abliterated variant of Qwen3.5-9B — meaning the safety re
 - **Memory system** — remembers facts across conversations via BM25-ranked file storage with recency weighting
 
 ### Voice
-- **Voice Studio** — dedicated TTS playground with voice cloning: upload reference audio (auto-transcribed via Whisper for ICL mode), name and save voices, adjustable clip duration (30/60/90/120s), ICL/x-vec quality badges
-- **Text-to-speech** via Qwen3-TTS — GPU-accelerated neural voice cloning with clone prompt caching, long text chunking (no silent truncation), auto-unloads from VRAM when idle
+- **Voice Studio** — dedicated TTS playground with voice cloning: upload reference audio (auto-transcribed via Whisper), name and save voices, adjustable clip duration (30/60/90/120s)
+- **Text-to-speech** via Qwen3-TTS — GPU-accelerated neural voice cloning (x-vector mode), long text chunking (no silent truncation), auto-unloads from VRAM when idle
 - **Speech speed control** — adjustable 0.5x–2.0x speed slider in Settings
 - **Language selection** — TTS supports 10 languages: English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian (plus Auto-detect)
 - **Speech-to-text** — dictate messages via microphone using Whisper transcription
@@ -48,6 +48,7 @@ The model used is an abliterated variant of Qwen3.5-9B — meaning the safety re
 
 ### Tools
 - **Code execution sandbox** — run code in 7 languages (Python, JavaScript, Bash, C, C++, Go, Lua) in isolated Podman containers (no network, 256MB RAM, read-only filesystem; Python includes numpy, pandas, matplotlib, sympy, scipy)
+- **Document generation** — generate PDF, DOCX, XLSX, PPTX, CSV, and TXT files via natural language using the `generate_document` tool (pre-tested Python templates run in sandbox, files served as downloads)
 - **Code Playground** — dedicated `/code` route with split-pane editor (line numbers + output), built-in AI code assistant with isolated chat, auto language detection on paste
 - **Markup preview** — live client-side rendering for HTML, CSS, SVG, and Markdown with auto-preview as you type
 - **Memory Manager** — browse, add, and delete memories from the UI

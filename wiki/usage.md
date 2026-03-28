@@ -73,15 +73,14 @@ Open the **Voice Studio** via the pill button below the input box or from Settin
 
 Voice Studio is a dedicated TTS playground where you can:
 
-1. **Upload voice references** — provide a sample of any voice. The audio is automatically transcribed via Whisper on upload, enabling ICL (in-context learning) mode for dramatically better speaker similarity.
+1. **Upload voice references** — provide a sample of any voice. The audio is automatically transcribed via Whisper on upload (transcript stored for future use).
 2. **Name and save voices** — build a library of cloned voices
-3. **Quality indicators** — each voice shows an **ICL** badge (has transcript, best quality) or **x-vec** badge (no transcript, basic cloning). ICL voices sound significantly closer to the original speaker.
-4. **Migrate existing voices** — click the migrate button to backfill Whisper transcripts for voices uploaded before auto-transcription was added
+3. **Migrate existing voices** — click the migrate button to backfill Whisper transcripts for voices uploaded before auto-transcription was added
 5. **Select a voice** — choose which saved voice to use for synthesis
 6. **Set clip duration** — choose how much of the reference audio to use (30s, 60s, 90s, or 120s)
 7. **Type and speak** — enter text and hear it spoken in the selected voice
 
-Voice references are processed server-side: truncated to the selected duration, downsampled to 24kHz mono WAV (matches the model's speaker encoder), with 0.5s silence padding appended to prevent phoneme bleed. Saved voices persist across sessions.
+Voice cloning uses x-vector-only mode for clean synthesis without warmup artifacts. Voice references are processed server-side: truncated to the selected duration, downsampled to 24kHz mono WAV (matches the model's speaker encoder). Saved voices persist across sessions.
 
 ## Text-to-Speech
 
@@ -193,6 +192,27 @@ The Code Playground is a dedicated split-pane coding environment with a built-in
 **Timeout options** (executable only): 5s, 10s, 20s, 30s (default 10s)
 
 Code resets to a clean state each time you navigate to `/code`.
+
+## Document Generation
+
+Ask Gizmo to create documents in natural language and it will generate downloadable files.
+
+**Supported formats:**
+
+| Format | Library | Example |
+|--------|---------|---------|
+| **PDF** | reportlab | "Create a PDF report summarizing these findings" |
+| **DOCX** | python-docx | "Write a Word document with a project proposal" |
+| **XLSX** | openpyxl | "Make a spreadsheet with monthly budget data" |
+| **PPTX** | python-pptx | "Generate a presentation about machine learning basics" |
+| **CSV** | built-in | "Create a CSV file with this data table" |
+| **TXT** | built-in | "Save these notes as a text file" |
+
+**How it works:**
+
+The LLM uses the `generate_document` tool (not `run_code`) which runs pre-tested Python templates inside the sandbox container. The generated file is extracted via a temporary bind mount, moved to the media directory, and served as a download link in the chat response.
+
+Files are served via `/api/media/` with proper `Content-Disposition: attachment` headers, so your browser will prompt a file download when you click the link.
 
 ## Conversation Management
 

@@ -56,12 +56,11 @@ Everything is containerized via Podman.
 - Default voice: bundled espeak-ng generated WAV at /app/assets/default_voice.wav
 - API: POST /v1/audio/speech (OpenAI-compatible JSON body)
 - Voice cloning: accepts voice_reference (base64 WAV) + voice_reference_text
-- Auto-transcribe: Whisper transcribes voice reference audio on upload, enabling ICL (in-context learning) mode for dramatically better speaker similarity vs x-vector-only mode
-- Clone prompt caching: speaker embeddings cached in memory, reused across requests for the same voice (no redundant re-encoding)
-- Long text chunking: text split at ~200 char sentence boundaries instead of truncating at 4,000 chars — full responses get TTS now
+- Voice cloning uses x_vector_only_mode=True — ICL mode caused an "aww" warmup artifact and was reverted
+- Auto-transcribe: Whisper transcribes voice reference audio on upload (transcript stored but not used for generation in x_vector_only mode; kept for future use)
+- Long text chunking: text split at ~200 char sentence boundaries for cloned voices — full responses get TTS now
 - Speed control: 0.5x–2.0x speech speed via scipy resampling (applied post-synthesis)
 - Language selection: Auto, English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian
-- Tuned generation params: temperature=0.8, top_p=0.9, repetition_penalty=1.05
 - Proxy forwards voice_reference_text, speed, language to TTS server; timeout increased 60→180s
 - Auto-unloads from VRAM after TTS_IDLE_UNLOAD_SECONDS (default 60)
 - Reloads automatically on next request
@@ -71,8 +70,7 @@ Everything is containerized via Podman.
 ## Voice Studio
 - Dedicated TTS playground component (VoiceStudio.svelte)
 - Upload voice reference audio, name it, save to server (/api/voices endpoints)
-- Auto-transcription: Whisper transcribes reference audio on upload for ICL mode
-- Quality badges: ICL (has transcript, better similarity) vs x-vec (no transcript, basic cloning)
+- Auto-transcription: Whisper transcribes reference audio on upload (transcripts stored but not used for generation — x_vector_only mode)
 - Transcript display: shows transcribed text for each saved voice
 - Migrate endpoint: POST /api/voices/migrate-transcripts backfills transcripts for existing voices
 - Select from saved voices when synthesizing
@@ -98,6 +96,7 @@ Everything is containerized via Podman.
 ## Constitution System
 - Single file: config/constitution.txt (prose base prompt defining identity and capabilities)
 - Lines starting with # are stripped as comments, everything else injected as system prompt
+- XML-tagged sections include `<code-execution>`, `<document-generation>` (separate sections for code sandbox vs document tool)
 - No split files, no injection points, no pattern library
 
 ## Server-Side Conversations
@@ -122,6 +121,9 @@ Everything is containerized via Podman.
 - Voice reference audio truncated via ffmpeg to prevent TTS CUDA OOM
 - scipy>=1.12.0 is required in the TTS container for speech speed control (resampling)
 - Whisper container needs security_opt: label=disable for SELinux (HuggingFace cache mount)
+- MEDIA_HOST_DIR env var (set to ${PWD}/media in docker-compose.yml) used by orchestrator for sandbox bind mount extraction
+- Document types (PDF, DOCX, XLSX, PPTX, CSV, TXT, JSON, HTML, XML, ZIP) served via /api/media/ with Content-Disposition: attachment headers
+- Voice cloning uses x_vector_only_mode=True — ICL mode reverted due to "aww" warmup artifact
 
 ## V5 UX Enhancements
 - Waiting indicator: pulsing "Gizmo is thinking..." with accent-colored dots shown during pre-stream delay
@@ -200,10 +202,16 @@ Every code change, feature addition, or configuration update MUST include corres
 - Socket path (inside container): /run/podman/podman.sock
 - Constraints: --network none, 256MB memory, 1 CPU, 256 PID limit, read-only rootfs, tmpfs /tmp:size=150m, USER nobody
 - Languages: python (numpy/pandas/matplotlib/sympy/scipy), javascript (Node.js), bash, c, cpp, go, lua
+- Document generation packages: reportlab, openpyxl, python-docx, python-pptx (installed in sandbox Dockerfile)
 - MAX_OUTPUT: 8000 chars (truncated)
 - Default timeout: 10s, max 30s
 - Direct execution via /api/run-code REST endpoint (Code Playground at /code route)
 - LLM execution via run_code tool (chat + code chat)
+- LLM execution via generate_document tool: LLM provides format, title, and content; orchestrator runs pre-tested Python templates in sandbox
+  - Supported formats: PDF (reportlab), DOCX (python-docx), XLSX (openpyxl), PPTX (python-pptx), CSV, TXT
+  - File extraction: sandbox.py creates temp bind mount at MEDIA_DIR/.sandbox-{uuid}/, mounted into container at /tmp/output
+  - Files collected after execution, moved to /app/media/doc-{uuid}.{ext}, temp dir cleaned up
+  - Served via /api/media/ with Content-Disposition: attachment headers
 - Code Playground: dedicated /code route with split-pane layout, line numbers, AI chat overlay (/ws/code-chat)
 - Code chat: isolated WebSocket, code-focused system prompt (config/code-prompt.txt), run_code tool only, no memory
 - Auto language detection on paste (detects C/C++/Go/JS/Bash/Lua/HTML/SVG/CSS/Markdown/Python from code signatures)
@@ -268,3 +276,4 @@ Every code change, feature addition, or configuration update MUST include corres
 - [2026-03-26] V5.3 — Multi-language code execution (Python, JavaScript, Bash, C, C++, Go, Lua) + markup preview (HTML, CSS, SVG, Markdown), language selector in Code Playground, 150MB tmpfs for Go compilation
 - [2026-03-26] V5.4 — Code Playground promoted to /code route (split-pane, line numbers, AI chat overlay with /ws/code-chat), boot animations on every theme switch + opt-out toggle, conversation name in header, auto language detection on paste, icon rail Code nav
 - [2026-03-26] V5.5 — TTS enhancements: auto-transcribe voice uploads via Whisper (ICL mode), clone prompt caching, long text chunking (no more 4,000 char truncation), speech speed control (0.5x–2.0x via scipy), language selection (10 languages), 24kHz sample rate fix, silence padding, tuned generation params, ICL/x-vec quality badges in Voice Studio, migrate-transcripts endpoint
+- [2026-03-26] V5.6 — Document generation tool (generate_document: PDF, DOCX, XLSX, PPTX, CSV, TXT via pre-tested Python templates in sandbox), sandbox Dockerfile updated with reportlab/openpyxl/python-docx/python-pptx, bind mount file extraction to /app/media/, extended media serving with Content-Disposition headers, TTS voice cloning fix (reverted to x_vector_only_mode=True to fix ICL warmup artifact), constitution split code-execution and document-generation into separate XML sections, MEDIA_HOST_DIR env var in docker-compose.yml

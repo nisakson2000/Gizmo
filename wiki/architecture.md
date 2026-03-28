@@ -55,7 +55,8 @@ Full technical reference for Gizmo-AI. Assumes familiarity with containers and R
 - `./memory:/app/memory:rw` — Memory files (orchestrator)
 - `./logs:/app/logs:rw` — Runtime logs (orchestrator)
 - `./voices:/app/voices:rw` — Saved voice profiles (orchestrator)
-- `./media:/app/media:rw` — Uploaded video files (orchestrator)
+- `./media:/app/media:rw` — Uploaded video files and generated documents (orchestrator)
+- `MEDIA_HOST_DIR=${PWD}/media` — env var in docker-compose.yml, used by orchestrator for sandbox bind mount extraction
 - `./tracker:/app/tracker:rw` — Tracker tasks and notes database (orchestrator)
 - `./services/searxng/config:/etc/searxng:rw` — SearXNG config
 - `./models/whisper-cache:/root/.cache/huggingface:Z` — Whisper model cache
@@ -163,7 +164,7 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `/api/voices` | GET | List saved voice profiles |
 | `/api/voices` | POST | Upload and save a voice profile (FormData: file, name, max_duration) |
 | `/api/voices/{id}` | DELETE | Delete a saved voice profile |
-| `/api/voices/migrate-transcripts` | POST | Backfill Whisper transcripts for existing voice profiles (enables ICL mode) |
+| `/api/voices/migrate-transcripts` | POST | Backfill Whisper transcripts for existing voice profiles (stored for future use) |
 | `/api/tracker/tasks` | GET | List tasks (query: `?status=`, `?tag=`, `?priority=`) |
 | `/api/tracker/tasks` | POST | Create task (JSON: title, description, priority, tags, due_date, recurrence) |
 | `/api/tracker/tasks/{id}` | GET | Get single task |
@@ -179,7 +180,7 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `ws://…/ws/tracker` | WS | Tracker LLM chat for natural language task creation |
 | `ws://…/ws/code-chat` | WS | Code Playground AI assistant (isolated, run_code tool only) |
 | `/api/voices/{id}/preview` | POST | Synthesize a short preview with a saved voice (JSON: `text`) |
-| `/api/media/{filename}` | GET | Serve uploaded video/media files |
+| `/api/media/{filename}` | GET | Serve uploaded video/media files and generated documents (Content-Disposition: attachment for document types) |
 | `/api/logs/{log_name}` | GET | Tail log file (`?lines=100`, max 1000) |
 | `/api/search` | GET | Web search via SearXNG (`?q=query`) |
 | `/api/memory/list` | GET | List memory files |
@@ -228,6 +229,7 @@ Tools follow the OpenAI function-calling format. llama.cpp supports this nativel
 | `write_memory` | `filename: string, content: string, subdir?: string` | Write a memory file (only when user explicitly asks) |
 | `list_memories` | `subdir?: string` | List all memory files |
 | `run_code` | `code: string, language?: string, timeout?: int` | Execute code in a sandboxed container. Languages: python, javascript, bash, c, cpp, go, lua (default: python) |
+| `generate_document` | `format: string, title: string, content: string` | Generate a document file (PDF, DOCX, XLSX, PPTX, CSV, TXT) via pre-tested Python templates in sandbox. File returned as download link. |
 
 ### Execution Flow
 1. Tool definitions are included in the API request to llama.cpp
@@ -242,7 +244,7 @@ Tools follow the OpenAI function-calling format. llama.cpp supports this nativel
 
 The model's persona and behavior are defined by a single constitution file:
 
-- **`config/constitution.txt`** — System prompt with XML-tagged sections (`<identity>`, `<style>`, `<capabilities>`, `<tool-discipline>`, `<memory-rules>`, `<code-execution>`, `<web-search>`, `<response-quality>`, `<precision-awareness>`). Lines starting with `#` are stripped as comments. The XML structure helps the 9B model parse and follow different instruction sets without cross-contamination. Includes an explicit 5-step tool decision tree and abliteration-aware precision rules. Relevant memories from the BM25 memory system are appended after the constitution content.
+- **`config/constitution.txt`** — System prompt with XML-tagged sections (`<identity>`, `<style>`, `<capabilities>`, `<tool-discipline>`, `<memory-rules>`, `<code-execution>`, `<document-generation>`, `<web-search>`, `<response-quality>`, `<precision-awareness>`). Lines starting with `#` are stripped as comments. The XML structure helps the 9B model parse and follow different instruction sets without cross-contamination. Includes an explicit 5-step tool decision tree and abliteration-aware precision rules. The `<document-generation>` section instructs the LLM to use the `generate_document` tool (not `run_code`) for file creation. Relevant memories from the BM25 memory system are appended after the constitution content.
 
 ## Configuration Files
 
@@ -338,7 +340,7 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │   ├── main.py                        # TTS server with voice cloning, caching, chunking, speed control
 │   │   └── assets/default_voice.wav       # Default reference voice
 │   ├── sandbox/
-│   │   └── Dockerfile                     # Python 3.12 slim (numpy, pandas, matplotlib, sympy, scipy)
+│   │   └── Dockerfile                     # Python 3.12 slim (numpy, pandas, matplotlib, sympy, scipy, reportlab, openpyxl, python-docx, python-pptx)
 │   └── searxng/
 │       └── config/settings.yml            # SearXNG configuration
 ├── scripts/
