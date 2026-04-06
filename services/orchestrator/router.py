@@ -5,16 +5,12 @@ import re
 from typing import Optional
 
 from patterns import match_pattern
-from tools import TOOL_REGISTRY, get_default_tools, get_tool_schemas, _TOOL_SCHEMA_MAP
+from tools import get_default_tools, get_tool_schemas, has_tool
 
 logger = logging.getLogger(__name__)
 
 
-# ── Keyword Pre-Routing Rules ──
-# Maps regex patterns to specific tool names that should be loaded.
-# These fire BEFORE pattern matching and BEFORE the LLM sees the request.
-# Only add rules for high-confidence, unambiguous intent.
-
+# Regex → tool names. Only high-confidence, unambiguous intent.
 KEYWORD_ROUTES: list[tuple[re.Pattern, list[str]]] = [
     # Document generation
     (re.compile(r"\b(create|generate|make|write|build)\b.{0,20}\b(pdf|document|docx|spreadsheet|xlsx|pptx|csv|report)\b", re.I),
@@ -66,7 +62,7 @@ def route(user_message: str) -> RouteResult:
     for pattern_re, tool_names in KEYWORD_ROUTES:
         if pattern_re.search(user_message):
             for t in tool_names:
-                if t in _TOOL_SCHEMA_MAP:  # only add tools that have schemas registered
+                if has_tool(t):  # only add tools that have schemas registered
                     keyword_tools.add(t)
 
     if keyword_tools:
@@ -87,7 +83,7 @@ def route(user_message: str) -> RouteResult:
 
         # If pattern specifies tools, use those + always-available tools
         if matched_pattern["tools"]:
-            pattern_tools = [t for t in matched_pattern["tools"] if t in _TOOL_SCHEMA_MAP]
+            pattern_tools = [t for t in matched_pattern["tools"] if has_tool(t)]
             result.tool_names = list(set(default_tools) | set(pattern_tools) | keyword_tools)
             result.tool_schemas = get_tool_schemas(result.tool_names)
             return result

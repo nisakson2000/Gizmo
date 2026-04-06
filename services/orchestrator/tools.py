@@ -154,57 +154,48 @@ TOOL_DEFINITIONS = [
 TOOL_REGISTRY = {
     "web_search": {
         "category": "information",
-        "keywords": ["search", "look up", "find", "current", "latest", "news", "recent"],
         "always_available": True,
     },
     "read_memory": {
         "category": "memory",
-        "keywords": ["remember", "recall", "what did", "you know"],
         "always_available": True,
     },
     "write_memory": {
         "category": "memory",
-        "keywords": ["remember this", "save this", "memorize", "don't forget"],
         "always_available": True,
     },
     "list_memories": {
         "category": "memory",
-        "keywords": ["what do you remember", "list memories", "what have I told you"],
         "always_available": True,
     },
     "run_code": {
         "category": "code",
-        "keywords": ["run", "execute", "calculate", "compute", "code", "script", "program"],
         "always_available": True,
     },
     "generate_document": {
         "category": "documents",
-        "keywords": ["create document", "generate pdf", "make a spreadsheet", "write a report",
-                     "export", "download", "docx", "xlsx", "pptx", "csv"],
         "always_available": False,
     },
     # ── Future tools (add as capabilities are built) ──
     # "generate_image": {
     #     "category": "media",
-    #     "keywords": ["draw", "generate image", "create picture", "make art", "illustration",
-    #                  "paint", "design", "sketch", "render", "visualize"],
     #     "always_available": False,
     # },
     # "generate_video": {
     #     "category": "media",
-    #     "keywords": ["generate video", "create clip", "make animation", "video of"],
     #     "always_available": False,
     # },
     # "generate_music": {
     #     "category": "media",
-    #     "keywords": ["compose", "make music", "create song", "generate audio",
-    #                  "write a beat", "play something"],
     #     "always_available": False,
     # },
 }
 
-# Build a lookup from name → schema for quick access
 _TOOL_SCHEMA_MAP = {t["function"]["name"]: t for t in TOOL_DEFINITIONS}
+
+# Pre-computed default tool set — avoids recomputing on every route() call
+_DEFAULT_TOOLS = [name for name, meta in TOOL_REGISTRY.items()
+                  if meta.get("always_available") and name in _TOOL_SCHEMA_MAP]
 
 
 def get_tool_schemas(tool_names: list[str]) -> list[dict]:
@@ -214,8 +205,12 @@ def get_tool_schemas(tool_names: list[str]) -> list[dict]:
 
 def get_default_tools() -> list[str]:
     """Return tool names that are always available in the default tool set."""
-    return [name for name, meta in TOOL_REGISTRY.items()
-            if meta.get("always_available") and name in _TOOL_SCHEMA_MAP]
+    return list(_DEFAULT_TOOLS)
+
+
+def has_tool(name: str) -> bool:
+    """Check if a tool has a registered schema."""
+    return name in _TOOL_SCHEMA_MAP
 
 
 def get_all_tool_names() -> list[str]:

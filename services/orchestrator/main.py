@@ -26,7 +26,7 @@ from memory import get_relevant_memories, list_memories, write_memory, read_memo
 from search import web_search
 from tools import TOOL_DEFINITIONS, execute_tool
 from router import route
-from patterns import reload_patterns
+from patterns import reload_patterns, list_patterns
 from tracker import router as tracker_router
 from code_chat import router as code_chat_router
 from tracker_db import init_tracker_db
@@ -434,7 +434,6 @@ async def health():
 @app.get("/api/patterns")
 async def api_list_patterns():
     """List available analysis patterns."""
-    from patterns import list_patterns
     return list_patterns()
 
 
