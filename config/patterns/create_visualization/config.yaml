@@ -1,0 +1,10 @@
+name: create_visualization
+description: Create a Mermaid diagram or chart from a description
+keywords:
+  - create diagram
+  - visualize
+  - flowchart
+  - sequence diagram
+  - mermaid
+  - architecture diagram
+tools: []

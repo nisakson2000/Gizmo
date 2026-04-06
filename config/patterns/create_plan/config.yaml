@@ -1,0 +1,11 @@
+name: create_plan
+description: Create an actionable implementation plan for a goal or project
+keywords:
+  - create plan
+  - action plan
+  - implementation plan
+  - roadmap
+  - how to achieve
+  - steps to
+tools:
+  - write_memory

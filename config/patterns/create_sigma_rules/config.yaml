@@ -1,0 +1,9 @@
+name: create_sigma_rules
+description: Create Sigma detection rules from threat intelligence
+keywords:
+  - sigma rule
+  - detection rule
+  - create detection
+  - detect this
+tools:
+  - web_search

@@ -3,7 +3,7 @@
 **Original Date:** 2026-03-25
 **Updated:** 2026-04-06
 **Auditor:** Claude Code
-**Build:** Gizmo-AI V5.6, Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf + Qwen3-TTS-12Hz-1.7B-Base + Whisper (faster-whisper-base)
+**Build:** Gizmo-AI V5.7, Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf + Qwen3-TTS-12Hz-1.7B-Base + Whisper (faster-whisper-base)
 **Scope:** Full codebase review — orchestrator (main.py, llm.py, tracker.py, tracker_db.py, tracker_tools.py, memory.py, tools.py, sandbox.py, search.py, tts.py, code_chat.py), all UI components (.svelte, .ts), docker-compose, documentation
 
 ---

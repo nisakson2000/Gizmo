@@ -1,0 +1,10 @@
+name: analyze_paper
+description: Analyze an academic or research paper for methodology, findings, and significance
+keywords:
+  - analyze paper
+  - research paper
+  - academic paper
+  - study says
+  - paper review
+tools:
+  - web_search

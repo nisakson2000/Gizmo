@@ -1,0 +1,12 @@
+name: security_review
+description: Review code or configuration for security vulnerabilities
+keywords:
+  - security review
+  - security audit
+  - vulnerability check
+  - find vulnerabilities
+  - is this secure
+  - pentest
+tools:
+  - run_code
+  - web_search

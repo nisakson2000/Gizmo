@@ -1,0 +1,14 @@
+name: analyze_threat
+description: Analyze a threat report, extracting actors, TTPs, IOCs, and actionable intelligence
+keywords:
+  - analyze threat
+  - threat report
+  - threat intel
+  - threat analysis
+  - ioc
+  - ttp
+  - mitre
+  - cve analysis
+tools:
+  - web_search
+  - write_memory

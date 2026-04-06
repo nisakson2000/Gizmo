@@ -25,6 +25,8 @@ from llm import stream_chat as _llm_stream_chat
 from memory import get_relevant_memories, list_memories, write_memory, read_memory, delete_memory
 from search import web_search
 from tools import TOOL_DEFINITIONS, execute_tool
+from router import route
+from patterns import reload_patterns
 from tracker import router as tracker_router
 from code_chat import router as code_chat_router
 from tracker_db import init_tracker_db
@@ -249,10 +251,16 @@ def load_constitution() -> str:
     return "\n".join(lines).strip()
 
 
-def build_system_prompt(user_message: str = "", has_vision: bool = False) -> str:
-    """Build the full system prompt with constitution and relevant memories."""
+def build_system_prompt(user_message: str = "", has_vision: bool = False,
+                        pattern: dict | None = None) -> str:
+    """Build the full system prompt with constitution, pattern, and relevant memories."""
     constitution = load_constitution()
     parts = [constitution]
+
+    # Pattern injection (Layer 2 — between constitution and memories)
+    if pattern:
+        parts.append(f"\n\n--- Active Analysis Pattern: {pattern['name']} ---")
+        parts.append(pattern["system_prompt"])
 
     if has_vision:
         parts.append(f"\n\n{VISION_PROMPT}")
@@ -331,9 +339,14 @@ def build_messages(
 # Core streaming logic lives in llm.py. This wrapper passes TOOL_DEFINITIONS.
 
 
-async def stream_chat(messages, thinking_enabled=False, tools=True):
-    """Stream chat from llama.cpp. Wrapper around llm.stream_chat that passes chat tool definitions."""
-    tool_defs = TOOL_DEFINITIONS if tools else None
+async def stream_chat(messages, thinking_enabled=False, tools=True, tool_schemas=None):
+    """Stream chat from llama.cpp. Optionally accepts pre-selected tool schemas."""
+    if tool_schemas is not None:
+        tool_defs = tool_schemas
+    elif tools:
+        tool_defs = TOOL_DEFINITIONS
+    else:
+        tool_defs = None
     async for event in _llm_stream_chat(messages, tools=tool_defs, thinking_enabled=thinking_enabled):
         yield event
 
@@ -346,6 +359,7 @@ async def lifespan(app: FastAPI):
     init_db()
     init_tracker_db()
     prune_conversations()
+    reload_patterns()
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     yield
 
@@ -415,6 +429,13 @@ async def generate_title(conv_id: str, user_message: str, assistant_response: st
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "gizmo-orchestrator", "model": MODEL_NAME}
+
+
+@app.get("/api/patterns")
+async def api_list_patterns():
+    """List available analysis patterns."""
+    from patterns import list_patterns
+    return list_patterns()
 
 
 @app.get("/api/services/health")
@@ -528,19 +549,29 @@ async def ws_chat(ws: WebSocket):
                 save_message(conversation_id, "user", user_text,
                              image_url=persisted_image_url, video_url=persisted_video_url)
 
-            # Build prompt
+            # Route the request
+            route_result = route(user_text)
+            if route_result.pattern:
+                conv_log.info("[%s] Pattern activated: %s", trace_id, route_result.pattern["name"])
+
+            # Build prompt with pattern
             has_vision = bool(image_data or video_frames)
-            system_prompt = build_system_prompt(user_text, has_vision=has_vision)
+            system_prompt = build_system_prompt(
+                user_text,
+                has_vision=has_vision,
+                pattern=route_result.pattern,
+            )
             history_msgs = window_messages(history_msgs, system_prompt, context_length)
             messages = build_messages(history_msgs, system_prompt)
 
-            # Stream response
+            # Stream with selected tools
             full_response = ""
             full_thinking = ""
             executed_tool_calls = []  # Accumulate for DB persistence
             tool_calls_pending = []
 
-            async for event in stream_chat(messages, thinking_enabled=thinking):
+            async for event in stream_chat(messages, thinking_enabled=thinking,
+                                           tool_schemas=route_result.tool_schemas):
                 if event["type"] == "thinking":
                     full_thinking += event["content"]
                     await ws.send_json(event)
@@ -608,7 +639,8 @@ async def ws_chat(ws: WebSocket):
 
                 # Continue generation with tool results
                 tool_calls_pending = []
-                async for event in stream_chat(messages, thinking_enabled=False, tools=True):
+                async for event in stream_chat(messages, thinking_enabled=False,
+                                               tool_schemas=route_result.tool_schemas):
                     if event["type"] == "token":
                         full_response += event["content"]
                         await ws.send_json(event)

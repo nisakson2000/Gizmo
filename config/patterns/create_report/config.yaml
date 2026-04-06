@@ -1,0 +1,10 @@
+name: create_report
+description: Create a structured report from raw data or findings
+keywords:
+  - create report
+  - write report
+  - findings report
+  - status report
+tools:
+  - generate_document
+  - run_code

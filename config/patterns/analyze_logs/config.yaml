@@ -1,0 +1,9 @@
+name: analyze_logs
+description: Analyze system or application logs for anomalies and issues
+keywords:
+  - analyze logs
+  - log analysis
+  - what's in these logs
+  - parse logs
+tools:
+  - run_code

@@ -1,0 +1,11 @@
+name: write_detection
+description: Write KQL/SPL/YARA detection content from threat description
+keywords:
+  - write kql
+  - kql query
+  - splunk query
+  - yara rule
+  - detection content
+  - hunting query
+tools:
+  - web_search

@@ -1,0 +1,8 @@
+name: threat_model
+description: Create a STRIDE threat model for a system or application
+keywords:
+  - threat model
+  - stride
+  - attack surface
+  - threat modeling
+tools: []

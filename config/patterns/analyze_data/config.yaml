@@ -1,0 +1,10 @@
+name: analyze_data
+description: Analyze data for patterns, outliers, and insights
+keywords:
+  - analyze data
+  - data analysis
+  - what does this data show
+  - statistics
+  - trends in
+tools:
+  - run_code

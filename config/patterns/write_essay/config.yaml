@@ -1,0 +1,9 @@
+name: write_essay
+description: Write a well-structured essay on any topic
+keywords:
+  - write essay
+  - write about
+  - essay on
+  - write a piece
+tools:
+  - web_search

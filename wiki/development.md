@@ -52,6 +52,65 @@ elif name == "get_weather":
 
 **4. Test:** Ask the model "What's the weather in Seattle?" — it should call `get_weather`.
 
+**5. Register in the tool registry** in `tools.py` (above `TOOL_DEFINITIONS`):
+
+```python
+TOOL_REGISTRY["get_weather"] = {
+    "category": "information",
+    "keywords": ["weather", "temperature", "forecast"],
+    "always_available": False,  # True if always included; False if loaded by routing
+}
+```
+
+**6. Add a keyword route** (optional) in `router.py`:
+
+```python
+(re.compile(r"\b(weather|forecast|temperature)\b.{0,15}\b(in|for|at)\b", re.I),
+ ["get_weather"]),
+```
+
+## How to Add a New Pattern
+
+Patterns are cognitive templates that structure the model's output for specific task types.
+
+### Steps
+
+1. Create a directory in `config/patterns/<pattern_name>/`
+2. Write `config.yaml`:
+
+```yaml
+name: my_pattern
+description: One-line description of what this pattern does
+keywords:
+  - trigger phrase one
+  - trigger phrase two
+tools:
+  - web_search      # optional: tools to scope (empty = default tools)
+```
+
+3. Write `system.md` following the canonical structure:
+
+```markdown
+# IDENTITY and PURPOSE
+<role and expertise>
+
+# STEPS
+1. First step
+2. Second step
+
+# OUTPUT INSTRUCTIONS
+- SECTION NAME: format instructions
+
+# INPUT
+```
+
+4. Restart the orchestrator — patterns load on startup
+
+**Tips:**
+- Use longer, more specific keywords to avoid false matches (longest match wins)
+- Test with `[pattern:my_pattern] test input` to verify activation
+- Check `GET /api/patterns` to confirm it loaded
+
 ## How to Change the Model
 
 1. Download the new GGUF to `~/gizmo-ai/models/`

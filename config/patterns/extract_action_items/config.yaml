@@ -1,0 +1,10 @@
+name: extract_action_items
+description: Extract action items, owners, and deadlines from meeting notes or conversations
+keywords:
+  - action items
+  - what needs to be done
+  - meeting notes
+  - next steps
+  - follow ups
+tools:
+  - write_memory

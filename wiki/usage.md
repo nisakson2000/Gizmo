@@ -293,6 +293,46 @@ The Tracker is a built-in task and note management system with LLM integration. 
 - The LLM verifies task identity before completing or deleting to prevent mix-ups
 - Tool call progress shown as styled cards (pulse dot when running, checkmark when done)
 
+## Analysis Patterns
+
+Gizmo includes 30 structured analysis patterns that produce consistent, high-quality output for complex tasks. Patterns activate automatically based on keywords in your message, or you can invoke them explicitly.
+
+### Automatic Activation
+
+Just ask naturally — the system detects your intent:
+- "What are the key takeaways?" → `extract_wisdom` pattern
+- "Summarize this article" → `summarize` pattern
+- "Analyze this threat report" → `analyze_threat` pattern
+- "Review this code" → `review_code` pattern
+- "Is this claim true?" → `analyze_claims` pattern
+
+### Explicit Invocation
+
+Prefix your message with `[pattern:name]`:
+```
+[pattern:debug_code] Here's my broken function: ...
+[pattern:threat_model] Our application exposes a REST API that...
+[pattern:create_visualization] Show the data flow between our microservices
+```
+
+### Available Patterns
+
+| Category | Patterns |
+|----------|----------|
+| Information Extraction | extract_wisdom, summarize, extract_insights |
+| Analysis | analyze_claims, analyze_threat, security_review |
+| Code | review_code, explain_code, debug_code, create_coding_project |
+| Writing | improve_writing, improve_prompt, write_essay |
+| Research | create_summary, explain_technical, analyze_paper, compare_options |
+| Risk & Planning | analyze_risk, create_plan, analyze_incident |
+| Security | create_sigma_rules, threat_model, analyze_logs, write_detection |
+| Productivity | rate_output, create_checklist, extract_action_items |
+| Data | create_visualization, analyze_data, create_report |
+
+### API
+
+List all patterns: `GET /api/patterns`
+
 ## Settings
 
 Access via the **Settings** icon at the bottom of the left navigation rail.

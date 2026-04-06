@@ -1,0 +1,11 @@
+name: compare_options
+description: Compare multiple options with a structured pros/cons analysis
+keywords:
+  - compare
+  - versus
+  - vs
+  - which is better
+  - pros and cons
+  - should I use
+tools:
+  - web_search

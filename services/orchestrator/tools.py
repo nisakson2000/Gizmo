@@ -148,6 +148,80 @@ TOOL_DEFINITIONS = [
     },
 ]
 
+# ── Tool Registry — metadata for routing and dynamic selection ──
+# Each tool has: category, keywords (for pre-routing), and always_available flag.
+# The TOOL_DEFINITIONS schemas above are the source of truth for LLM function calling.
+TOOL_REGISTRY = {
+    "web_search": {
+        "category": "information",
+        "keywords": ["search", "look up", "find", "current", "latest", "news", "recent"],
+        "always_available": True,
+    },
+    "read_memory": {
+        "category": "memory",
+        "keywords": ["remember", "recall", "what did", "you know"],
+        "always_available": True,
+    },
+    "write_memory": {
+        "category": "memory",
+        "keywords": ["remember this", "save this", "memorize", "don't forget"],
+        "always_available": True,
+    },
+    "list_memories": {
+        "category": "memory",
+        "keywords": ["what do you remember", "list memories", "what have I told you"],
+        "always_available": True,
+    },
+    "run_code": {
+        "category": "code",
+        "keywords": ["run", "execute", "calculate", "compute", "code", "script", "program"],
+        "always_available": True,
+    },
+    "generate_document": {
+        "category": "documents",
+        "keywords": ["create document", "generate pdf", "make a spreadsheet", "write a report",
+                     "export", "download", "docx", "xlsx", "pptx", "csv"],
+        "always_available": False,
+    },
+    # ── Future tools (add as capabilities are built) ──
+    # "generate_image": {
+    #     "category": "media",
+    #     "keywords": ["draw", "generate image", "create picture", "make art", "illustration",
+    #                  "paint", "design", "sketch", "render", "visualize"],
+    #     "always_available": False,
+    # },
+    # "generate_video": {
+    #     "category": "media",
+    #     "keywords": ["generate video", "create clip", "make animation", "video of"],
+    #     "always_available": False,
+    # },
+    # "generate_music": {
+    #     "category": "media",
+    #     "keywords": ["compose", "make music", "create song", "generate audio",
+    #                  "write a beat", "play something"],
+    #     "always_available": False,
+    # },
+}
+
+# Build a lookup from name → schema for quick access
+_TOOL_SCHEMA_MAP = {t["function"]["name"]: t for t in TOOL_DEFINITIONS}
+
+
+def get_tool_schemas(tool_names: list[str]) -> list[dict]:
+    """Return the OpenAI function-calling schemas for a list of tool names."""
+    return [_TOOL_SCHEMA_MAP[name] for name in tool_names if name in _TOOL_SCHEMA_MAP]
+
+
+def get_default_tools() -> list[str]:
+    """Return tool names that are always available in the default tool set."""
+    return [name for name, meta in TOOL_REGISTRY.items()
+            if meta.get("always_available") and name in _TOOL_SCHEMA_MAP]
+
+
+def get_all_tool_names() -> list[str]:
+    """Return all registered tool names."""
+    return [name for name in TOOL_REGISTRY if name in _TOOL_SCHEMA_MAP]
+
 
 def _build_doc_code(fmt: str, title: str, content: str) -> str:
     """Build Python code to generate a document from structured content.

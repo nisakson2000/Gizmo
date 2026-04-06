@@ -1,0 +1,12 @@
+name: analyze_incident
+description: Analyze a security incident with timeline, root cause, and remediation
+keywords:
+  - incident analysis
+  - incident report
+  - what happened
+  - root cause analysis
+  - post mortem
+  - postmortem
+tools:
+  - web_search
+  - write_memory

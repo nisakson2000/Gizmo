@@ -189,6 +189,37 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `/api/memory/clear` | DELETE | Delete all memory files |
 | `/api/memory/{subdir}/{filename}` | DELETE | Delete a specific memory file |
 | `/api/run-code` | POST | Execute code in sandbox (JSON: `code`, `language?`, `timeout?`). Languages: python, javascript, bash, c, cpp, go, lua |
+| `/api/patterns` | GET | List available analysis patterns (name + description) |
+
+## Pattern System
+
+Gizmo-AI includes a Fabric-inspired pattern library — 30 cognitive templates that give the model structured rubrics for complex tasks.
+
+### How It Works
+
+1. **Router** (`router.py`) — intercepts each user message before LLM processing
+   - **Keyword pre-routing**: regex patterns match tool-specific intent (e.g., "generate pdf" → loads `generate_document` tool)
+   - **Pattern matching**: keyword matching activates analysis patterns (e.g., "key takeaways" → `extract_wisdom`)
+   - **Default fallback**: unmatched messages get the core tool set (web_search, memory, run_code)
+
+2. **Pattern injection** — matched pattern's system prompt is inserted between the constitution and memories in the system prompt
+
+3. **Tool scoping** — each pattern declares which tools should be available, preventing the model from seeing irrelevant tools
+
+### Pattern Directory Structure
+
+```
+config/patterns/<name>/
+├── config.yaml    # name, description, keywords, tools
+└── system.md      # Fabric-style system prompt (IDENTITY, STEPS, OUTPUT INSTRUCTIONS, INPUT)
+```
+
+### Explicit Invocation
+
+Prefix any message with `[pattern:name]` to force a specific pattern:
+```
+[pattern:summarize] <paste article text here>
+```
 
 ## Thinking Mode Implementation
 
@@ -283,7 +314,11 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 ├── config/
 │   ├── constitution.txt                   # System prompt / persona (prose, # = comments)
 │   ├── models.yaml                        # Model configuration
-│   └── services.yaml                      # Service endpoints
+│   ├── services.yaml                      # Service endpoints
+│   └── patterns/                          # Fabric-inspired cognitive templates (30 patterns)
+│       └── <name>/                        # Each pattern has config.yaml + system.md
+│           ├── config.yaml                # Name, description, keywords, scoped tools
+│           └── system.md                  # System prompt (IDENTITY, STEPS, OUTPUT, INPUT)
 ├── services/
 │   ├── llama/
 │   │   └── Dockerfile                     # llama.cpp from source with CUDA
@@ -294,9 +329,11 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │   ├── memory.py                      # BM25-ranked memory system with recency weighting
 │   │   ├── sandbox.py                     # Podman sandbox client (7-language code execution via Unix socket)
 │   │   ├── code_chat.py                  # Code Playground AI chat WebSocket handler (isolated, run_code only)
+│   │   ├── patterns.py                    # Pattern library — loading, caching, keyword matching
+│   │   ├── router.py                      # Request router — keyword pre-routing + pattern matching + tool selection
 │   │   ├── search.py                      # SearXNG proxy
 │   │   ├── tts.py                         # Qwen3-TTS proxy (voice cloning support)
-│   │   └── tools.py                       # Tool definitions and dispatch (web_search, memory, run_code)
+│   │   └── tools.py                       # Tool definitions, registry, and dispatch (web_search, memory, run_code, generate_document)
 │   ├── ui/
 │   │   ├── Dockerfile                     # Node build → nginx serve
 │   │   ├── nginx.conf                     # Static + API/WS proxy (500MB upload limit)

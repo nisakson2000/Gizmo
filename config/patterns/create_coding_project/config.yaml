@@ -1,0 +1,11 @@
+name: create_coding_project
+description: Design and scaffold a complete coding project from requirements
+keywords:
+  - create project
+  - build an app
+  - scaffold
+  - start a new project
+  - project structure
+tools:
+  - run_code
+  - generate_document

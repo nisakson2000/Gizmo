@@ -96,8 +96,23 @@ Everything is containerized via Podman.
 ## Constitution System
 - Single file: config/constitution.txt (prose base prompt defining identity and capabilities)
 - Lines starting with # are stripped as comments, everything else injected as system prompt
-- XML-tagged sections include `<code-execution>`, `<document-generation>` (separate sections for code sandbox vs document tool)
-- No split files, no injection points, no pattern library
+- XML-tagged sections include `<code-execution>`, `<document-generation>`, `<patterns>` (separate sections for code sandbox, document tool, and pattern awareness)
+
+## Pattern System
+- 30 Fabric-inspired cognitive templates in config/patterns/<name>/{config.yaml, system.md}
+- Loaded on startup by patterns.py, cached in memory, listed via GET /api/patterns
+- Router (router.py) intercepts each user message before LLM processing:
+  1. Keyword pre-routing: regex matches tool-specific intent (e.g., "generate pdf" → generate_document)
+  2. Pattern matching: longest keyword match wins (e.g., "key takeaways" → extract_wisdom)
+  3. Default fallback: unmatched messages get always_available tools (web_search, memory, run_code)
+- Pattern system prompt injected between constitution and memories in build_system_prompt()
+- Each pattern declares scoped tools — model only sees 3-8 tools per request
+- Explicit invocation: prefix message with [pattern:name]
+- Tool registry (TOOL_REGISTRY in tools.py): metadata layer over TOOL_DEFINITIONS with category, keywords, always_available flag
+- _TOOL_SCHEMA_MAP provides O(1) lookup from tool name to schema
+- get_default_tools() returns always_available tools; get_tool_schemas() converts names to schemas
+- Categories: information_extraction (3), analysis (3), code (4), writing (3), research (5), security (4), productivity (3), data (3), planning (2)
+- Dependency: pyyaml>=6.0 for config.yaml parsing
 
 ## Server-Side Conversations
 - SQLite database at /app/memory/conversations.db (two tables: conversations + messages)
@@ -276,4 +291,5 @@ Every code change, feature addition, or configuration update MUST include corres
 - [2026-03-26] V5.3 — Multi-language code execution (Python, JavaScript, Bash, C, C++, Go, Lua) + markup preview (HTML, CSS, SVG, Markdown), language selector in Code Playground, 150MB tmpfs for Go compilation
 - [2026-03-26] V5.4 — Code Playground promoted to /code route (split-pane, line numbers, AI chat overlay with /ws/code-chat), boot animations on every theme switch + opt-out toggle, conversation name in header, auto language detection on paste, icon rail Code nav
 - [2026-03-26] V5.5 — TTS enhancements: auto-transcribe voice uploads via Whisper (ICL mode), clone prompt caching, long text chunking (no more 4,000 char truncation), speech speed control (0.5x–2.0x via scipy), language selection (10 languages), 24kHz sample rate fix, silence padding, tuned generation params, ICL/x-vec quality badges in Voice Studio, migrate-transcripts endpoint
+- [2026-04-06] V5.7 — Pattern system + scalable tool architecture: 30 Fabric-inspired cognitive templates (config/patterns/), router.py with keyword pre-routing + pattern matching + tool scoping, tool registry (TOOL_REGISTRY in tools.py), dynamic tool selection (model sees 3-8 tools per request), ToolCallBlock rich media rendering (image/video/audio), pyyaml dependency, all docs updated
 - [2026-03-26] V5.6 — Document generation tool (generate_document: PDF, DOCX, XLSX, PPTX, CSV, TXT via pre-tested Python templates in sandbox), sandbox Dockerfile updated with reportlab/openpyxl/python-docx/python-pptx, bind mount file extraction to /app/media/, extended media serving with Content-Disposition headers, TTS voice cloning fix (reverted to x_vector_only_mode=True to fix ICL warmup artifact), constitution split code-execution and document-generation into separate XML sections, MEDIA_HOST_DIR env var in docker-compose.yml

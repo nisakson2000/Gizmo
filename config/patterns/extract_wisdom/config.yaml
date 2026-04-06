@@ -1,0 +1,11 @@
+name: extract_wisdom
+description: Extract key ideas, insights, quotes, habits, facts, and recommendations from any content
+keywords:
+  - extract wisdom
+  - key takeaways
+  - what are the insights
+  - main ideas
+  - lessons from
+  - what can I learn
+tools:
+  - write_memory

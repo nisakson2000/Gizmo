@@ -1,0 +1,10 @@
+name: analyze_claims
+description: Evaluate the truth, evidence, and logical validity of claims
+keywords:
+  - analyze claims
+  - fact check
+  - is this true
+  - evaluate this argument
+  - logical analysis
+tools:
+  - web_search

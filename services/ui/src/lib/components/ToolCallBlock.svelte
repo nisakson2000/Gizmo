@@ -11,7 +11,18 @@
 		write_memory: { running: 'Saving to memory...', done: 'Memory saved' },
 		list_memories: { running: 'Checking memories...', done: 'Memories checked' },
 		run_code: { running: 'Running code...', done: 'Code execution complete' },
+		generate_document: { running: 'Generating document...', done: 'Document ready' },
+		// Future tools — add as capabilities come online
+		generate_image: { running: 'Generating image...', done: 'Image generated' },
+		generate_video: { running: 'Generating video...', done: 'Video generated' },
+		generate_music: { running: 'Composing music...', done: 'Music generated' },
+		edit_image: { running: 'Editing image...', done: 'Image edited' },
+		analyze_image: { running: 'Analyzing image...', done: 'Analysis complete' },
 	};
+
+	function isMediaUrl(r: string, ...exts: string[]): boolean {
+		return r.startsWith('/api/media/') && exts.some(e => r.endsWith(e));
+	}
 
 	let label = $derived(
 		status === 'done'
@@ -60,7 +71,7 @@
 		<div class="relative border-t border-border/50">
 			<button
 				onclick={copyResult}
-				class="absolute top-1.5 right-2 p-1 rounded text-text-dim hover:text-text-primary hover:bg-bg-hover/50 transition-colors"
+				class="absolute top-1.5 right-2 p-1 rounded text-text-dim hover:text-text-primary hover:bg-bg-hover/50 transition-colors z-10"
 				aria-label="Copy output"
 			>
 				{#if copied}
@@ -73,9 +84,27 @@
 					</svg>
 				{/if}
 			</button>
-			<div class="px-3 pr-8 pb-2 pt-1.5 text-xs text-text-secondary font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
-				{result}
-			</div>
+			{#if isMediaUrl(result, '.png', '.jpg', '.webp')}
+				<div class="px-3 py-2">
+					<img src={result} alt="Generated image" class="max-w-full rounded-lg" />
+				</div>
+			{:else if isMediaUrl(result, '.mp4', '.webm')}
+				<div class="px-3 py-2">
+					<video controls src={result} class="max-w-full rounded-lg">
+						<track kind="captions" />
+					</video>
+				</div>
+			{:else if isMediaUrl(result, '.wav', '.mp3')}
+				<div class="px-3 py-2">
+					<audio controls src={result} class="w-full">
+						<track kind="captions" />
+					</audio>
+				</div>
+			{:else}
+				<div class="px-3 pr-8 pb-2 pt-1.5 text-xs text-text-secondary font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+					{result}
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>

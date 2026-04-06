@@ -53,6 +53,12 @@ The model used is an abliterated variant of Qwen3.5-9B — meaning the safety re
 - **Markup preview** — live client-side rendering for HTML, CSS, SVG, and Markdown with auto-preview as you type
 - **Memory Manager** — browse, add, and delete memories from the UI
 
+### Patterns & Routing
+- **Pattern library** — 30 Fabric-inspired cognitive templates (extract_wisdom, summarize, analyze_threat, security_review, debug_code, etc.) that give the model structured rubrics for complex analysis tasks
+- **Intelligent routing** — keyword pre-routing and pattern matching ensure the model only sees 3-8 relevant tools per request, regardless of total tool count (scalable to 20+ tools without accuracy degradation)
+- **Pattern invocation** — patterns activate automatically by keyword matching, or explicitly via `[pattern:name]` prefix
+- **Pattern-scoped tools** — each pattern specifies which tools are available, preventing tool confusion on a 9B model
+
 ### Productivity
 - **Task Tracker** — built-in task and note management with tags, priorities, due dates, recurrence, and subtasks; LLM-powered natural language task creation via dedicated `/tracker` route
 
