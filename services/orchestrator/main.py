@@ -928,16 +928,18 @@ async def search_conversations(q: str = ""):
     """Full-text search across conversation messages."""
     if not q.strip():
         return []
+    # Escape SQL LIKE metacharacters to prevent wildcard injection
+    escaped_q = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     conn = get_db()
     try:
         rows = conn.execute(
             """SELECT DISTINCT c.id, c.title, c.updated_at, m.content
                FROM conversations c
                JOIN messages m ON c.id = m.conversation_id
-               WHERE LOWER(m.content) LIKE '%' || LOWER(?) || '%'
+               WHERE LOWER(m.content) LIKE '%' || LOWER(?) || '%' ESCAPE '\\'
                ORDER BY c.updated_at DESC
                LIMIT 20""",
-            (q,),
+            (escaped_q,),
         ).fetchall()
     finally:
         conn.close()

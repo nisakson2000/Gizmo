@@ -149,24 +149,34 @@ TOOL_DEFINITIONS = [
 
 
 def _build_doc_code(fmt: str, title: str, content: str) -> str:
-    """Build Python code to generate a document from structured content."""
-    # Escape for safe injection into Python string
-    t = title.replace("\\", "\\\\").replace("'", "\\'")
-    c = content.replace("\\", "\\\\").replace("'", "\\'")
+    """Build Python code to generate a document from structured content.
+
+    Uses base64 encoding to safely pass title/content into the sandbox,
+    avoiding any string injection issues with user-controlled text.
+    """
+    import base64 as _b64
+    t_b64 = _b64.b64encode(title.encode()).decode()
+    c_b64 = _b64.b64encode(content.encode()).decode()
+
+    # Common preamble: decode title and content from base64
+    preamble = f"""import base64, os
+os.makedirs('/tmp/output', exist_ok=True)
+title = base64.b64decode('{t_b64}').decode()
+content = base64.b64decode('{c_b64}').decode()
+# Sanitize title for use as filename
+safe_title = ''.join(c if c.isalnum() or c in ' ._-' else '_' for c in title)[:80] or 'document'
+"""
 
     if fmt == "txt":
-        return f"""import os
-os.makedirs('/tmp/output', exist_ok=True)
-with open('/tmp/output/{t}.txt', 'w') as f:
-    f.write('''{c}''')
+        return preamble + """with open(f'/tmp/output/{safe_title}.txt', 'w') as f:
+    f.write(content)
 print('Document created')
 """
 
     if fmt == "csv":
-        return f"""import csv, os
-os.makedirs('/tmp/output', exist_ok=True)
-lines = '''{c}'''.strip().split('\\n')
-with open('/tmp/output/{t}.csv', 'w', newline='') as f:
+        return preamble + """import csv
+lines = content.strip().split('\\n')
+with open(f'/tmp/output/{safe_title}.csv', 'w', newline='') as f:
     writer = csv.writer(f)
     for line in lines:
         writer.writerow([col.strip() for col in line.split('|')])
@@ -174,15 +184,13 @@ print('CSV created')
 """
 
     if fmt == "pdf":
-        return f"""import os
-os.makedirs('/tmp/output', exist_ok=True)
-from reportlab.lib.pagesizes import letter
+        return preamble + """from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
-doc = SimpleDocTemplate('/tmp/output/{t}.pdf', pagesize=letter)
+doc = SimpleDocTemplate(f'/tmp/output/{safe_title}.pdf', pagesize=letter)
 styles = getSampleStyleSheet()
-story = [Paragraph('''{t}''', styles['Title']), Spacer(1, 12)]
-for para in '''{c}'''.split('\\n'):
+story = [Paragraph(title, styles['Title']), Spacer(1, 12)]
+for para in content.split('\\n'):
     para = para.strip()
     if para:
         story.append(Paragraph(para, styles['BodyText']))
@@ -192,45 +200,39 @@ print('PDF created')
 """
 
     if fmt == "docx":
-        return f"""import os
-os.makedirs('/tmp/output', exist_ok=True)
-from docx import Document
+        return preamble + """from docx import Document
 doc = Document()
-doc.add_heading('''{t}''', level=1)
-for para in '''{c}'''.split('\\n'):
+doc.add_heading(title, level=1)
+for para in content.split('\\n'):
     para = para.strip()
     if para:
         doc.add_paragraph(para)
-doc.save('/tmp/output/{t}.docx')
+doc.save(f'/tmp/output/{safe_title}.docx')
 print('DOCX created')
 """
 
     if fmt == "xlsx":
-        return f"""import os
-os.makedirs('/tmp/output', exist_ok=True)
-from openpyxl import Workbook
+        return preamble + """from openpyxl import Workbook
 from openpyxl.styles import Font
 wb = Workbook()
 ws = wb.active
-ws.title = '''{t}'''
-lines = '''{c}'''.strip().split('\\n')
+ws.title = title[:31]  # Excel sheet name max 31 chars
+lines = content.strip().split('\\n')
 for i, line in enumerate(lines, 1):
     cols = [col.strip() for col in line.split('|')]
     for j, val in enumerate(cols, 1):
         cell = ws.cell(row=i, column=j, value=val)
         if i == 1:
             cell.font = Font(bold=True)
-wb.save('/tmp/output/{t}.xlsx')
+wb.save(f'/tmp/output/{safe_title}.xlsx')
 print('XLSX created')
 """
 
     if fmt == "pptx":
-        return f"""import os
-os.makedirs('/tmp/output', exist_ok=True)
-from pptx import Presentation
+        return preamble + """from pptx import Presentation
 from pptx.util import Inches, Pt
 prs = Presentation()
-slides_raw = '''{c}'''.split('---')
+slides_raw = content.split('---')
 for slide_text in slides_raw:
     lines = [l.strip() for l in slide_text.strip().split('\\n') if l.strip()]
     if not lines:
@@ -241,7 +243,7 @@ for slide_text in slides_raw:
     slide.shapes.title.text = slide_title
     if body and slide.placeholders[1]:
         slide.placeholders[1].text = body
-prs.save('/tmp/output/{t}.pptx')
+prs.save(f'/tmp/output/{safe_title}.pptx')
 print('PPTX created')
 """
 
