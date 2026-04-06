@@ -1,5 +1,6 @@
 """Tool definitions and dispatch for LLM function calling."""
 
+import base64
 from typing import Any
 
 from memory import write_memory, read_memory, list_memories
@@ -154,9 +155,8 @@ def _build_doc_code(fmt: str, title: str, content: str) -> str:
     Uses base64 encoding to safely pass title/content into the sandbox,
     avoiding any string injection issues with user-controlled text.
     """
-    import base64 as _b64
-    t_b64 = _b64.b64encode(title.encode()).decode()
-    c_b64 = _b64.b64encode(content.encode()).decode()
+    t_b64 = base64.b64encode(title.encode()).decode()
+    c_b64 = base64.b64encode(content.encode()).decode()
 
     # Common preamble: decode title and content from base64
     preamble = f"""import base64, os

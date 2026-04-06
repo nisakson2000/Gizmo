@@ -349,8 +349,9 @@ def list_notes(
             query += " AND EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)"
             params.append(tag)
         if search:
-            query += " AND (title LIKE ? OR content LIKE ?)"
-            params.extend([f"%{search}%", f"%{search}%"])
+            escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            query += " AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')"
+            params.extend([f"%{escaped}%", f"%{escaped}%"])
 
         query += " ORDER BY pinned DESC, updated_at DESC"
         if limit:
