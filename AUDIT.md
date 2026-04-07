@@ -2,8 +2,8 @@
 
 **Date:** 2026-04-06
 **Auditor:** Claude Code
-**Build:** Gizmo-AI V5.9
-**Scope:** Full codebase review — orchestrator (main.py, llm.py, tools.py, router.py, patterns.py, sandbox.py, tts.py, search.py, memory.py, session_memory.py, tracker.py, tracker_db.py, tracker_tools.py, code_chat.py, recite.py, web_fetch.py), all UI components (.svelte, .ts), docker-compose.yml, Dockerfiles, constitution.txt, config files, all 30 pattern configs
+**Build:** Gizmo-AI V5.10
+**Scope:** Full codebase review — orchestrator (main.py, llm.py, tools.py, router.py, patterns.py, sandbox.py, tts.py, search.py, memory.py, session_memory.py, charmap.py, tracker.py, tracker_db.py, tracker_tools.py, code_chat.py, recite.py, web_fetch.py), all UI components (.svelte, .ts), docker-compose.yml, Dockerfiles, constitution.txt, config files, all 30 pattern configs
 
 ---
 

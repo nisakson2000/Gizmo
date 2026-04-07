@@ -177,6 +177,24 @@ In long conversations (15+ messages), Gizmo automatically retrieves relevant ear
 
 **Limitations:** Session recall is per-conversation — it won't retrieve messages from other conversations (that's what the cross-conversation Memory system is for).
 
+## Smart Context Windowing
+
+When a conversation exceeds the context window budget, Gizmo uses semantic scoring to decide which older messages to keep. Instead of simply dropping the oldest messages first, it scores older messages by relevance to your current question and keeps the most useful ones.
+
+This activates automatically for conversations with 6+ messages that have stored embeddings. The last 6 messages (3 exchanges) are always kept for recency. If embeddings are unavailable, standard oldest-first dropping is used as a fallback.
+
+## Character Analysis
+
+When you ask about individual characters in a word — letter counting, spelling, character positions — Gizmo pre-computes a character breakdown and provides it to the model. This overcomes a fundamental limitation of LLM tokenizers, which see subword tokens rather than individual letters.
+
+**Examples that trigger character analysis:**
+- "How many r's are in strawberry?"
+- "Count the letters in onomatopoeia"
+- "Spell out bureaucracy"
+- "What letters are in rhythm?"
+
+No user action needed — detection and injection happen automatically.
+
 ## Memory Manager
 
 Open the Memory Manager from **Settings → Memory Manager** to view and manage all stored memories.

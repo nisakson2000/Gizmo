@@ -72,7 +72,9 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 5. Orchestrator loads constitution file, scans memory for relevant files
 5a. Router checks for recitation intent (regex detection) — if matched, fetches authoritative text from the web via SearXNG + page scraping and injects it into the system prompt; LLM temperature lowered to 0.2
 5b. If conversation has 15+ messages, session recall retrieves semantically relevant earlier turns via fastembed cosine similarity (excludes recent 10 already in sliding window)
-6. System prompt assembled: constitution.txt + pattern (if any) + recitation content (if any) + session recall (if any) + relevant memories
+5c. Character analysis: regex detects letter-counting/spelling questions, pre-computes character map
+5d. Smart windowing: if conversation > 6 messages, scores older messages by cosine similarity to current query, keeps most relevant within token budget (falls back to FIFO)
+6. System prompt assembled: constitution.txt + pattern (if any) + recitation content (if any) + session recall (if any) + charmap (if any) + relevant memories
 7. Messages array built in OpenAI format: `[system, ...history, user]`
 8. Orchestrator POSTs to `http://gizmo-llama:8080/v1/chat/completions` with `stream: true`, `enable_thinking: true`, and tool definitions
 9. Model begins generating — llama.cpp separates reasoning into `reasoning_content` field
@@ -333,8 +335,9 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │   ├── code_chat.py                  # Code Playground AI chat WebSocket handler (isolated, run_code only)
 │   │   ├── patterns.py                    # Pattern library — loading, caching, keyword matching
 │   │   ├── router.py                      # Request router — keyword pre-routing + pattern matching + tool selection
+│   │   ├── charmap.py                     # Character analysis injection (letter counting, spelling)
 │   │   ├── recite.py                      # Recitation detection and web retrieval pipeline
-│   │   ├── session_memory.py              # Session-level semantic recall (fastembed + SQLite vectors)
+│   │   ├── session_memory.py              # Session-level semantic recall + smart windowing embeddings
 │   │   ├── search.py                      # SearXNG proxy
 │   │   ├── tts.py                         # Qwen3-TTS proxy (voice cloning support)
 │   │   ├── web_fetch.py                   # Page fetcher — HTTP GET + BeautifulSoup text extraction

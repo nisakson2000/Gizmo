@@ -5,6 +5,7 @@ import re
 from typing import Optional
 
 from patterns import match_pattern
+from charmap import is_charmap_request, build_charmap
 from recite import is_recitation_request
 from tools import get_default_tools, get_tool_schemas, has_tool
 
@@ -41,6 +42,7 @@ class RouteResult:
         self.pattern: Optional[dict] = None
         self.cleaned_message: str = ""  # message with [pattern:name] prefix stripped
         self.recitation_subject: str = ""
+        self.charmap_content: str = ""
         self.source: str = "default"
 
     def __repr__(self):
@@ -67,6 +69,12 @@ def route(user_message: str) -> RouteResult:
         result.recitation_subject = subject
         result.source = "recitation"
         logger.info("Recitation detected: '%s' → subject '%s'", user_message[:60], subject)
+
+    # ── Step 0b: Character analysis detection ──
+    is_char, word = is_charmap_request(user_message)
+    if is_char:
+        result.charmap_content = build_charmap(word)
+        logger.info("Charmap detected: '%s' → word '%s'", user_message[:60], word)
 
     # ── Step 1: Keyword pre-routing ──
     keyword_tools = set()

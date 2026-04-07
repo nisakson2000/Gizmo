@@ -92,8 +92,9 @@ Everything is containerized via Podman.
 - Think toggle is in the input area (pill button next to Voice Studio)
 
 ## Request Pipeline (router.py)
-Each user message passes through a 4-step routing pipeline before the LLM:
+Each user message passes through a 5-step routing pipeline before the LLM:
 1. **Recitation detection** (recite.py) — regex matches recitation intent (poems, lyrics, speeches). If matched, fetches full text via SearXNG + web_fetch.py, injects as `<recitation-content>` in system prompt, lowers temperature to 0.2
+1b. **Character analysis** (charmap.py) — regex detects letter-counting, spelling, and character-position questions. Pre-computes a character breakdown and injects as `<character-analysis>` in system prompt
 2. **Keyword pre-routing** — regex matches tool-specific intent (e.g., "generate pdf" → generate_document tool)
 3. **Pattern matching** (patterns.py) — longest keyword match wins from 30 Fabric-inspired templates in `config/patterns/<name>/`. Each pattern injects its system prompt and scopes available tools (model sees 3-8 tools per request)
 4. **Default fallback** — unmatched messages get always_available tools (web_search, memory, run_code)
@@ -188,7 +189,26 @@ Explicit pattern invocation: prefix message with `[pattern:name]` (stripped befo
 - Injection: `<session-recall>` XML block in system prompt between recitation and vision layers
 - Dependency: fastembed>=0.4.0, numpy>=1.26.0 (ONNX Runtime, zero VRAM impact)
 - Cache: ./memory/.fastembed-cache mounted to /root/.cache/fastembed (model downloaded once, persists across rebuilds)
-- File: session_memory.py (embed_text, store_turn, retrieve_relevant, format_recalled)
+- File: session_memory.py (embed_text, store_turn, retrieve_relevant, format_recalled, get_query_embedding, get_stored_embeddings)
+
+## Smart History Windowing
+- window_messages() uses semantic scoring when query embedding is available
+- Always keeps the last 6 messages (3 user-assistant pairs) for recency
+- Scores older messages by cosine similarity to the current query using stored embeddings
+- Fills remaining token budget with highest-scoring older messages in chronological order
+- Falls back to FIFO (drop oldest) when embeddings are unavailable or conversation is short
+- Query embedding computed via asyncio.to_thread to avoid blocking the event loop
+
+## Character Analysis (charmap.py)
+- Detects letter-counting, spelling, and character-position questions via regex
+- Pre-computes character breakdown: positions, total count, per-letter frequency
+- Injected as `<character-analysis>` XML block in system prompt between session_recall and vision
+- Solves tokenizer blindness: LLMs see subword tokens, not individual characters
+
+## Constitution & Epistemic Honesty
+- XML-tagged sections: `<identity>`, `<output-formatting>`, `<tool-discipline>`, `<web-search>`, `<response-quality>`, `<precision-awareness>`, `<epistemic-honesty>`, `<code-execution>`, `<document-generation>`, `<patterns>`
+- `<epistemic-honesty>` section: distinguishes retrieved content (present exactly), session recall (authoritative record), and training knowledge (confident but flag genuine uncertainty)
+- System prompt layer order: constitution → pattern → recitation → session_recall → charmap → vision → memories
 
 ## Tracker Module
 - SQLite database at /app/tracker/tracker.db (tasks + notes tables)

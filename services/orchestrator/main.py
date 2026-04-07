@@ -26,7 +26,7 @@ from memory import get_relevant_memories, list_memories, write_memory, read_memo
 from search import web_search
 from tools import TOOL_DEFINITIONS, execute_tool
 from recite import fetch_recitation_content, build_recitation_context
-from session_memory import retrieve_relevant, format_recalled, store_turn
+from session_memory import retrieve_relevant, format_recalled, store_turn, get_query_embedding, get_stored_embeddings, _cosine_sim
 from router import route
 from patterns import reload_patterns, list_patterns
 from tracker import router as tracker_router
@@ -273,8 +273,9 @@ def load_constitution() -> str:
 def build_system_prompt(user_message: str = "", has_vision: bool = False,
                         pattern: dict | None = None,
                         recitation_context: str = "",
-                        session_recall: str = "") -> str:
-    """Build the full system prompt with constitution, pattern, recitation, session recall, and relevant memories."""
+                        session_recall: str = "",
+                        charmap_content: str = "") -> str:
+    """Build the full system prompt with all context layers."""
     constitution = load_constitution()
     parts = [constitution]
 
@@ -288,6 +289,9 @@ def build_system_prompt(user_message: str = "", has_vision: bool = False,
 
     if session_recall:
         parts.append(f"\n\n{session_recall}")
+
+    if charmap_content:
+        parts.append(f"\n\n{charmap_content}")
 
     if has_vision:
         parts.append(f"\n\n{VISION_PROMPT}")
@@ -374,27 +378,71 @@ def estimate_tokens(text) -> int:
     return len(str(text)) // 4
 
 
-def window_messages(history: list[dict], system_prompt: str, context_length: int) -> list[dict]:
+def window_messages(history: list[dict], system_prompt: str, context_length: int,
+                    query_embedding: bytes | None = None,
+                    conversation_id: str = "") -> list[dict]:
     """Trim conversation history to fit within the token budget.
 
-    Always keeps: system prompt + latest user message.
-    Drops oldest messages first when budget is exceeded.
+    When query_embedding is provided, uses semantic scoring to keep the most
+    relevant older messages instead of just the most recent ones.
+    Falls back to FIFO (drop oldest) when embeddings are unavailable.
     """
     system_tokens = estimate_tokens(system_prompt)
     response_reserve = MAX_RESPONSE_TOKENS + 256
     budget = context_length - system_tokens - response_reserve
 
     if budget <= 0 or not history:
-        # Budget too tight — just keep the latest user message
         return history[-1:] if history else []
 
-    # Walk backwards through history, accumulating tokens
+    # --- Smart windowing (semantic scoring) ---
+    if query_embedding and conversation_id and len(history) > 6:
+        try:
+            import numpy as np
+
+            recent_count = min(6, len(history))
+            recent = history[-recent_count:]
+            recent_tokens = sum(estimate_tokens(m.get("content", "")) for m in recent)
+
+            older_budget = budget - recent_tokens
+            if older_budget <= 0:
+                return recent
+
+            older = history[:-recent_count]
+            emb_lookup = get_stored_embeddings(conversation_id)
+            query_vec = np.frombuffer(query_embedding, dtype=np.float32)
+
+            scored = []
+            for i, msg in enumerate(older):
+                tokens = estimate_tokens(msg.get("content", ""))
+                emb_bytes = emb_lookup.get(i)
+                if emb_bytes:
+                    stored_vec = np.frombuffer(emb_bytes, dtype=np.float32)
+                    sim = _cosine_sim(query_vec, stored_vec)
+                else:
+                    sim = 0.0
+                scored.append((sim, i, msg, tokens))
+
+            scored.sort(key=lambda x: x[0], reverse=True)
+            kept_older = []
+            used = 0
+            for sim, idx, msg, tokens in scored:
+                if used + tokens > older_budget:
+                    continue
+                kept_older.append((idx, msg))
+                used += tokens
+
+            kept_older.sort(key=lambda x: x[0])
+            return [msg for _, msg in kept_older] + recent
+
+        except Exception:
+            pass  # Fall through to FIFO
+
+    # --- FIFO fallback (drop oldest) ---
     kept: list[dict] = []
     used = 0
     for msg in reversed(history):
         msg_tokens = estimate_tokens(msg.get("content", ""))
         if used + msg_tokens > budget and kept:
-            # Over budget and we already have the latest message — stop
             break
         kept.append(msg)
         used += msg_tokens
@@ -637,6 +685,14 @@ async def ws_chat(ws: WebSocket):
             session_recall = await prepare_session_recall(
                 conversation_id, user_text, len(history_msgs), f"[{trace_id}]")
 
+            # Compute query embedding for smart windowing
+            query_embedding = None
+            if len(history_msgs) > 6:
+                try:
+                    query_embedding = await asyncio.to_thread(get_query_embedding, user_text)
+                except Exception:
+                    pass
+
             # Build prompt with pattern (use cleaned text for memory retrieval)
             has_vision = bool(image_data or video_frames)
             system_prompt = build_system_prompt(
@@ -645,8 +701,11 @@ async def ws_chat(ws: WebSocket):
                 pattern=route_result.pattern,
                 recitation_context=recitation_context,
                 session_recall=session_recall,
+                charmap_content=route_result.charmap_content,
             )
-            history_msgs = window_messages(history_msgs, system_prompt, context_length)
+            history_msgs = window_messages(history_msgs, system_prompt, context_length,
+                                           query_embedding=query_embedding,
+                                           conversation_id=conversation_id)
             messages = build_messages(history_msgs, system_prompt)
 
             # Stream with selected tools
@@ -835,11 +894,21 @@ async def rest_chat(
     session_recall = await prepare_session_recall(
         conversation_id, clean_text, len(history_msgs), "[REST]")
 
+    query_embedding = None
+    if len(history_msgs) > 6:
+        try:
+            query_embedding = await asyncio.to_thread(get_query_embedding, clean_text)
+        except Exception:
+            pass
+
     system_prompt = build_system_prompt(clean_text, pattern=route_result.pattern,
                                         recitation_context=recitation_context,
-                                        session_recall=session_recall)
+                                        session_recall=session_recall,
+                                        charmap_content=route_result.charmap_content)
     context_length = max(2048, min(context_length, 131072))
-    history_msgs = window_messages(history_msgs, system_prompt, context_length)
+    history_msgs = window_messages(history_msgs, system_prompt, context_length,
+                                   query_embedding=query_embedding,
+                                   conversation_id=conversation_id)
     messages = build_messages(history_msgs, system_prompt)
 
     full_response = ""

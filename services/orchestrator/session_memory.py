@@ -39,6 +39,30 @@ def embed_text(text: str) -> bytes:
     return np.asarray(vector, dtype=np.float32).tobytes()
 
 
+def get_query_embedding(text: str) -> bytes | None:
+    """Embed a query for smart windowing. Returns None if embedding fails."""
+    try:
+        return embed_text(text[:2000])
+    except Exception:
+        return None
+
+
+def get_stored_embeddings(conversation_id: str) -> dict[int, bytes]:
+    """Load all stored embeddings for a conversation as {message_index: embedding_bytes}."""
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        try:
+            rows = conn.execute(
+                "SELECT message_index, embedding FROM session_embeddings WHERE conversation_id = ?",
+                (conversation_id,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return {r[0]: r[1] for r in rows}
+    except Exception:
+        return {}
+
+
 def _cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
     dot = np.dot(a, b)
     norm = np.linalg.norm(a) * np.linalg.norm(b)
