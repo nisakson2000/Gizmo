@@ -189,11 +189,9 @@
 		<div class="flex-1 overflow-y-auto px-2" role="listbox" aria-label="Conversations">
 			{#if !$conversationsLoaded && $conversations.length === 0}
 				<div class="px-3 py-2 space-y-1">
-					<div class="h-8 bg-bg-hover/30 rounded-lg animate-pulse" style="width: 60%"></div>
-					<div class="h-8 bg-bg-hover/30 rounded-lg animate-pulse" style="width: 80%"></div>
-					<div class="h-8 bg-bg-hover/30 rounded-lg animate-pulse" style="width: 45%"></div>
-					<div class="h-8 bg-bg-hover/30 rounded-lg animate-pulse" style="width: 70%"></div>
-					<div class="h-8 bg-bg-hover/30 rounded-lg animate-pulse" style="width: 55%"></div>
+					{#each [60, 80, 45, 70, 55] as w}
+						<div class="h-8 bg-bg-hover/30 rounded-lg animate-pulse" style="width: {w}%"></div>
+					{/each}
 				</div>
 			{/if}
 			{#if searching}

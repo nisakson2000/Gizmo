@@ -14,7 +14,6 @@
 		updateTask,
 		completeTask,
 	} from '$lib/stores/tracker';
-	import { get } from 'svelte/store';
 	import { connectTracker, disconnectTracker } from '$lib/ws/tracker-client';
 
 	import QuickAdd from '$lib/components/tracker/QuickAdd.svelte';
@@ -35,9 +34,27 @@
 	let showTaskDetail = $derived($activeTab === 'tasks' && $selectedTaskId !== null);
 	let showNoteEditor = $derived($activeTab === 'notes' && $selectedNoteId !== null);
 
-	// Keyboard nav state — exported for TaskList/TaskItem to read
+	const priorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+
+	// Keyboard nav state — mirrors TaskList's filtered derivation (minus local search)
 	let focusedTaskIndex = $state(-1);
-	let visibleTasks = $derived($tasks.filter(t => !t.parent_id));
+	let visibleTasks = $derived.by(() => {
+		let list = $tasks.filter(t => !t.parent_id);
+		const f = $taskFilter;
+		if (f.status) list = list.filter(t => t.status === f.status);
+		if (f.priority) list = list.filter(t => t.priority === f.priority);
+		if (f.tag) list = list.filter(t => t.tags?.includes(f.tag));
+		list.sort((a, b) => {
+			if (f.sort === 'due') {
+				if (!a.due_date && !b.due_date) return 0;
+				if (!a.due_date) return 1;
+				if (!b.due_date) return -1;
+				return a.due_date.localeCompare(b.due_date);
+			}
+			return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
+		});
+		return list;
+	});
 
 	// Reset focus when filter/tab changes
 	$effect(() => {
@@ -177,15 +194,11 @@
 	<div class="console-screen flex-1 overflow-hidden relative">
 		<!-- Full-width scrollable list -->
 		<div class="h-full overflow-y-auto">
-			{#key $activeTab}
-				<div class="tab-fade">
-					{#if $activeTab === 'tasks'}
-						<TaskList {focusedTaskIndex} />
-					{:else}
-						<NoteList />
-					{/if}
-				</div>
-			{/key}
+			{#if $activeTab === 'tasks'}
+				<TaskList {focusedTaskIndex} />
+			{:else}
+				<NoteList />
+			{/if}
 		</div>
 
 		<!-- Overlay: Task Detail -->
@@ -221,14 +234,6 @@
 </div>
 
 <style>
-	@keyframes tabFade {
-		from { opacity: 0; transform: translateY(4px); }
-		to { opacity: 1; transform: none; }
-	}
-	.tab-fade {
-		animation: tabFade 0.15s ease-out;
-	}
-
 	@keyframes overlayFade {
 		from { opacity: 0; }
 		to { opacity: 1; }

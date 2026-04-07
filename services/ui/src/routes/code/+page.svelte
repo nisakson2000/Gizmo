@@ -61,6 +61,7 @@
 			}
 			highlightTimer = null;
 		}, 50);
+		return () => { if (highlightTimer) { clearTimeout(highlightTimer); highlightTimer = null; } };
 	});
 
 	// Auto-save (2s debounce)

@@ -28,6 +28,12 @@
 		}
 	});
 
+	function commitTitleEdit() {
+		const trimmed = editTitle.trim();
+		if (trimmed && trimmed !== task.title) updateTask(task.id, { title: trimmed });
+		editingTitle = false;
+	}
+
 	async function cycleStatus() {
 		if (task.status === 'todo') {
 			await updateTask(task.id, { status: 'in_progress' });
@@ -101,20 +107,10 @@
 				autofocus
 				onclick={(e) => e.stopPropagation()}
 				onkeydown={(e) => {
-					if (e.key === 'Enter') {
-						e.preventDefault();
-						const trimmed = editTitle.trim();
-						if (trimmed && trimmed !== task.title) updateTask(task.id, { title: trimmed });
-						editingTitle = false;
-					} else if (e.key === 'Escape') {
-						editingTitle = false;
-					}
+					if (e.key === 'Enter') { e.preventDefault(); commitTitleEdit(); }
+					else if (e.key === 'Escape') { editingTitle = false; }
 				}}
-				onblur={() => {
-					const trimmed = editTitle.trim();
-					if (trimmed && trimmed !== task.title) updateTask(task.id, { title: trimmed });
-					editingTitle = false;
-				}}
+				onblur={commitTitleEdit}
 				class="flex-1 text-sm bg-bg-primary border border-accent/40 rounded px-1.5 py-0.5 text-text-primary focus:outline-none min-w-0"
 			/>
 		{:else}
