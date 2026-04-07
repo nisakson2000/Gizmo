@@ -17,6 +17,13 @@ DB_PATH = Path("/app/memory/conversations.db")
 
 _embedder = None
 _embedder_lock = threading.Lock()
+_embed_failure_count = 0
+_counter_lock = threading.Lock()
+
+
+def get_embed_failure_count() -> int:
+    """Thread-safe read of the embedding failure counter."""
+    return _embed_failure_count
 
 
 def _get_embedder():
@@ -86,6 +93,9 @@ def store_turn(conversation_id: str, message_index: int, role: str, content: str
             conn.close()
         logger.debug("Stored embedding: conv=%s idx=%d role=%s", conversation_id, message_index, role)
     except Exception as e:
+        global _embed_failure_count
+        with _counter_lock:
+            _embed_failure_count += 1
         logger.warning("store_turn failed: %s", e)
 
 

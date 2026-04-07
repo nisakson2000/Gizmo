@@ -211,8 +211,8 @@ def get_db():
 
 def save_message(conversation_id: str, role: str, content: str, thinking: str = "",
                   audio_url: str = "", image_url: str = "", video_url: str = "",
-                  tool_calls: list | None = None):
-    """Save a message to the database."""
+                  tool_calls: list | None = None) -> int:
+    """Save a message to the database. Returns the 0-based message index in the conversation."""
     conn = get_db()
     try:
         now = datetime.now(timezone.utc).isoformat()
@@ -236,15 +236,21 @@ def save_message(conversation_id: str, role: str, content: str, thinking: str = 
             )
 
         tool_calls_json = json.dumps(tool_calls) if tool_calls else None
-        conn.execute(
+        cursor = conn.execute(
             "INSERT INTO messages (conversation_id, role, content, thinking, timestamp, audio_url, image_url, video_url, tool_calls) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (conversation_id, role, content, thinking, now, audio_url or None, image_url or None, video_url or None, tool_calls_json),
         )
+        # Get 0-based position of this message within the conversation
+        msg_index = conn.execute(
+            "SELECT COUNT(*) - 1 FROM messages WHERE conversation_id = ? AND id <= ?",
+            (conversation_id, cursor.lastrowid),
+        ).fetchone()[0]
         conn.commit()
     finally:
         conn.close()
     if is_new:
         prune_conversations()
+    return msg_index
 
 
 def get_conversation_messages(conversation_id: str) -> list[dict]:
@@ -348,24 +354,12 @@ async def prepare_query_embedding(user_text: str, history_len: int) -> bytes | N
 
 
 
-def _count_messages(conversation_id: str) -> int:
-    """Count messages in a conversation without loading content."""
-    conn = sqlite3.connect(str(DB_PATH))
-    try:
-        return conn.execute(
-            "SELECT COUNT(*) FROM messages WHERE conversation_id = ?",
-            (conversation_id,),
-        ).fetchone()[0]
-    finally:
-        conn.close()
-
-
-def index_conversation_turns(conversation_id: str, user_text: str, assistant_text: str):
+def index_conversation_turns(conversation_id: str, user_index: int, user_text: str,
+                             assistant_index: int, assistant_text: str):
     """Fire-and-forget background indexing of conversation turns for session recall."""
     try:
-        msg_count = _count_messages(conversation_id)
-        asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 2, "user", user_text))
-        asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 1, "assistant", assistant_text))
+        asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, user_index, "user", user_text))
+        asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, assistant_index, "assistant", assistant_text))
     except Exception as e:
         error_log.debug("Session indexing failed: %s", e)
 
@@ -567,7 +561,12 @@ async def generate_title(conv_id: str, user_message: str, assistant_response: st
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "gizmo-orchestrator", "model": MODEL_NAME}
+    from session_memory import get_embed_failure_count
+    result = {"status": "ok", "service": "gizmo-orchestrator", "model": MODEL_NAME}
+    failures = get_embed_failure_count()
+    if failures > 0:
+        result["embed_failures"] = failures
+    return result
 
 
 @app.get("/api/patterns")
@@ -684,8 +683,8 @@ async def ws_chat(ws: WebSocket):
                         pass  # Non-critical — image just won't persist
                 persisted_video_url = msg.get("video_url", "")
                 # Save user message with media URLs
-                save_message(conversation_id, "user", user_text,
-                             image_url=persisted_image_url, video_url=persisted_video_url)
+                user_msg_index = save_message(conversation_id, "user", user_text,
+                                              image_url=persisted_image_url, video_url=persisted_video_url)
 
             # Route the request
             route_result = route(user_text)
@@ -865,12 +864,13 @@ async def ws_chat(ws: WebSocket):
 
             # Save assistant response (skip if stream errored before any tokens)
             if full_response:
-                save_message(conversation_id, "assistant", full_response, full_thinking,
-                             audio_url=audio_file_url,
-                             tool_calls=executed_tool_calls if executed_tool_calls else None)
+                asst_msg_index = save_message(conversation_id, "assistant", full_response, full_thinking,
+                                              audio_url=audio_file_url,
+                                              tool_calls=executed_tool_calls if executed_tool_calls else None)
                 conv_log.info("[%s] ASSISTANT (%s): %s", trace_id, conversation_id, full_response[:500])
 
-                index_conversation_turns(conversation_id, user_text, full_response)
+                index_conversation_turns(conversation_id, user_msg_index, user_text,
+                                         asst_msg_index, full_response)
 
             await ws.send_json({
                 "type": "done",
@@ -915,7 +915,7 @@ async def rest_chat(
     history_msgs = [{"role": m["role"], "content": m["content"]} for m in history]
     history_msgs.append({"role": "user", "content": clean_text})
 
-    save_message(conversation_id, "user", clean_text)
+    user_msg_index = save_message(conversation_id, "user", clean_text)
 
     query_embedding = await prepare_query_embedding(clean_text, len(history_msgs))
 
@@ -1002,11 +1002,12 @@ async def rest_chat(
                 "content": result,
             })
 
-    save_message(conversation_id, "assistant", full_response, full_thinking)
+    asst_msg_index = save_message(conversation_id, "assistant", full_response, full_thinking)
     conv_log.info("[REST] ASSISTANT (%s): %s", conversation_id, full_response[:500])
 
     if full_response:
-        index_conversation_turns(conversation_id, clean_text, full_response)
+        index_conversation_turns(conversation_id, user_msg_index, clean_text,
+                                 asst_msg_index, full_response)
 
     return {
         "response": full_response,

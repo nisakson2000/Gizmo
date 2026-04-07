@@ -19,6 +19,7 @@ async def fetch_page(url: str, timeout: float = 15.0) -> str:
         async with httpx.AsyncClient(
             timeout=timeout,
             follow_redirects=True,
+            max_redirects=5,
             headers={"User-Agent": "Mozilla/5.0 (compatible; Gizmo/1.0)"},
         ) as client:
             resp = await client.get(url)

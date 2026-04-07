@@ -12,34 +12,22 @@
 | Severity | Count |
 |----------|-------|
 | Warning  | 0     |
-| Suggestion | 3   |
-| **Total** | **3** |
+| Suggestion | 0   |
+| **Total** | **0** |
 
 ---
 
-## Open Issues — Suggestion
+## Resolved Issues (V5.11 — Phase 4, including final suggestions)
 
-### S1. httpx redirect limit is implicit default (20)
+### Suggestions (fixed after initial audit)
 
-**Location:** `web_fetch.py:21`
+| ID | Issue | Fix |
+|----|-------|-----|
+| S1 | httpx redirect limit implicit default (20) | Added `max_redirects=5` to web_fetch.py AsyncClient |
+| S2 | index_conversation_turns uses COUNT for message_index | save_message() now returns 0-based index from DB; indices passed directly to index_conversation_turns |
+| S3 | store_turn failures not surfaced | Added embed_failure_count counter in session_memory.py; exposed in /health endpoint when > 0 |
 
-httpx follows up to 20 redirects by default. A server with many redirects would consume time before failing. Setting `max_redirects=5` explicitly would be safer. Low risk since fetch_page has a 15s timeout.
-
-### S2. index_conversation_turns uses COUNT for message_index
-
-**Location:** `main.py:365-368`
-
-`_count_messages()` returns the total count; `msg_count - 2` and `msg_count - 1` are used as message indices. If two concurrent requests for the same conversation overlapped, indices could be wrong. In practice this doesn't happen because WebSocket connections are single-threaded per conversation and REST calls for the same conversation are sequential. Monitoring recommended if concurrent access is added.
-
-### S3. store_turn failures only logged at WARNING
-
-**Location:** `session_memory.py:89`
-
-Embedding failures are logged at WARNING but not surfaced to the user. If the fastembed model fails to load or ONNX Runtime crashes, all indexing silently stops. Session recall degrades without user-visible indication. Acceptable for fire-and-forget design but could benefit from a health check counter.
-
----
-
-## Resolved Issues (V5.11 — Phase 4)
+### Issues found and fixed during Phase 4 audit
 
 ### Issues found and fixed during this audit:
 
