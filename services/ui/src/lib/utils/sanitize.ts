@@ -4,5 +4,6 @@ export function sanitize(html: string): string {
 	return DOMPurify.sanitize(html, {
 		ADD_ATTR: ['class'],
 		ADD_TAGS: ['svg', 'path', 'circle'],
+		FORBID_TAGS: ['foreignObject', 'script', 'iframe'],
 	});
 }

@@ -200,12 +200,17 @@ export function stopGeneration() {
 	connectionStatus.set('connecting');
 	// Close and reconnect — backend handles WebSocketDisconnect cleanly
 	if (ws) {
-		ws.onclose = null; // Prevent double reconnect
-		ws.close();
+		const oldWs = ws;
 		ws = null;
+		oldWs.onopen = null;
+		oldWs.onmessage = null;
+		oldWs.onerror = null;
+		oldWs.onclose = null;
+		oldWs.close();
 	}
 	reconnectDelay = 1000;
-	connect();
+	// Defer connect to next tick so the old socket fully tears down
+	setTimeout(() => connect(), 0);
 }
 
 export function disconnect() {

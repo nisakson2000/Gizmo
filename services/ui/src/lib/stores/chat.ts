@@ -145,7 +145,8 @@ export async function loadConversations() {
 			conversations.set(data);
 		}
 	} catch {
-		// Service unavailable
+		const { toast } = await import('./toast');
+		toast('Could not load conversations — orchestrator may be down', 'error');
 	}
 }
 

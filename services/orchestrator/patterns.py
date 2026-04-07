@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -15,6 +16,7 @@ PATTERNS_DIR = Path(os.getenv("PATTERNS_DIR", "/app/config/patterns"))
 # Cache: pattern_name → {name, description, keywords, tools, system_prompt}
 _pattern_cache: dict[str, dict] = {}
 _cache_loaded = False
+_cache_lock = threading.Lock()
 
 
 def _load_patterns():
@@ -69,8 +71,9 @@ def _load_patterns():
 
 def get_pattern(name: str) -> Optional[dict]:
     """Get a pattern by exact name."""
-    if not _cache_loaded:
-        _load_patterns()
+    with _cache_lock:
+        if not _cache_loaded:
+            _load_patterns()
     return _pattern_cache.get(name)
 
 
@@ -79,8 +82,9 @@ def match_pattern(user_message: str) -> tuple[Optional[dict], str]:
     Returns (pattern_dict_or_None, cleaned_message). The cleaned message has
     the [pattern:name] prefix stripped if it was used for explicit invocation.
     """
-    if not _cache_loaded:
-        _load_patterns()
+    with _cache_lock:
+        if not _cache_loaded:
+            _load_patterns()
 
     msg_lower = user_message.lower()
 
@@ -107,8 +111,9 @@ def match_pattern(user_message: str) -> tuple[Optional[dict], str]:
 
 def list_patterns() -> list[dict]:
     """List all available patterns (name + description only)."""
-    if not _cache_loaded:
-        _load_patterns()
+    with _cache_lock:
+        if not _cache_loaded:
+            _load_patterns()
     return [
         {"name": p["name"], "description": p["description"]}
         for p in _pattern_cache.values()
@@ -117,6 +122,7 @@ def list_patterns() -> list[dict]:
 
 def reload_patterns():
     """Force-reload all patterns from disk."""
-    global _cache_loaded
-    _cache_loaded = False
-    _load_patterns()
+    with _cache_lock:
+        global _cache_loaded
+        _cache_loaded = False
+        _load_patterns()

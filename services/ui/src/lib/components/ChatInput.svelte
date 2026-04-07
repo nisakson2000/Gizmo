@@ -130,7 +130,10 @@
 				// Transcribe audio via Whisper, then stage transcript as a file
 				try {
 					uploading = true;
-					const resp = await fetch('/api/transcribe', { method: 'POST', body: formData });
+					const ctrl = new AbortController();
+					const tid = setTimeout(() => ctrl.abort(), 60000);
+					const resp = await fetch('/api/transcribe', { method: 'POST', body: formData, signal: ctrl.signal });
+					clearTimeout(tid);
 					uploading = false;
 					if (!resp.ok) {
 						showError('Audio transcription failed.');
@@ -153,7 +156,10 @@
 
 			try {
 				uploading = true;
-				const resp = await fetch(endpoint, { method: 'POST', body: formData });
+				const ctrl = new AbortController();
+				const tid = setTimeout(() => ctrl.abort(), 60000);
+				const resp = await fetch(endpoint, { method: 'POST', body: formData, signal: ctrl.signal });
+				clearTimeout(tid);
 				uploading = false;
 				if (!resp.ok) {
 					const err = await resp.json().catch(() => null);
@@ -191,7 +197,10 @@
 			formData.append('file', file);
 			try {
 				uploading = true;
-				const resp = await fetch('/api/transcribe', { method: 'POST', body: formData });
+				const ctrl = new AbortController();
+				const tid = setTimeout(() => ctrl.abort(), 60000);
+				const resp = await fetch('/api/transcribe', { method: 'POST', body: formData, signal: ctrl.signal });
+				clearTimeout(tid);
 				uploading = false;
 				if (!resp.ok) {
 					showError('Audio transcription failed.');
@@ -241,7 +250,10 @@
 				formData.append('file', blob, 'recording.webm');
 
 				try {
-					const resp = await fetch('/api/transcribe', { method: 'POST', body: formData });
+					const ctrl = new AbortController();
+					const tid = setTimeout(() => ctrl.abort(), 60000);
+					const resp = await fetch('/api/transcribe', { method: 'POST', body: formData, signal: ctrl.signal });
+					clearTimeout(tid);
 					if (resp.ok) {
 						const data = await resp.json();
 						if (data.text) {

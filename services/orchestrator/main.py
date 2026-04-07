@@ -706,6 +706,8 @@ async def ws_chat(ws: WebSocket):
                         "type": "audio",
                         "url": audio_file_url,
                     })
+                else:
+                    await ws.send_json({"type": "error", "error": "TTS synthesis failed — audio unavailable"})
 
             # Save assistant response (skip if stream errored before any tokens)
             if full_response:
@@ -896,7 +898,7 @@ async def upload_video(file: UploadFile = File(...)):
         probe = subprocess.run(
             ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
              "-of", "csv=p=0", str(saved_video_path)],
-            capture_output=True, text=True
+            capture_output=True, text=True, timeout=30
         )
         try:
             duration = float(probe.stdout.strip())
@@ -923,7 +925,7 @@ async def upload_video(file: UploadFile = File(...)):
             subprocess.run(
                 ["ffmpeg", "-ss", str(ts), "-i", str(saved_video_path),
                  "-frames:v", "1", "-q:v", "3", "-y", frame_path],
-                capture_output=True
+                capture_output=True, timeout=30
             )
             if os.path.exists(frame_path):
                 with open(frame_path, "rb") as fp:

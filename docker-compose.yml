@@ -64,6 +64,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
   gizmo-tts:
     build:
@@ -132,6 +133,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
 
   gizmo-whisper:
     image: docker.io/fedirz/faster-whisper-server:0.5.0-cpu
