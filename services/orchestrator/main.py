@@ -156,6 +156,23 @@ def init_db():
             conn.execute("ALTER TABLE messages ADD COLUMN video_url TEXT")
         if "tool_calls" not in cols:
             conn.execute("ALTER TABLE messages ADD COLUMN tool_calls TEXT")
+        # Session embeddings for semantic recall (Phase 2)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS session_embeddings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                message_index INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                embedding BLOB NOT NULL,
+                created_at TIMESTAMP,
+                UNIQUE(conversation_id, message_index)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_session_embeddings_conv
+            ON session_embeddings(conversation_id)
+        """)
         conn.commit()
     finally:
         conn.close()
@@ -254,8 +271,9 @@ def load_constitution() -> str:
 
 def build_system_prompt(user_message: str = "", has_vision: bool = False,
                         pattern: dict | None = None,
-                        recitation_context: str = "") -> str:
-    """Build the full system prompt with constitution, pattern, recitation, and relevant memories."""
+                        recitation_context: str = "",
+                        session_recall: str = "") -> str:
+    """Build the full system prompt with constitution, pattern, recitation, session recall, and relevant memories."""
     constitution = load_constitution()
     parts = [constitution]
 
@@ -266,6 +284,9 @@ def build_system_prompt(user_message: str = "", has_vision: bool = False,
 
     if recitation_context:
         parts.append(f"\n\n{recitation_context}")
+
+    if session_recall:
+        parts.append(f"\n\n{session_recall}")
 
     if has_vision:
         parts.append(f"\n\n{VISION_PROMPT}")
@@ -575,6 +596,18 @@ async def ws_chat(ws: WebSocket):
 
             recitation_context, llm_temperature = await prepare_recitation(route_result, f"[{trace_id}]")
 
+            # Session recall — retrieve relevant earlier turns if conversation is long
+            session_recall = ""
+            if len(history_msgs) > 15:
+                try:
+                    from session_memory import retrieve_relevant, format_recalled
+                    recalled = retrieve_relevant(conversation_id, user_text)
+                    if recalled:
+                        session_recall = format_recalled(recalled)
+                        conv_log.info("[%s] Session recall: %d turns retrieved", trace_id, len(recalled))
+                except Exception as e:
+                    error_log.debug("Session recall failed: %s", e)
+
             # Build prompt with pattern (use cleaned text for memory retrieval)
             has_vision = bool(image_data or video_frames)
             system_prompt = build_system_prompt(
@@ -582,6 +615,7 @@ async def ws_chat(ws: WebSocket):
                 has_vision=has_vision,
                 pattern=route_result.pattern,
                 recitation_context=recitation_context,
+                session_recall=session_recall,
             )
             history_msgs = window_messages(history_msgs, system_prompt, context_length)
             messages = build_messages(history_msgs, system_prompt)
@@ -722,6 +756,15 @@ async def ws_chat(ws: WebSocket):
                              tool_calls=executed_tool_calls if executed_tool_calls else None)
                 conv_log.info("[%s] ASSISTANT (%s): %s", trace_id, conversation_id, full_response[:500])
 
+                # Index turns for session recall (fire-and-forget, never blocks response)
+                try:
+                    from session_memory import store_turn
+                    msg_count = len(get_conversation_messages(conversation_id))
+                    asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 2, "user", user_text))
+                    asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 1, "assistant", full_response))
+                except Exception:
+                    pass
+
             await ws.send_json({
                 "type": "done",
                 "trace_id": trace_id,
@@ -767,8 +810,21 @@ async def rest_chat(
 
     save_message(conversation_id, "user", clean_text)
 
+    # Session recall — retrieve relevant earlier turns if conversation is long
+    session_recall = ""
+    if len(history_msgs) > 15:
+        try:
+            from session_memory import retrieve_relevant, format_recalled
+            recalled = retrieve_relevant(conversation_id, clean_text)
+            if recalled:
+                session_recall = format_recalled(recalled)
+                conv_log.info("[REST] Session recall: %d turns retrieved", len(recalled))
+        except Exception as e:
+            error_log.debug("Session recall failed: %s", e)
+
     system_prompt = build_system_prompt(clean_text, pattern=route_result.pattern,
-                                        recitation_context=recitation_context)
+                                        recitation_context=recitation_context,
+                                        session_recall=session_recall)
     context_length = max(2048, min(context_length, 131072))
     history_msgs = window_messages(history_msgs, system_prompt, context_length)
     messages = build_messages(history_msgs, system_prompt)
@@ -827,6 +883,16 @@ async def rest_chat(
 
     save_message(conversation_id, "assistant", full_response, full_thinking)
     conv_log.info("[REST] ASSISTANT (%s): %s", conversation_id, full_response[:500])
+
+    # Index turns for session recall (fire-and-forget)
+    if full_response:
+        try:
+            from session_memory import store_turn
+            msg_count = len(get_conversation_messages(conversation_id))
+            asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 2, "user", clean_text))
+            asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 1, "assistant", full_response))
+        except Exception:
+            pass
 
     return {
         "response": full_response,

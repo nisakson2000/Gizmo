@@ -36,7 +36,7 @@ The model used is an abliterated variant of Qwen3.5-9B — meaning the safety re
 - **Multi-round tool calling** — model autonomously chains up to 5 rounds of tool calls (web search, memory, code execution) in a single exchange
 - **Web search** via self-hosted SearXNG — no API keys needed
 - **Document upload** — analyze PDFs, text files, and code directly in chat (up to 50MB)
-- **Memory system** — remembers facts across conversations via BM25-ranked file storage with recency weighting
+- **Memory system** — remembers facts across conversations via BM25-ranked file storage with recency weighting; within long conversations, semantic recall retrieves relevant earlier messages that scrolled out of the context window (CPU-only embeddings, zero VRAM impact)
 - **Recitation & accurate recall** — when asked to recite poems, speeches, lyrics, or other known texts, Gizmo fetches the authoritative source from the web and presents it verbatim at low temperature instead of guessing from training memory
 
 ### Voice

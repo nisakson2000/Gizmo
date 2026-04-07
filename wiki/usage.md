@@ -167,6 +167,16 @@ Gizmo can remember things across conversations.
 
 Memories persist across conversations and browser sessions. They are text files injected into the system prompt using BM25 relevance ranking with recency weighting.
 
+## Session Recall
+
+In long conversations (15+ messages), Gizmo automatically retrieves relevant earlier messages that have scrolled out of the context window. This happens transparently — no user action required.
+
+**How it works:** Every message is embedded using a lightweight CPU-based model (BAAI/bge-small-en-v1.5, ~33MB) and stored in the conversation database. When you ask about something discussed earlier, the most semantically relevant earlier turns are retrieved by cosine similarity and injected into the prompt.
+
+**When it activates:** Only in conversations with 15+ messages. Shorter conversations fit entirely in the context window, so recall isn't needed.
+
+**Limitations:** Session recall is per-conversation — it won't retrieve messages from other conversations (that's what the cross-conversation Memory system is for).
+
 ## Memory Manager
 
 Open the Memory Manager from **Settings → Memory Manager** to view and manage all stored memories.

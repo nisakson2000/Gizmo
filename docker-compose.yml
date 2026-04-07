@@ -113,6 +113,7 @@ services:
       - ./voices:/app/voices:rw,Z
       - ./media:/app/media:rw,Z
       - ./tracker:/app/tracker:rw,Z
+      - ./memory/.fastembed-cache:/root/.cache/fastembed:rw,Z
       - /run/user/1000/podman/podman.sock:/run/podman/podman.sock
     environment:
       - LLAMA_HOST=gizmo-llama

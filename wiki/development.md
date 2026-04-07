@@ -162,7 +162,7 @@ The Dockerfile copies the build output at image build time. Just running `up -d`
 - **Usage analytics** — token counts, response times, cost estimation dashboard
 - **Streaming TTS** — chunk audio as it generates for lower latency
 - **Image generation** — Stable Diffusion integration
-- **ChromaDB semantic memory** — upgrade BM25 to vector similarity search
+- **ChromaDB semantic memory** — upgrade cross-conversation BM25 to vector similarity search (within-conversation semantic recall is already implemented via fastembed session RAG)
 
 ## Contributing
 
