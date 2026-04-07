@@ -355,7 +355,8 @@ def list_notes(
 
         query += " ORDER BY pinned DESC, updated_at DESC"
         if limit:
-            query += f" LIMIT {int(limit)}"
+            query += " LIMIT ?"
+            params.append(int(limit))
 
         rows = conn.execute(query, params).fetchall()
         return [_note_to_dict(r) for r in rows]

@@ -499,9 +499,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Gizmo-AI Orchestrator", version="1.0.0", lifespan=lifespan)
 
+from origins import ALLOWED_ORIGINS, check_ws_origin
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -601,6 +603,9 @@ async def services_health():
 
 @app.websocket("/ws/chat")
 async def ws_chat(ws: WebSocket):
+    if not check_ws_origin(ws):
+        await ws.close(code=4003, reason="Origin not allowed")
+        return
     await ws.accept()
     try:
         while True:
@@ -1522,6 +1527,7 @@ async def save_voice(file: UploadFile = File(...), name: str = Form(...), max_du
             ["ffmpeg", "-i", raw_path, "-t", str(dur), "-ar", "24000", "-ac", "1",
              "-y", wav_path],
             capture_output=True,
+            timeout=30,
         )
 
     if not os.path.exists(wav_path):

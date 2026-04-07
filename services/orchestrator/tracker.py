@@ -273,6 +273,10 @@ async def api_list_tags():
 
 @router.websocket("/ws/tracker")
 async def ws_tracker(ws: WebSocket):
+    from origins import check_ws_origin
+    if not check_ws_origin(ws):
+        await ws.close(code=4003, reason="Origin not allowed")
+        return
     await ws.accept()
 
     # In-memory conversation history for this session (not DB-persisted)

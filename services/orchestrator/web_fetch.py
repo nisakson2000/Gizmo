@@ -33,5 +33,5 @@ async def fetch_page(url: str, timeout: float = 15.0) -> str:
         return text[:MAX_CHARS]
 
     except Exception as e:
-        logger.debug("fetch_page failed for %s: %s", url, e)
+        logger.warning("fetch_page failed for %s: %s", url, e)
         return ""

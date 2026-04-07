@@ -102,6 +102,10 @@ async def _execute_code_tool(arguments: dict) -> str:
 @router.websocket("/ws/code-chat")
 async def ws_code_chat(ws: WebSocket):
     """WebSocket for the Code Playground AI chat. Isolated from main chat and memory."""
+    from origins import check_ws_origin
+    if not check_ws_origin(ws):
+        await ws.close(code=4003, reason="Origin not allowed")
+        return
     await ws.accept()
     message_history: list[dict] = []
 

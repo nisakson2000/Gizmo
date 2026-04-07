@@ -35,7 +35,7 @@
 		try {
 			return sanitize(marked.parse(displayContent) as string);
 		} catch {
-			return displayContent;
+			return sanitize(displayContent);
 		}
 	});
 

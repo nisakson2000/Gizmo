@@ -66,7 +66,7 @@
 		try {
 			parsedStreamingHtml = sanitize(marked.parse(raw) as string);
 		} catch {
-			parsedStreamingHtml = raw;
+			parsedStreamingHtml = sanitize(raw);
 		}
 	}
 
