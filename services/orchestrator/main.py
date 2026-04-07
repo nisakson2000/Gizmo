@@ -26,6 +26,7 @@ from memory import get_relevant_memories, list_memories, write_memory, read_memo
 from search import web_search
 from tools import TOOL_DEFINITIONS, execute_tool
 from recite import fetch_recitation_content, build_recitation_context
+from session_memory import retrieve_relevant, format_recalled, store_turn
 from router import route
 from patterns import reload_patterns, list_patterns
 from tracker import router as tracker_router
@@ -314,6 +315,43 @@ async def prepare_recitation(route_result, log_prefix: str = "") -> tuple[str, f
     return "", 0.7
 
 
+async def prepare_session_recall(conversation_id: str, user_text: str,
+                                  history_len: int, log_prefix: str = "") -> str:
+    """Retrieve relevant earlier turns if conversation is long enough."""
+    if history_len <= 15:
+        return ""
+    try:
+        recalled = await asyncio.to_thread(retrieve_relevant, conversation_id, user_text)
+        if recalled:
+            conv_log.info("%s Session recall: %d turns retrieved", log_prefix, len(recalled))
+            return format_recalled(recalled)
+    except Exception as e:
+        error_log.debug("Session recall failed: %s", e)
+    return ""
+
+
+def _count_messages(conversation_id: str) -> int:
+    """Count messages in a conversation without loading content."""
+    conn = sqlite3.connect(str(DB_PATH))
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM messages WHERE conversation_id = ?",
+            (conversation_id,),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def index_conversation_turns(conversation_id: str, user_text: str, assistant_text: str):
+    """Fire-and-forget background indexing of conversation turns for session recall."""
+    try:
+        msg_count = _count_messages(conversation_id)
+        asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 2, "user", user_text))
+        asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 1, "assistant", assistant_text))
+    except Exception as e:
+        error_log.debug("Session indexing failed: %s", e)
+
+
 MAX_RESPONSE_TOKENS = 8192
 
 
@@ -596,17 +634,8 @@ async def ws_chat(ws: WebSocket):
 
             recitation_context, llm_temperature = await prepare_recitation(route_result, f"[{trace_id}]")
 
-            # Session recall — retrieve relevant earlier turns if conversation is long
-            session_recall = ""
-            if len(history_msgs) > 15:
-                try:
-                    from session_memory import retrieve_relevant, format_recalled
-                    recalled = retrieve_relevant(conversation_id, user_text)
-                    if recalled:
-                        session_recall = format_recalled(recalled)
-                        conv_log.info("[%s] Session recall: %d turns retrieved", trace_id, len(recalled))
-                except Exception as e:
-                    error_log.debug("Session recall failed: %s", e)
+            session_recall = await prepare_session_recall(
+                conversation_id, user_text, len(history_msgs), f"[{trace_id}]")
 
             # Build prompt with pattern (use cleaned text for memory retrieval)
             has_vision = bool(image_data or video_frames)
@@ -756,14 +785,7 @@ async def ws_chat(ws: WebSocket):
                              tool_calls=executed_tool_calls if executed_tool_calls else None)
                 conv_log.info("[%s] ASSISTANT (%s): %s", trace_id, conversation_id, full_response[:500])
 
-                # Index turns for session recall (fire-and-forget, never blocks response)
-                try:
-                    from session_memory import store_turn
-                    msg_count = len(get_conversation_messages(conversation_id))
-                    asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 2, "user", user_text))
-                    asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 1, "assistant", full_response))
-                except Exception:
-                    pass
+                index_conversation_turns(conversation_id, user_text, full_response)
 
             await ws.send_json({
                 "type": "done",
@@ -810,17 +832,8 @@ async def rest_chat(
 
     save_message(conversation_id, "user", clean_text)
 
-    # Session recall — retrieve relevant earlier turns if conversation is long
-    session_recall = ""
-    if len(history_msgs) > 15:
-        try:
-            from session_memory import retrieve_relevant, format_recalled
-            recalled = retrieve_relevant(conversation_id, clean_text)
-            if recalled:
-                session_recall = format_recalled(recalled)
-                conv_log.info("[REST] Session recall: %d turns retrieved", len(recalled))
-        except Exception as e:
-            error_log.debug("Session recall failed: %s", e)
+    session_recall = await prepare_session_recall(
+        conversation_id, clean_text, len(history_msgs), "[REST]")
 
     system_prompt = build_system_prompt(clean_text, pattern=route_result.pattern,
                                         recitation_context=recitation_context,
@@ -884,15 +897,8 @@ async def rest_chat(
     save_message(conversation_id, "assistant", full_response, full_thinking)
     conv_log.info("[REST] ASSISTANT (%s): %s", conversation_id, full_response[:500])
 
-    # Index turns for session recall (fire-and-forget)
     if full_response:
-        try:
-            from session_memory import store_turn
-            msg_count = len(get_conversation_messages(conversation_id))
-            asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 2, "user", clean_text))
-            asyncio.create_task(asyncio.to_thread(store_turn, conversation_id, msg_count - 1, "assistant", full_response))
-        except Exception:
-            pass
+        index_conversation_turns(conversation_id, clean_text, full_response)
 
     return {
         "response": full_response,

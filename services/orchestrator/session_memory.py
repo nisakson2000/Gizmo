@@ -6,6 +6,7 @@ when a conversation grows long enough that the sliding window drops older turns.
 
 import logging
 import sqlite3
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -15,15 +16,19 @@ logger = logging.getLogger(__name__)
 DB_PATH = Path("/app/memory/conversations.db")
 
 _embedder = None
+_embedder_lock = threading.Lock()
 
 
 def _get_embedder():
     """Lazy-load the fastembed embedding model (first call downloads ~33MB)."""
     global _embedder
-    if _embedder is None:
-        from fastembed import TextEmbedding
-        _embedder = TextEmbedding("BAAI/bge-small-en-v1.5")
-        logger.info("Embedding model loaded: BAAI/bge-small-en-v1.5")
+    if _embedder is not None:
+        return _embedder
+    with _embedder_lock:
+        if _embedder is None:
+            from fastembed import TextEmbedding
+            _embedder = TextEmbedding("BAAI/bge-small-en-v1.5")
+            logger.info("Embedding model loaded: BAAI/bge-small-en-v1.5")
     return _embedder
 
 
