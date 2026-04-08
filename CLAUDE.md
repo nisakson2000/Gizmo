@@ -377,11 +377,12 @@ Explicit layered assembly with per-layer token budget logging:
 - All data local — no telemetry or external reporting
 
 ## V6 Background Processing
-After each response is saved, four fire-and-forget background tasks run:
-1. `index_conversation_turns()` — embed user+assistant turns for session recall
-2. `index_cross_conversation()` — embed exchange pair for cross-conv search (via asyncio.to_thread)
-3. `maybe_compact()` — generate summary if conversation has 20+ messages (async, LLM call)
-4. `maybe_extract_facts()` — extract knowledge facts from exchange (async, LLM call)
+After each response is saved, five fire-and-forget background tasks run:
+1. `store_analytics()` — persist token counts, timing, and mode to message_analytics table
+2. `index_conversation_turns()` — embed user+assistant turns for session recall
+3. `index_cross_conversation()` — embed exchange pair for cross-conv search (via asyncio.to_thread)
+4. `maybe_compact()` — generate summary if conversation has 20+ messages (async, LLM call)
+5. `maybe_extract_facts()` — extract knowledge facts from exchange (async, LLM call)
 
 At startup, three additional background tasks run:
 1. `_prewarm_embeddings()` — load fastembed model
