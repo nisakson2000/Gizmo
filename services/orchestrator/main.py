@@ -1227,19 +1227,33 @@ async def rest_chat(
 
     query_embedding = await prepare_query_embedding(clean_text, len(history_msgs))
 
+    # Retrieve session recall + cross-conversation context (parallel)
     recalled_turns = []
-    if len(history_msgs) > 15 and query_embedding:
+    cross_conv_results = []
+    if query_embedding:
         try:
-            recalled_turns = await asyncio.to_thread(
-                retrieve_relevant, conversation_id, clean_text, query_embedding=query_embedding)
-            if recalled_turns:
+            session_result, cross_result = await asyncio.gather(
+                asyncio.to_thread(
+                    retrieve_relevant, conversation_id, clean_text, query_embedding=query_embedding),
+                asyncio.to_thread(
+                    search_cross_conversations, clean_text, conversation_id, 3, query_embedding),
+                return_exceptions=True,
+            )
+            if not isinstance(session_result, BaseException) and session_result:
+                recalled_turns = session_result
                 conv_log.info("[REST] Session recall: %d turns retrieved", len(recalled_turns))
+            if not isinstance(cross_result, BaseException) and cross_result:
+                cross_conv_results = cross_result
+                conv_log.info("[REST] Cross-conv recall: %d results", len(cross_conv_results))
         except Exception as e:
-            error_log.debug("Session recall retrieval failed: %s", e)
+            error_log.debug("Recall retrieval failed: %s", e)
 
     rest_conv_len = len(history_msgs)
+    conv_summary = get_conversation_summary(conversation_id)
+
     temp_prompt = build_system_prompt(clean_text, pattern=route_result.pattern,
                                       recitation_context=recitation_context,
+                                      conversation_summary=conv_summary,
                                       charmap_content=route_result.charmap_content,
                                       conversation_length=rest_conv_len)
     context_length = max(2048, min(context_length, 131072))
@@ -1254,9 +1268,16 @@ async def rest_chat(
         if deduped:
             session_recall = format_recalled(deduped)
 
+    cross_memory_context = format_cross_recall(cross_conv_results) if cross_conv_results else ""
+    knowledge_facts = get_relevant_facts(clean_text)
+    knowledge_context = format_knowledge_facts(knowledge_facts) if knowledge_facts else ""
+
     system_prompt = build_system_prompt(clean_text, pattern=route_result.pattern,
                                         recitation_context=recitation_context,
+                                        conversation_summary=conv_summary,
                                         session_recall=session_recall,
+                                        cross_memory=cross_memory_context,
+                                        knowledge_context=knowledge_context,
                                         charmap_content=route_result.charmap_content,
                                         conversation_length=rest_conv_len)
     messages = build_messages(history_msgs, system_prompt)
@@ -1319,6 +1340,13 @@ async def rest_chat(
     if full_response:
         index_conversation_turns(conversation_id, user_msg_index, clean_text,
                                  asst_msg_index, full_response)
+        asyncio.create_task(asyncio.to_thread(
+            index_cross_conversation, conversation_id, clean_text, full_response,
+            user_msg_index, asst_msg_index))
+        msg_count = len(get_conversation_messages(conversation_id))
+        asyncio.create_task(maybe_compact(conversation_id, msg_count))
+        asyncio.create_task(maybe_extract_facts(
+            conversation_id, clean_text, full_response, user_msg_index))
 
     return {
         "response": full_response,
