@@ -315,6 +315,14 @@ Every code change MUST include corresponding documentation updates. No exception
 - **config/services.yaml** — Must match docker-compose.yml ports and service names
 - **CLAUDE.md** — System facts, architecture, known issues
 
+### Wiki Publish Step (MANDATORY)
+The GitHub Wiki tab is served from a separate repo cloned at `.wiki-published/`.
+When ANY `.github/wiki/*.md` file changes, you MUST also:
+1. Copy the changed file(s) to `.wiki-published/` (filenames are Title-Case: `architecture.md` → `Architecture.md`)
+2. Commit and push `.wiki-published/` so the live Wiki tab stays current
+
+File name mapping: `home.md` → `Home.md`, `architecture.md` → `Architecture.md`, `usage.md` → `Usage.md`, `setup.md` → `Setup.md`, `development.md` → `Development.md`, `model-reference.md` → `Model-Reference.md`, `how-ai-works.md` → `How-the-AI-Works.md`, `_Sidebar.md` → `_Sidebar.md`
+
 ### Checklist:
 1. New/changed user-facing feature? → README.md + .github/wiki/usage.md
 2. Architecture change (service, port, endpoint)? → README.md diagram + .github/wiki/architecture.md
@@ -323,3 +331,4 @@ Every code change MUST include corresponding documentation updates. No exception
 5. Model or TTS change? → .github/wiki/model-reference.md + README.md + CLAUDE.md
 6. docker-compose.yml change? → .github/wiki/architecture.md + config/services.yaml
 7. VRAM change? → README.md hardware requirements + CLAUDE.md
+8. Any .github/wiki/ change? → Copy to .wiki-published/ and push (see Wiki Publish Step above)
