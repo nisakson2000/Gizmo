@@ -166,11 +166,9 @@ The Dockerfile copies the build output at image build time. Just running `up -d`
 
 - **Model hot-swap** — switch models via API without restarting
 - **Prompt template editor** — edit constitution from the UI
-- **Mobile-optimized layout** — responsive design for phone access via Tailscale
 - **Usage analytics** — token counts, response times, cost estimation dashboard
 - **Streaming TTS** — chunk audio as it generates for lower latency
 - **Image generation** — Stable Diffusion integration
-- **ChromaDB semantic memory** — upgrade cross-conversation BM25 to vector similarity search (within-conversation semantic recall + smart windowing already implemented via fastembed)
 
 ## Contributing
 
