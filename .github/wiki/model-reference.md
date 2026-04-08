@@ -1,6 +1,15 @@
 # Model Reference
 
-Technical reference for the models used by Gizmo-AI: Qwen3.5-9B (language + vision), Qwen3-TTS (speech synthesis), and Whisper (speech-to-text).
+> **Audience:** Anyone who wants to understand the models powering Gizmo-AI.
+>
+> Covers Qwen3.5-9B (language + vision), Qwen3-TTS (speech synthesis), and Whisper (speech-to-text).
+
+---
+
+### Contents
+- [Qwen3.5-9B](#qwen35-9b--language-model) — LLM specs, abliteration, quantization, VRAM budget
+- [Qwen3-TTS](#qwen3-tts--text-to-speech) — Voice cloning, x-vector mode, auto-unload
+- [Whisper](#whisper--speech-to-text) — faster-whisper, CPU-only, transcription
 
 ---
 

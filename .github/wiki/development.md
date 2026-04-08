@@ -1,6 +1,14 @@
 # Development Guide
 
-How to extend, modify, and contribute to Gizmo-AI. Assumes strong Python/JS skills.
+> **Audience:** Developers extending Gizmo-AI. Assumes strong Python and JavaScript skills.
+
+---
+
+### Contents
+- [How to Add a New Tool](#how-to-add-a-new-tool) — Step-by-step with `get_weather` example
+- [How to Add a New Pattern](#how-to-add-a-new-pattern) — Creating cognitive templates
+- [Coding Conventions](#coding-conventions) — Style, async, error handling
+- [Build & Deploy](#build--deploy) — Container rebuild commands
 
 ---
 

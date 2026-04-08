@@ -1,6 +1,18 @@
 # How Local AI Works
 
-This page explains how large language models actually work — from first principles — using Gizmo-AI as the concrete example throughout. No prior AI knowledge assumed.
+> **Audience:** Anyone curious about how AI works. No prior AI knowledge assumed.
+>
+> This page explains large language models from first principles, using Gizmo-AI as the concrete example throughout.
+
+---
+
+### Contents
+- [What Is a Language Model?](#what-is-a-language-model)
+- [What Makes a Model "Large"?](#what-makes-a-model-large)
+- [Quantization](#what-is-quantization) and [GGUF](#what-is-gguf)
+- [llama.cpp](#what-is-llamacpp) and [Context Windows](#what-is-a-context-window)
+- [Thinking Mode](#what-is-thinking-mode) and [Abliteration](#what-is-abliteration)
+- [RAG & Memory](#what-is-rag-and-memory) and [Tool Calling](#what-is-tool-calling)
 
 ---
 

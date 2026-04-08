@@ -30,6 +30,7 @@ jobs:
           cp .github/wiki/setup.md           wiki-repo/Setup.md
           cp .github/wiki/usage.md           wiki-repo/Usage.md
           cp .github/wiki/_Sidebar.md        wiki-repo/_Sidebar.md 2>/dev/null || true
+          cp .github/wiki/Home.md              wiki-repo/Home.md 2>/dev/null || true
 
       - name: Push if changed
         run: |

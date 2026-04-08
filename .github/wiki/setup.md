@@ -1,6 +1,18 @@
 # Setup Guide
 
-Complete setup guide from a fresh Linux machine. Target audience: someone technical enough to use a terminal but who has never set up local AI.
+> **Audience:** Technical users comfortable with a terminal. No prior local AI experience needed.
+>
+> **Time:** ~1-2 hours for first setup. After that, starting Gizmo takes ~30 seconds.
+
+---
+
+### Contents
+- [Before You Start](#before-you-start) — Hardware requirements
+- [Steps 1-3](#step-1--install-podman) — Install Podman, NVIDIA toolkit, huggingface-hub
+- [Steps 4-6](#step-4--clone-the-repo) — Clone, download models (~14GB), build containers
+- [Steps 7-9](#step-7--start-gizmo-ai) — Start services, verify health, open UI
+- [Step 10](#step-10--remote-access-via-tailscale) — Remote access via Tailscale
+- [Troubleshooting](#troubleshooting) — Common issues and fixes
 
 ---
 
@@ -55,7 +67,7 @@ podman --version
 sudo pacman -S podman
 ```
 
-**Verify:** `podman --version` should show 4.0+.
+> **Verify:** `podman --version` should show 4.0+.
 
 You also need `podman-compose`:
 ```bash
@@ -84,12 +96,12 @@ Generate CDI configuration:
 sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 ```
 
-**Verify GPU passthrough:**
+> **Verify GPU passthrough:**
 ```bash
 podman run --rm --security-opt=label=disable --device nvidia.com/gpu=all docker.io/nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
 ```
 
-You should see your GPU listed. The `--security-opt=label=disable` is required on SELinux systems (Fedora, Bazzite).
+> You should see your GPU listed. The `--security-opt=label=disable` is required on SELinux systems (Fedora, Bazzite).
 
 ## Step 3 — Install huggingface-hub
 

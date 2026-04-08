@@ -1,6 +1,21 @@
 # Architecture
 
-Full technical reference for Gizmo-AI. Assumes familiarity with containers and REST APIs.
+> **Audience:** Developers and system administrators. Assumes familiarity with containers and REST APIs.
+
+---
+
+### Contents
+
+| Section | What's covered |
+|---------|---------------|
+| [System Overview](#system-overview) | Architecture diagram, container reference |
+| [Network & Security](#network) | Podman network, GPU passthrough, SELinux, origin validation |
+| [Request Lifecycle](#request-lifecycle) | WebSocket flow from message to response |
+| [WebSocket Protocol](#websocket-event-protocol) | Event types, client payloads |
+| [REST API](#rest-api-endpoints) | All HTTP endpoints |
+| [Tool System](#tool-system) | Tool definitions, routing, patterns |
+| [Memory & Recall](#memory-system) | BM25 ranking, session embeddings, smart windowing |
+| [File Tree](#project-file-tree) | Complete directory structure |
 
 ---
 

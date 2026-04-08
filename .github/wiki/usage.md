@@ -1,6 +1,20 @@
 # Usage Guide
 
-Day-to-day guide for using Gizmo-AI. Assumes setup is complete and services are running.
+> **Audience:** Daily users of Gizmo-AI. Assumes [[setup|Setup]] is complete and services are running.
+
+---
+
+### Contents
+
+| Section | What's covered |
+|---------|---------------|
+| [Chat Basics](#chat-basics) | Sending messages, thinking mode, vision, video, audio |
+| [Voice & TTS](#voice-studio) | Voice Studio, cloning, speech-to-text, speed/language |
+| [Web Search & Memory](#web-search) | Search, recitation, memory, session recall |
+| [Code Playground](#code-playground) | Editor, syntax highlighting, AI assistant, sandbox |
+| [Task Tracker](#task-tracker) | Tasks, notes, keyboard navigation, LLM chat |
+| [Themes](#themes) | 9 Nintendo console themes with sound and boot animations |
+| [Settings & Shortcuts](#settings) | All settings and keyboard shortcuts |
 
 ---
 
