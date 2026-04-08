@@ -13,6 +13,7 @@
 | [Web Search & Memory](#web-search) | Search, recitation, memory, session recall |
 | [Code Playground](#code-playground) | Editor, syntax highlighting, AI assistant, sandbox |
 | [Task Tracker](#task-tracker) | Tasks, notes, keyboard navigation, LLM chat |
+| [Analytics](#analytics) | Token usage, response times, cloud cost comparison |
 | [Themes](#themes) | 9 Nintendo console themes with sound and boot animations |
 | [Settings & Shortcuts](#settings) | All settings and keyboard shortcuts |
 
@@ -359,6 +360,27 @@ Conversations are stored in a server-side SQLite database, accessible from any d
 - **Regenerate**: Hover the last assistant message to reveal the **Regenerate** button (cycle icon). Click it to re-send the same user message for a fresh answer. The previous response is preserved — use the `< 1/2 >` arrows to navigate between all response versions.
 - **Edit**: Hover any user message to reveal the **Edit** button (pencil icon). Click it to open an inline editor. Modify the text and click **Save** — the edited message is resubmitted. Use the `< 1/2 >` arrows on both the user message and the response to navigate between prompt/response pairs. Press **Escape** or **Cancel** to discard changes.
 - **Response history**: All previous responses are preserved when regenerating or editing. Navigation arrows appear on hover. Responses are linked to the prompt that generated them — navigating a response automatically shows the corresponding prompt, and navigating a prompt jumps to its latest response. Image and video attachments are preserved across regenerations and edits.
+
+## Analytics
+
+Access the analytics dashboard via the **Stats** icon in the left navigation rail, or navigate to `/analytics`.
+
+The dashboard tracks real token counts from the LLM, response times, and compares what your local usage would cost on cloud providers.
+
+**Dashboard sections:**
+
+| Section | Description |
+|---------|-------------|
+| **Summary cards** | Total tokens (input/output), total messages, average response time, cloud cost equivalent |
+| **Daily usage chart** | Stacked bar chart showing input and output tokens per day (hover for details) |
+| **Cloud cost comparison** | What your tokens would cost on OpenAI GPT-4o, Claude Sonnet/Opus, Gemini Pro/Flash |
+| **Response time chart** | Average LLM generation time per day |
+| **Top conversations** | Conversations ranked by total token usage |
+| **Mode breakdown** | Token distribution across behavioral modes (Chat, Coder, Research, etc.) |
+
+Use the **7d / 30d / 90d** buttons in the header to change the time range.
+
+All data is stored locally. No telemetry or external reporting.
 
 ## Themes
 

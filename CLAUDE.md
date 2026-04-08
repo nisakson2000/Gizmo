@@ -281,6 +281,7 @@ Explicit pattern invocation: prefix message with `[pattern:name]` (stripped befo
 - `conversation_summaries` — rolling LLM summaries of conversation segments (for compaction, Prompt 3)
 - `cross_conv_embeddings` — semantic chunks indexed across all conversations (active, populated by cross_memory.py)
 - `knowledge_facts` — temporal knowledge graph with validity windows (active, populated by knowledge.py)
+- `message_analytics` — per-message token counts, response times, tool rounds, mode (populated after each assistant response)
 - Cascade deletes in `prune_conversations()`, `delete_conversation()`, and related cleanup paths
 
 ## Character Analysis (charmap.py)
@@ -354,7 +355,7 @@ Explicit layered assembly with per-layer token budget logging:
 - Message editing: hover user message → edit button → inline textarea → Save truncates and resubmits
 - Response history: regenerate/edit preserves variants with < 1/N > navigation arrows
 - Streaming markdown: debounced at 150ms, final parse on stream end
-- Icon rail navigation: Chat, Tasks, Code, Settings in left sidebar
+- Icon rail navigation: Chat, Tasks, Code, Stats, Settings in left sidebar
 - Scroll-to-bottom FAB: floating chevron button appears when user scrolls up, click to return to latest
 - Mobile swipe gestures: swipe right from left edge opens sidebar, swipe left closes (via swipe.ts action)
 - Mobile message actions: edit/copy/regenerate always visible at 50% opacity on touch devices (no hover needed)
@@ -364,6 +365,16 @@ Explicit layered assembly with per-layer token budget logging:
 - prefers-reduced-motion: all CSS animations disabled for users who request reduced motion
 - Responsive message width: user bubbles max-w-[85%] on mobile, 75% on tablet, 65% on desktop
 - Animation optimization: msg-appear class only applied to last 3 messages when conversation exceeds 20 messages
+
+## Usage Analytics (analytics.py)
+- Captures real token counts from llama.cpp streaming responses (usage field in final chunk)
+- Falls back to estimate_tokens() heuristic when llama.cpp doesn't provide usage data
+- Per-message storage: prompt_tokens, completion_tokens, total_tokens, response_time_ms, context_build_ms, tool_rounds, mode
+- Cost comparison model: 6 cloud providers (OpenAI GPT-4o/mini, Claude Sonnet/Opus 4, Gemini 2.5 Pro/Flash)
+- REST: GET /api/analytics/summary, /api/analytics/daily?days=N, /api/analytics/conversations, /api/analytics/costs, /api/analytics/modes
+- Dashboard: /analytics route with summary cards, daily usage chart (CSS bars), cost comparison, response time chart, top conversations, mode breakdown
+- Time range selector: 7d / 30d / 90d buttons in header
+- All data local — no telemetry or external reporting
 
 ## V6 Background Processing
 After each response is saved, four fire-and-forget background tasks run:

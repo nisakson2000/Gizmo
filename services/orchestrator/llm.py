@@ -134,6 +134,16 @@ async def stream_chat(
                             "arguments": tc["arguments"],
                         }
 
+                # Capture usage from final chunk
+                usage = data.get("usage")
+                if usage:
+                    yield {
+                        "type": "usage",
+                        "prompt_tokens": usage.get("prompt_tokens", 0),
+                        "completion_tokens": usage.get("completion_tokens", 0),
+                        "total_tokens": usage.get("total_tokens", 0),
+                    }
+
                 # Handle max_tokens truncation
                 if finish == "length":
                     yield {"type": "truncated"}

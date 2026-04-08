@@ -215,6 +215,11 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `/api/modes/{name}` | GET | Get full mode details including system_prompt content |
 | `/api/modes/{name}` | PUT | Update mode system_prompt and/or config (JSON: system_prompt?, label?, description?) |
 | `/api/modes/{name}` | DELETE | Delete a custom mode (built-in modes protected) |
+| `/api/analytics/summary` | GET | Total tokens, conversations, avg response time, estimated savings |
+| `/api/analytics/daily` | GET | Daily breakdown (query: `?days=30`). Returns tokens, messages, response times per day |
+| `/api/analytics/conversations` | GET | Per-conversation token totals, sorted by usage (top 20) |
+| `/api/analytics/costs` | GET | Cost comparison across 6 cloud providers (OpenAI, Claude, Gemini) |
+| `/api/analytics/modes` | GET | Token distribution across behavioral modes |
 
 ## Pattern System
 
@@ -275,6 +280,7 @@ memory/
 | `conversation_summaries` | Rolling LLM summaries of conversation segments (V6) |
 | `cross_conv_embeddings` | Semantic chunks indexed across all conversations (V6) |
 | `knowledge_facts` | Temporal knowledge graph with validity windows (V6) |
+| `message_analytics` | Per-message token counts, response times, tool rounds, mode |
 
 All tables have cascade deletes — pruning or deleting a conversation removes its entries from all related tables.
 
@@ -397,6 +403,7 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │   ├── compaction.py                  # V6: Rolling LLM summaries of conversation segments
 │   │   ├── knowledge.py                   # V6: Temporal knowledge graph — fact extraction + invalidation
 │   │   ├── importance.py                  # V6: Heuristic message importance scoring
+│   │   ├── analytics.py                   # Usage analytics — per-message metrics, cost comparison
 │   │   ├── search.py                      # SearXNG proxy
 │   │   ├── tts.py                         # Qwen3-TTS proxy (voice cloning support)
 │   │   ├── web_fetch.py                   # Page fetcher — HTTP GET + BeautifulSoup text extraction

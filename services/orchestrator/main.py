@@ -36,6 +36,7 @@ from importance import score_message
 from router import route
 from patterns import reload_patterns, list_patterns
 from modes import get_mode, get_mode_prompt, list_modes, save_mode_prompt, save_mode_config, create_mode, delete_mode, reload_modes
+from analytics import store_analytics, get_summary as analytics_summary, get_daily_breakdown, get_conversation_usage, get_cost_comparison, get_mode_breakdown
 from tracker import router as tracker_router
 from code_chat import router as code_chat_router
 from tracker_db import init_tracker_db
@@ -278,6 +279,30 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_knowledge_facts_valid
             ON knowledge_facts(valid_to)
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS message_analytics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                message_id INTEGER NOT NULL,
+                prompt_tokens INTEGER,
+                completion_tokens INTEGER,
+                total_tokens INTEGER,
+                response_time_ms INTEGER,
+                context_build_ms INTEGER,
+                tool_rounds INTEGER DEFAULT 0,
+                mode TEXT DEFAULT 'chat',
+                created_at TIMESTAMP,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_analytics_conv
+            ON message_analytics(conversation_id)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_analytics_date
+            ON message_analytics(created_at)
+        """)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.commit()
     finally:
@@ -302,6 +327,7 @@ def prune_conversations():
         conn.execute(f"DELETE FROM conversation_summaries WHERE conversation_id IN ({placeholders})", ids)
         conn.execute(f"DELETE FROM cross_conv_embeddings WHERE conversation_id IN ({placeholders})", ids)
         conn.execute(f"DELETE FROM knowledge_facts WHERE source_conversation_id IN ({placeholders})", ids)
+        conn.execute(f"DELETE FROM message_analytics WHERE conversation_id IN ({placeholders})", ids)
         conn.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", ids)
         conn.commit()
         conn.execute("VACUUM")
@@ -887,6 +913,39 @@ async def api_delete_mode(name: str):
     return {"status": "ok"}
 
 
+# --- Analytics Endpoints ---
+
+
+@app.get("/api/analytics/summary")
+async def api_analytics_summary():
+    """Total tokens, conversations, avg response time, estimated savings."""
+    return analytics_summary()
+
+
+@app.get("/api/analytics/daily")
+async def api_analytics_daily(days: int = 30):
+    """Daily breakdown of tokens, messages, and response times."""
+    return get_daily_breakdown(min(days, 365))
+
+
+@app.get("/api/analytics/conversations")
+async def api_analytics_conversations():
+    """Per-conversation token totals, sorted by usage."""
+    return get_conversation_usage()
+
+
+@app.get("/api/analytics/costs")
+async def api_analytics_costs():
+    """Cost comparison across all cloud providers."""
+    return get_cost_comparison()
+
+
+@app.get("/api/analytics/modes")
+async def api_analytics_modes():
+    """Token distribution across modes."""
+    return get_mode_breakdown()
+
+
 @app.get("/api/services/health")
 async def services_health():
     """Check health of all backend services."""
@@ -1092,7 +1151,8 @@ async def ws_chat(ws: WebSocket):
             full_thinking = ""
             executed_tool_calls = []  # Accumulate for DB persistence
             tool_calls_pending = []
-
+            usage_data = {}
+            t_llm_start = time.perf_counter()
             _rep_check_len = 0
             async for event in stream_chat(messages, thinking_enabled=thinking,
                                            tool_schemas=route_result.tool_schemas,
@@ -1110,6 +1170,8 @@ async def ws_chat(ws: WebSocket):
                             await ws.send_json({"type": "token", "content": _REPETITION_NOTICE})
                             conv_log.info("[%s] Repetition detected, stopping generation", trace_id)
                             break
+                elif event["type"] == "usage":
+                    usage_data = event
                 elif event["type"] == "truncated":
                     full_response += _TRUNCATION_NOTICE
                     await ws.send_json({"type": "token", "content": _TRUNCATION_NOTICE})
@@ -1193,6 +1255,8 @@ async def ws_chat(ws: WebSocket):
                     elif event["type"] == "thinking":
                         full_thinking += event["content"]
                         await ws.send_json(event)
+                    elif event["type"] == "usage":
+                        usage_data = event
                     elif event["type"] == "truncated":
                         full_response += _TRUNCATION_NOTICE
                         await ws.send_json({"type": "token", "content": _TRUNCATION_NOTICE})
@@ -1213,6 +1277,8 @@ async def ws_chat(ws: WebSocket):
                         })
                         tool_calls_pending = []  # stop looping on error
                         break
+
+            t_llm_total = time.perf_counter() - t_llm_start
 
             # TTS if requested
             audio_file_url = ""
@@ -1248,6 +1314,18 @@ async def ws_chat(ws: WebSocket):
                                               tool_calls=executed_tool_calls if executed_tool_calls else None)
                 conv_log.info("[%s] ASSISTANT (%s): %s", trace_id, conversation_id, full_response[:500])
 
+                # Store analytics (fire-and-forget — non-critical telemetry)
+                context_ms = int((t_embed + t_recall + t_compact + t_knowledge) * 1000)
+                response_ms = int(t_llm_total * 1000)
+                prompt_tok = usage_data.get("prompt_tokens") or estimate_tokens(system_prompt + user_text)
+                completion_tok = usage_data.get("completion_tokens") or estimate_tokens(full_response)
+                total_tok = usage_data.get("total_tokens") or (prompt_tok + completion_tok)
+                asyncio.create_task(asyncio.to_thread(
+                    store_analytics, conversation_id, asst_msg_index,
+                    prompt_tok, completion_tok, total_tok, response_ms,
+                    context_ms, tool_round, active_mode,
+                ))
+
                 index_conversation_turns(conversation_id, user_msg_index, user_text,
                                          asst_msg_index, full_response)
                 asyncio.create_task(asyncio.to_thread(
@@ -1258,16 +1336,15 @@ async def ws_chat(ws: WebSocket):
                 asyncio.create_task(maybe_extract_facts(
                     conversation_id, user_text, full_response, user_msg_index))
 
+                # Generate title on first exchange (exactly 2 messages: user + assistant)
+                if msg_count == 2 and not regenerate:
+                    asyncio.create_task(generate_title(conversation_id, user_text, full_response, ws))
+
             await ws.send_json({
                 "type": "done",
                 "trace_id": trace_id,
                 "conversation_id": conversation_id,
             })
-
-            # Generate title on first exchange (exactly 2 messages: user + assistant)
-            msg_count = len(get_conversation_messages(conversation_id))
-            if msg_count == 2 and not regenerate:
-                asyncio.create_task(generate_title(conversation_id, user_text, full_response, ws))
 
     except WebSocketDisconnect:
         pass
@@ -1721,6 +1798,7 @@ async def delete_conversation(conv_id: str):
         conn.execute("DELETE FROM conversation_summaries WHERE conversation_id = ?", (conv_id,))
         conn.execute("DELETE FROM cross_conv_embeddings WHERE conversation_id = ?", (conv_id,))
         conn.execute("DELETE FROM knowledge_facts WHERE source_conversation_id = ?", (conv_id,))
+        conn.execute("DELETE FROM message_analytics WHERE conversation_id = ?", (conv_id,))
         conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
         conn.commit()
     finally:
@@ -1762,6 +1840,10 @@ async def delete_messages_from(conv_id: str, index: int):
         )
         conn.execute(
             "DELETE FROM knowledge_facts WHERE source_conversation_id = ? AND source_message_index >= ?",
+            (conv_id, index),
+        )
+        conn.execute(
+            "DELETE FROM message_analytics WHERE conversation_id = ? AND message_id >= ?",
             (conv_id, index),
         )
         conn.commit()
