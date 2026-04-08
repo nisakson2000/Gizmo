@@ -284,7 +284,6 @@ Every code change MUST include corresponding documentation updates. No exception
 - **.github/wiki/usage.md** — Feature descriptions, settings reference
 - **.github/wiki/development.md** — Tool definitions, contributing guide
 - **.github/wiki/model-reference.md** — Model specs, quantization, TTS details
-- **AUDIT.md** — Update when issues are fixed or new ones found
 - **config/models.yaml** — Must match the actual model being served
 - **config/services.yaml** — Must match docker-compose.yml ports and service names
 - **CLAUDE.md** — System facts, architecture, known issues
@@ -297,4 +296,3 @@ Every code change MUST include corresponding documentation updates. No exception
 5. Model or TTS change? → .github/wiki/model-reference.md + README.md + CLAUDE.md
 6. docker-compose.yml change? → .github/wiki/architecture.md + config/services.yaml
 7. VRAM change? → README.md hardware requirements + CLAUDE.md
-8. Fixed audit issue? → AUDIT.md resolved table
