@@ -104,7 +104,10 @@ async def maybe_extract_facts(
                 subject = normalize_entity(fact.get("subject", ""))
                 predicate = fact.get("predicate", "").strip().lower()
                 obj = normalize_entity(fact.get("object", ""))
-                confidence = float(fact.get("confidence", 0.7))
+                try:
+                    confidence = float(fact.get("confidence", 0.7))
+                except (ValueError, TypeError):
+                    confidence = 0.7
 
                 if not subject or not predicate or not obj:
                     continue

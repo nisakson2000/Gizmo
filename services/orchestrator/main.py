@@ -1644,11 +1644,11 @@ async def delete_messages_from(conv_id: str, index: int):
         )
         # Remove summaries and cross-conv embeddings covering deleted messages
         conn.execute(
-            "DELETE FROM conversation_summaries WHERE conversation_id = ? AND segment_start >= ?",
+            "DELETE FROM conversation_summaries WHERE conversation_id = ? AND segment_end >= ?",
             (conv_id, index),
         )
         conn.execute(
-            "DELETE FROM cross_conv_embeddings WHERE conversation_id = ? AND message_start >= ?",
+            "DELETE FROM cross_conv_embeddings WHERE conversation_id = ? AND message_end >= ?",
             (conv_id, index),
         )
         conn.execute(

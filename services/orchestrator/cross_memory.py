@@ -362,7 +362,6 @@ def backfill_cross_conv_embeddings() -> None:
                         embedding = embed_text(combined[:2000])
                         room = classify_room(combined)
 
-                        from importance import score_message
                         importance = max(
                             score_message(user_text, role="user"),
                             score_message(asst_text, role="assistant"),
