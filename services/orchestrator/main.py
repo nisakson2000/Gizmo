@@ -9,6 +9,7 @@ import re
 import sqlite3
 import subprocess
 import tempfile
+import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -495,6 +496,84 @@ def index_conversation_turns(conversation_id: str, user_index: int, user_text: s
         error_log.debug("Session indexing failed: %s", e)
 
 
+async def _backfill_v6_systems():
+    """One-time startup backfill: generate compaction summaries and extract knowledge facts
+    for existing conversations that don't have them yet. Runs in background."""
+    import time
+    await asyncio.sleep(15)  # wait for embedding model to load
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.row_factory = sqlite3.Row
+        try:
+            # Find conversations with 20+ messages that lack summaries
+            candidates = conn.execute("""
+                SELECT c.id, COUNT(m.id) as msg_count
+                FROM conversations c
+                JOIN messages m ON c.id = m.conversation_id
+                WHERE c.id NOT IN (SELECT DISTINCT conversation_id FROM conversation_summaries)
+                GROUP BY c.id
+                HAVING msg_count >= 20
+                ORDER BY c.updated_at DESC
+                LIMIT 20
+            """).fetchall()
+
+            # Find conversations without knowledge facts
+            fact_candidates = conn.execute("""
+                SELECT c.id
+                FROM conversations c
+                JOIN messages m ON c.id = m.conversation_id
+                WHERE c.id NOT IN (SELECT DISTINCT source_conversation_id FROM knowledge_facts WHERE source_conversation_id IS NOT NULL)
+                GROUP BY c.id
+                HAVING COUNT(m.id) >= 4
+                ORDER BY c.updated_at DESC
+                LIMIT 20
+            """).fetchall()
+        finally:
+            conn.close()
+
+        # Backfill compaction summaries
+        if candidates:
+            conv_log.info("V6 backfill: %d conversations need compaction", len(candidates))
+            for i, row in enumerate(candidates):
+                conv_log.info("V6 backfill: compacting conversation %d of %d", i + 1, len(candidates))
+                await maybe_compact(row["id"], row["msg_count"])
+            conv_log.info("V6 backfill: compaction complete")
+
+        # Backfill knowledge facts
+        if fact_candidates:
+            conv_log.info("V6 backfill: %d conversations need fact extraction", len(fact_candidates))
+            conn = sqlite3.connect(str(DB_PATH))
+            conn.row_factory = sqlite3.Row
+            try:
+                for i, row in enumerate(fact_candidates):
+                    conv_id = row["id"]
+                    messages = conn.execute(
+                        "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY id ASC LIMIT 20",
+                        (conv_id,),
+                    ).fetchall()
+                    # Extract facts from pairs
+                    j = 0
+                    while j < len(messages) - 1:
+                        if messages[j]["role"] == "user" and messages[j + 1]["role"] == "assistant":
+                            user_text = messages[j]["content"] or ""
+                            asst_text = messages[j + 1]["content"] or ""
+                            if len(user_text.strip()) >= 20:
+                                await maybe_extract_facts(conv_id, user_text, asst_text, j)
+                            j += 2
+                        else:
+                            j += 1
+                    conv_log.info("V6 backfill: facts extracted for conversation %d of %d", i + 1, len(fact_candidates))
+            finally:
+                conn.close()
+            conv_log.info("V6 backfill: fact extraction complete")
+
+        if not candidates and not fact_candidates:
+            conv_log.info("V6 backfill: nothing to backfill")
+
+    except Exception as e:
+        error_log.warning("V6 backfill failed: %s", e)
+
+
 MAX_RESPONSE_TOKENS = 8192
 
 
@@ -630,6 +709,7 @@ async def lifespan(app: FastAPI):
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     asyncio.create_task(asyncio.to_thread(_prewarm_embeddings))
     asyncio.create_task(asyncio.to_thread(backfill_cross_conv_embeddings))
+    asyncio.create_task(_backfill_v6_systems())
     yield
 
 
@@ -704,6 +784,24 @@ async def health():
     failures = get_embed_failure_count()
     if failures > 0:
         result["embed_failures"] = failures
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        try:
+            summaries = conn.execute("SELECT COUNT(*) FROM conversation_summaries").fetchone()[0]
+            cross_emb = conn.execute("SELECT COUNT(*) FROM cross_conv_embeddings").fetchone()[0]
+            facts_active = conn.execute("SELECT COUNT(*) FROM knowledge_facts WHERE valid_to IS NULL").fetchone()[0]
+            facts_invalid = conn.execute("SELECT COUNT(*) FROM knowledge_facts WHERE valid_to IS NOT NULL").fetchone()[0]
+        finally:
+            conn.close()
+        result["memory_stats"] = {
+            "conversation_summaries": summaries,
+            "cross_conv_embeddings": cross_emb,
+            "knowledge_facts_active": facts_active,
+            "knowledge_facts_invalidated": facts_invalid,
+            "embed_failures": failures,
+        }
+    except Exception:
+        pass
     return result
 
 
@@ -836,12 +934,16 @@ async def ws_chat(ws: WebSocket):
             recitation_context, llm_temperature = await prepare_recitation(route_result, f"[{trace_id}]")
 
             # Compute query embedding once — shared by session recall and smart windowing
+            t0 = time.perf_counter()
             query_embedding = await prepare_query_embedding(user_text, len(history_msgs))
+            t_embed = time.perf_counter() - t0
 
             # Retrieve session recall + cross-conversation context (parallel)
             recalled_turns = []
             cross_conv_results = []
+            t_recall = 0.0
             if query_embedding:
+                t0 = time.perf_counter()
                 try:
                     session_result, cross_result = await asyncio.gather(
                         asyncio.to_thread(
@@ -858,11 +960,14 @@ async def ws_chat(ws: WebSocket):
                         conv_log.info("[%s] Cross-conv recall: %d results", trace_id, len(cross_conv_results))
                 except Exception as e:
                     error_log.debug("Recall retrieval failed: %s", e)
+                t_recall = time.perf_counter() - t0
 
             has_vision = bool(image_data or video_frames)
 
             # Load conversation summary (if compaction has run)
+            t0 = time.perf_counter()
             conv_summary = get_conversation_summary(conversation_id)
+            t_compact = time.perf_counter() - t0
 
             # Window first (needs to run before session recall formatting to deduplicate)
             conv_len = len(history_msgs)
@@ -886,8 +991,13 @@ async def ws_chat(ws: WebSocket):
             cross_memory_context = format_cross_recall(cross_conv_results) if cross_conv_results else ""
 
             # Retrieve relevant knowledge facts
+            t0 = time.perf_counter()
             knowledge_facts = get_relevant_facts(user_text)
             knowledge_context = format_knowledge_facts(knowledge_facts) if knowledge_facts else ""
+            t_knowledge = time.perf_counter() - t0
+
+            conv_log.info("[%s] Context build: embed=%.1fms recall=%.1fms compact=%.1fms knowledge=%.1fms",
+                          trace_id, t_embed * 1000, t_recall * 1000, t_compact * 1000, t_knowledge * 1000)
 
             # Final system prompt with all context layers
             system_prompt = build_system_prompt(
@@ -1529,6 +1639,19 @@ async def delete_messages_from(conv_id: str, index: int):
         conn.execute(f"DELETE FROM messages WHERE id IN ({placeholders})", ids_to_delete)
         conn.execute(
             "DELETE FROM session_embeddings WHERE conversation_id = ? AND message_index >= ?",
+            (conv_id, index),
+        )
+        # Remove summaries and cross-conv embeddings covering deleted messages
+        conn.execute(
+            "DELETE FROM conversation_summaries WHERE conversation_id = ? AND segment_start >= ?",
+            (conv_id, index),
+        )
+        conn.execute(
+            "DELETE FROM cross_conv_embeddings WHERE conversation_id = ? AND message_start >= ?",
+            (conv_id, index),
+        )
+        conn.execute(
+            "DELETE FROM knowledge_facts WHERE source_conversation_id = ? AND source_message_index >= ?",
             (conv_id, index),
         )
         conn.commit()

@@ -383,6 +383,10 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │   ├── charmap.py                     # Character analysis injection (letter counting, spelling)
 │   │   ├── recite.py                      # Recitation detection and web retrieval pipeline
 │   │   ├── session_memory.py              # Session-level semantic recall + smart windowing embeddings
+│   │   ├── cross_memory.py               # V6: Cross-conversation semantic search + room categorization
+│   │   ├── compaction.py                  # V6: Rolling LLM summaries of conversation segments
+│   │   ├── knowledge.py                   # V6: Temporal knowledge graph — fact extraction + invalidation
+│   │   ├── importance.py                  # V6: Heuristic message importance scoring
 │   │   ├── search.py                      # SearXNG proxy
 │   │   ├── tts.py                         # Qwen3-TTS proxy (voice cloning support)
 │   │   ├── web_fetch.py                   # Page fetcher — HTTP GET + BeautifulSoup text extraction

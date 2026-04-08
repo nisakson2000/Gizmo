@@ -345,6 +345,37 @@ Explicit layered assembly with per-layer token budget logging:
 - Responsive message width: user bubbles max-w-[85%] on mobile, 75% on tablet, 65% on desktop
 - Animation optimization: msg-appear class only applied to last 3 messages when conversation exceeds 20 messages
 
+## V6 Background Processing
+After each response is saved, four fire-and-forget background tasks run:
+1. `index_conversation_turns()` — embed user+assistant turns for session recall
+2. `index_cross_conversation()` — embed exchange pair for cross-conv search (via asyncio.to_thread)
+3. `maybe_compact()` — generate summary if conversation has 20+ messages (async, LLM call)
+4. `maybe_extract_facts()` — extract knowledge facts from exchange (async, LLM call)
+
+At startup, three additional background tasks run:
+1. `_prewarm_embeddings()` — load fastembed model
+2. `backfill_cross_conv_embeddings()` — index existing conversations for cross-conv search
+3. `_backfill_v6_systems()` — backfill compaction summaries and knowledge facts for historical conversations
+
+## V6 Escape Hatches
+All V6 features independently disableable via environment variables:
+- `COMPACTION_MIN_MESSAGES` — set to 999999 to disable compaction (default 20)
+- `IDENTITY_REINFORCE_MIN_MESSAGES` — set to 999999 to disable identity reminder (default 30)
+- `KNOWLEDGE_EXTRACTION_ENABLED` — set to "false" to disable fact extraction (default "true")
+- Cross-conv search: always runs but returns empty if no embeddings exist
+- Session recall top_k reduced to 3 (from 5) to accommodate cross-conv results
+
+## V6 Timing Instrumentation
+The ws_chat handler logs per-system latency for each request:
+`Context build: embed=Xms recall=Xms compact=Xms knowledge=Xms`
+
+## V6 Health Endpoint
+`/health` now includes `memory_stats` object with:
+- `conversation_summaries` count
+- `cross_conv_embeddings` count
+- `knowledge_facts_active` and `knowledge_facts_invalidated` counts
+- `embed_failures` count
+
 ## Non-Obvious Facts
 - Model always thinks — enable_thinking controls whether reasoning is in a separate field
 - SearXNG config must disable rate limiting for local use
