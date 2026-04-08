@@ -29,6 +29,7 @@ from recite import fetch_recitation_content, build_recitation_context
 import numpy as np
 from session_memory import retrieve_relevant, format_recalled, store_turn, get_query_embedding, get_stored_embeddings, cosine_sim
 from cross_memory import search_cross_conversations, format_cross_recall, index_cross_conversation, backfill_cross_conv_embeddings
+from compaction import maybe_compact, get_conversation_summary
 from router import route
 from patterns import reload_patterns, list_patterns
 from tracker import router as tracker_router
@@ -373,6 +374,7 @@ def load_constitution() -> str:
 def build_system_prompt(user_message: str = "", has_vision: bool = False,
                         pattern: dict | None = None,
                         recitation_context: str = "",
+                        conversation_summary: str = "",
                         session_recall: str = "",
                         cross_memory: str = "",
                         charmap_content: str = "") -> str:
@@ -384,6 +386,9 @@ def build_system_prompt(user_message: str = "", has_vision: bool = False,
     if pattern:
         parts.append(f"\n\n--- Active Analysis Pattern: {pattern['name']} ---")
         parts.append(pattern["system_prompt"])
+
+    if conversation_summary:
+        parts.append(f"\n\n{conversation_summary}")
 
     if recitation_context:
         parts.append(f"\n\n{recitation_context}")
@@ -822,10 +827,14 @@ async def ws_chat(ws: WebSocket):
 
             has_vision = bool(image_data or video_frames)
 
+            # Load conversation summary (if compaction has run)
+            conv_summary = get_conversation_summary(conversation_id)
+
             # Window first (needs to run before session recall formatting to deduplicate)
             temp_prompt = build_system_prompt(
                 clean_text, has_vision=has_vision, pattern=route_result.pattern,
-                recitation_context=recitation_context, charmap_content=route_result.charmap_content)
+                recitation_context=recitation_context, conversation_summary=conv_summary,
+                charmap_content=route_result.charmap_content)
             history_msgs = window_messages(history_msgs, temp_prompt, context_length,
                                            query_embedding=query_embedding,
                                            conversation_id=conversation_id)
@@ -841,11 +850,11 @@ async def ws_chat(ws: WebSocket):
             # Format cross-conversation recall
             cross_memory_context = format_cross_recall(cross_conv_results) if cross_conv_results else ""
 
-            # Final system prompt with session recall and cross-conv recall
+            # Final system prompt with all context layers
             system_prompt = build_system_prompt(
                 clean_text, has_vision=has_vision, pattern=route_result.pattern,
-                recitation_context=recitation_context, session_recall=session_recall,
-                cross_memory=cross_memory_context,
+                recitation_context=recitation_context, conversation_summary=conv_summary,
+                session_recall=session_recall, cross_memory=cross_memory_context,
                 charmap_content=route_result.charmap_content)
             messages = build_messages(history_msgs, system_prompt)
 
@@ -1015,6 +1024,8 @@ async def ws_chat(ws: WebSocket):
                 asyncio.create_task(asyncio.to_thread(
                     index_cross_conversation, conversation_id, user_text, full_response,
                     user_msg_index, asst_msg_index))
+                msg_count = len(get_conversation_messages(conversation_id))
+                asyncio.create_task(maybe_compact(conversation_id, msg_count))
 
             await ws.send_json({
                 "type": "done",

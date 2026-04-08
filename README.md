@@ -129,7 +129,8 @@ bash scripts/start.sh            # Starts all 6 services
 - **Web search** via self-hosted SearXNG — no API keys
 - **Document upload** — PDFs, text, code up to 50MB
 - **Memory** — BM25-ranked facts with recency weighting + semantic session recall (CPU embeddings)
-- **Cross-conversation recall** — semantic search across all past conversations with topic room categorization
+- **Cross-conversation recall** — two-tier semantic search across all past conversations with topic room categorization
+- **Conversation compaction** — rolling LLM summaries preserve context awareness in long conversations
 - **Smart context windowing** — keeps most relevant older messages by semantic similarity
 - **Recitation** — fetches authoritative text from the web for poems, lyrics, speeches
 - **Character analysis** — accurate letter counting via pre-computed character maps

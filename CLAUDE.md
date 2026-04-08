@@ -240,6 +240,23 @@ Explicit pattern invocation: prefix message with `[pattern:name]` (stripped befo
 - Injection: `<cross-conversation-recall>` XML block in system prompt between session_recall and charmap
 - Runs parallel with session recall via `asyncio.gather`
 
+## Conversation Compaction (compaction.py)
+- Rolling LLM summaries of older conversation segments to prevent context rot
+- Threshold: 20+ messages, segment size ~10 messages, skips most recent 12
+- Incremental: compacts one oldest uncovered segment per message cycle (not all at once)
+- Summarization: non-streaming local LLM call (same pattern as generate_title), 200 max tokens, temperature 0.3
+- Summaries stored in `conversation_summaries` table with topic classification
+- Summary embeddings stored in `cross_conv_embeddings` as `chunk_type='summary'` for two-tier search
+- Injection: `<conversation-summary>` XML block in system prompt, max 400 tokens budget
+- Fire-and-forget: `asyncio.create_task(maybe_compact(...))` after each response save
+- Escape hatch: `COMPACTION_MIN_MESSAGES` env var (set to 999999 to disable)
+
+## Two-Tier Cross-Conversation Search
+- When summary embeddings exist, search summaries first (~1 per conversation, ~50 vectors max)
+- Top-5 conversations by summary similarity, then drill into exchange-level embeddings
+- Falls back to flat exchange search if no summaries exist yet
+- Significantly better scaling as conversation count grows
+
 ## Room Categorization (MemPalace-inspired)
 - Keyword-based topic classification: technical, architecture, planning, decisions, problems, general
 - Each exchange pair classified at index time, stored in `topic_category` column
@@ -261,7 +278,7 @@ Explicit pattern invocation: prefix message with `[pattern:name]` (stripped befo
 ## Constitution & Epistemic Honesty
 - XML-tagged sections: `<identity>`, `<output-formatting>`, `<tool-discipline>`, `<web-search>`, `<response-quality>`, `<precision-awareness>`, `<epistemic-honesty>`, `<code-execution>`, `<document-generation>`, `<patterns>`
 - `<epistemic-honesty>` section: distinguishes retrieved content (present exactly), session recall (authoritative record), and training knowledge (confident but flag genuine uncertainty)
-- System prompt layer order: constitution → pattern → recitation → session_recall → cross_conv_recall → charmap → vision → memories
+- System prompt layer order: constitution → pattern → conversation_summary → recitation → session_recall → cross_conv_recall → charmap → vision → memories
 
 ## Tracker Module
 - SQLite database at /app/tracker/tracker.db (tasks + notes tables)

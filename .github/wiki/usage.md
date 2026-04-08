@@ -207,6 +207,14 @@ When a conversation exceeds the context window budget, Gizmo uses semantic scori
 
 This activates automatically for conversations with 6+ messages that have stored embeddings. The last 6 messages (3 exchanges) are always kept for recency. If embeddings are unavailable, standard oldest-first dropping is used as a fallback.
 
+## Conversation Compaction
+
+In long conversations (20+ messages), Gizmo automatically generates concise summaries of older message segments that have scrolled out of the context window. These summaries are injected into the prompt, giving the model persistent awareness of earlier content even after the raw messages are gone.
+
+**How it works:** After each response, a background task checks whether any older segments haven't been summarized yet. If so, it sends the segment to the local LLM for a 2-4 sentence summary. Summaries are also indexed for cross-conversation search.
+
+**No action needed.** Compaction is fully automatic and never blocks your conversation.
+
 ## Response Handling
 
 **Repetition detection:** If the model enters a repetitive loop (3+ identical blocks of 50+ characters), generation stops automatically with a notice. You can ask it to continue from where it left off.
