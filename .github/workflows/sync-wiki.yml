@@ -3,7 +3,7 @@ name: Sync wiki/ to GitHub Wiki
 on:
   push:
     branches: [main]
-    paths: ['wiki/**']
+    paths: ['.github/wiki/**']
 
 jobs:
   sync:
@@ -23,12 +23,13 @@ jobs:
 
       - name: Copy and rename files
         run: |
-          cp wiki/architecture.md    wiki-repo/Architecture.md
-          cp wiki/development.md     wiki-repo/Development.md
-          cp wiki/how-ai-works.md    wiki-repo/How-the-AI-Works.md
-          cp wiki/model-reference.md wiki-repo/Model-Reference.md
-          cp wiki/setup.md           wiki-repo/Setup.md
-          cp wiki/usage.md           wiki-repo/Usage.md
+          cp .github/wiki/architecture.md    wiki-repo/Architecture.md
+          cp .github/wiki/development.md     wiki-repo/Development.md
+          cp .github/wiki/how-ai-works.md    wiki-repo/How-the-AI-Works.md
+          cp .github/wiki/model-reference.md wiki-repo/Model-Reference.md
+          cp .github/wiki/setup.md           wiki-repo/Setup.md
+          cp .github/wiki/usage.md           wiki-repo/Usage.md
+          cp .github/wiki/_Sidebar.md        wiki-repo/_Sidebar.md 2>/dev/null || true
 
       - name: Push if changed
         run: |

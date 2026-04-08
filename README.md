@@ -1,96 +1,64 @@
+<div align="center">
+
 # Gizmo-AI
 
 **A fully local AI assistant — no cloud, no limits, no data leaving your machine.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux-green.svg)]()
-[![Model: Qwen3.5-9B](https://img.shields.io/badge/Model-Qwen3.5--9B-purple.svg)]()
-[![TTS: Qwen3-TTS](https://img.shields.io/badge/TTS-Qwen3--TTS-orange.svg)]()
+[![Model: Qwen3.5-9B](https://img.shields.io/badge/LLM-Qwen3.5--9B_Q8__0-8A2BE2.svg)]()
+[![TTS: Qwen3-TTS](https://img.shields.io/badge/TTS-Qwen3--TTS_1.7B-orange.svg)]()
 [![STT: Whisper](https://img.shields.io/badge/STT-Whisper-red.svg)]()
+[![Services: 6](https://img.shields.io/badge/Services-6_Containers-teal.svg)]()
 
 ---
 
-## What This Is
+A complete self-hosted AI assistant running entirely on local hardware.
+9B LLM with vision, neural voice cloning, code execution, web search, task tracking —
+all in six containers. Zero cloud dependencies.
 
-Gizmo-AI is a complete, self-hosted AI assistant that runs entirely on your own hardware. It uses a 9-billion parameter language model (Qwen3.5-9B) for reasoning, conversation, and tool use, a dedicated neural TTS model (Qwen3-TTS) for natural voice output and voice cloning, and Whisper for speech-to-text — all orchestrated by a Python FastAPI backend and accessed through a custom-built SvelteKit web UI. Everything runs in six containers via Podman.
+</div>
 
-This is not a wrapper around ChatGPT or any cloud API. This is a real language model running locally, capable of reasoning, writing code, searching the web, analyzing documents and images, understanding video and audio, remembering things across conversations, cloning voices, and speaking responses aloud. Your conversations, files, and data never touch the internet. There are no subscription fees, no usage limits, and no third-party content policies.
+---
 
-The model used is an abliterated variant of Qwen3.5-9B — meaning the safety refusal mechanisms have been removed at the weight level. The model will engage with any topic directly and without disclaimers. You own the hardware, you own the model, you control the behavior.
+## Highlights
 
-## Features
+<table>
+<tr>
+<td width="33%" valign="top">
 
-### Chat & Conversation
-- **Streaming chat** with persistent server-side conversation history and LLM-generated titles
-- **Regenerate & edit** — re-roll any response or edit a sent message and resubmit, with full response history navigation (`< 1/N >` arrows)
-- **Full-text search** — sidebar filters by title instantly; press Enter for deep search across all message content
-- **Conversation export** — download as formatted Markdown from the sidebar
-- **Conversation rename** — double-click any title in the sidebar to rename
-- **Keyboard shortcuts** — Ctrl+Shift+N (new chat), Ctrl+Shift+T (toggle think), Ctrl+/ (focus input), Escape (close modals); Tracker: j/k (navigate), x (toggle status), n (new task), / (search)
+### Intelligence
+- 9B parameter LLM with thinking mode
+- Vision (images) and video analysis
+- 30 structured analysis patterns
+- Smart context windowing with semantic recall
+- Character-accurate letter counting
 
-### AI Capabilities
-- **Thinking mode** — model reasons step-by-step in collapsible blocks before responding (toggle on/off)
-- **Vision** — analyze images directly in chat via the multimodal vision projector (mmproj)
-- **Video analysis** — upload video files, extract frames, analyze visual content; video playback in chat
-- **Audio transcription** — upload M4A/MP3/WAV for automatic Whisper transcription and LLM analysis
-- **Multi-round tool calling** — model autonomously chains up to 5 rounds of tool calls (web search, memory, code execution) in a single exchange
-- **Web search** via self-hosted SearXNG — no API keys needed
-- **Document upload** — analyze PDFs, text files, and code directly in chat (up to 50MB)
-- **Memory system** — remembers facts across conversations via BM25-ranked file storage with recency weighting; within long conversations, semantic recall retrieves relevant earlier messages that scrolled out of the context window (CPU-only embeddings, zero VRAM impact)
-- **Smart context windowing** — when the conversation exceeds the context budget, keeps the most relevant older messages (by semantic similarity to the current question) instead of just the most recent ones
-- **Recitation & accurate recall** — when asked to recite poems, speeches, lyrics, or other known texts, Gizmo fetches the authoritative source from the web and presents it verbatim at low temperature instead of guessing from training memory
-- **Character analysis** — accurate letter counting and spelling (e.g., "How many r's in strawberry?" → 3) via pre-computed character maps injected into the system prompt
+</td>
+<td width="33%" valign="top">
 
 ### Voice
-- **Voice Studio** — dedicated TTS playground with voice cloning: upload reference audio (auto-transcribed via Whisper), name and save voices, adjustable clip duration (30/60/90/120s)
-- **Text-to-speech** via Qwen3-TTS — GPU-accelerated neural voice cloning (x-vector mode), long text chunking (no silent truncation), auto-unloads from VRAM when idle
-- **Speech speed control** — adjustable 0.5x–2.0x speed slider in Settings
-- **Language selection** — TTS supports 10 languages: English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian (plus Auto-detect)
-- **Speech-to-text** — dictate messages via microphone using Whisper transcription
-- **TTS voice selection** — choose any cloned voice from Voice Studio for chat responses
+- Neural TTS with voice cloning
+- Speech-to-text via Whisper
+- 10 language support
+- Voice Studio for managing cloned voices
+- Auto-unloads from VRAM when idle
+
+</td>
+<td width="33%" valign="top">
 
 ### Tools
-- **Code execution sandbox** — run code in 7 languages (Python, JavaScript, Bash, C, C++, Go, Lua) in isolated Podman containers (no network, 256MB RAM, read-only filesystem; Python includes numpy, pandas, matplotlib, sympy, scipy)
-- **Document generation** — generate PDF, DOCX, XLSX, PPTX, CSV, and TXT files via natural language using the `generate_document` tool (pre-tested Python templates run in sandbox, files served as downloads)
-- **Code Playground** — dedicated `/code` route with syntax-highlighted split-pane editor (resizable via drag handle), built-in AI code assistant with isolated chat, auto language detection on paste, auto-save, copy/download buttons, word wrap toggle, output file display
-- **Markup preview** — live client-side rendering for HTML, CSS, SVG, and Markdown with auto-preview as you type
-- **Memory Manager** — browse, add, and delete memories from the UI
+- Code execution in 7 languages
+- Syntax-highlighted Code Playground
+- Document generation (PDF, DOCX, XLSX, PPTX)
+- Web search via self-hosted SearXNG
+- BM25-ranked persistent memory
 
-### Patterns & Routing
-- **Pattern library** — 30 Fabric-inspired cognitive templates (extract_wisdom, summarize, analyze_threat, security_review, debug_code, etc.) that give the model structured rubrics for complex analysis tasks
-- **Intelligent routing** — keyword pre-routing and pattern matching ensure the model only sees 3-8 relevant tools per request, regardless of total tool count (scalable to 20+ tools without accuracy degradation)
-- **Pattern invocation** — patterns activate automatically by keyword matching, or explicitly via `[pattern:name]` prefix
-- **Pattern-scoped tools** — each pattern specifies which tools are available, preventing tool confusion on a 9B model
+</td>
+</tr>
+</table>
 
-### Productivity
-- **Task Tracker** — built-in task and note management with tags, priorities, due dates, recurrence, and subtasks; LLM-powered natural language task creation via dedicated `/tracker` route; free-text task search, keyboard navigation (j/k/x/n), inline title editing, collapsible subtasks, undo delete with toast
-
-### UI & System
-- **Nintendo console themes** — 9 themes (NES, SNES, GBA, N64, GameCube, Wii, DS, 3DS, Switch) with physical console frames, per-console sound effects, screen technology overlays (CRT vignette, LCD dot matrix, fog, neon bleed), era-specific message styling, and animated boot sequences (plays on every theme switch, with opt-out toggle in Settings)
-- **Conversation context** — active conversation title displayed in the header bar
-- **Icon rail navigation** — labeled sidebar with Chat, Tasks, Code, and Settings
-- **Toast notifications** — non-intrusive feedback for copy, export, error events, and undo actions
-- **Scroll-to-bottom** — floating button appears when scrolled up in chat, click to jump to latest
-- **Mobile gestures** — swipe right from left edge to open sidebar, swipe left to close; message actions always visible on touch devices
-- **Accessibility** — modal focus trapping, aria-expanded on collapsible blocks, sidebar keyboard navigation, prefers-reduced-motion support
-- **Service health dashboard** — live status monitoring for all backend services
-- **Customizable persona** — XML-tagged constitution file (`config/constitution.txt`) with tool decision framework and abliteration-aware precision rules
-- **KV cache quantization** — Q8_0 quantized KV cache frees ~6GB VRAM for LLM + TTS coexistence
-- **Dual API** — WebSocket for streaming UI, REST endpoint (`/api/chat`) for programmatic access
-- **Tailscale HTTPS** — access from any device on your tailnet with valid cert for secure mic access
-- **100% local** — your data never leaves your machine
-
-## Hardware Requirements
-
-| | Minimum | Tested |
-|---|---|---|
-| **GPU** | NVIDIA, 16GB+ VRAM | RTX 4090, 24GB |
-| **RAM** | 32GB | 64GB DDR5 |
-| **Disk** | 50GB free | NVMe SSD |
-| **OS** | Linux (Ubuntu, Fedora, Arch) | Bazzite OS (Fedora) |
-| **Runtime** | Podman or Docker + NVIDIA container support | Podman 5.8 |
-
-VRAM breakdown: the 9B LLM uses ~9.5GB for weights plus ~6.2GB for the quantized KV cache (Q8_0). Qwen3-TTS adds ~4GB when active (auto-unloads after 60s idle). Peak with both loaded is ~20.7GB on a 24GB card, leaving ~3.3GB headroom. Whisper runs on CPU and does not consume VRAM.
+---
 
 ## Quick Start
 
@@ -103,40 +71,171 @@ bash scripts/start.sh            # Starts all 6 services
 # Open http://localhost:3100
 ```
 
+---
+
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                         HOST MACHINE                              │
-│                                                                    │
-│  ┌─────────────────────── gizmo-net ───────────────────────┐      │
-│  │                                                          │      │
-│  │  ┌──────────┐   ┌────────────────┐   ┌───────────────┐  │      │
-│  │  │ gizmo-ui │──▶│   gizmo-       │──▶│ gizmo-llama   │  │      │
-│  │  │  :3100   │   │  orchestrator  │   │   :8080       │  │      │
-│  │  │ SvelteKit│   │  :9100 FastAPI │   │  llama.cpp    │  │      │
-│  │  │ + nginx  │   └───────┬────────┘   │  [GPU]        │  │      │
-│  │  └──────────┘      ┌────┼─────┐      └───────────────┘  │      │
-│  │               ┌────▼──┐ │  ┌──▼──────┐ ┌─────────────┐  │      │
-│  │               │ searx │ │  │qwen3-tts│ │gizmo-whisper│  │      │
-│  │               │ :8300 │ │  │  :8400  │ │  :8200      │  │      │
-│  │               │ [CPU] │ │  │  [GPU]  │ │  [CPU]      │  │      │
-│  │               └───────┘ │  └─────────┘ └─────────────┘  │      │
-│  │                         │                                │      │
-│  └─────────────────────────┴────────────────────────────────┘      │
-└──────────────────────────────────────────────────────────────────┘
+                    ┌─────────────── gizmo-net (10.90.0.0/24) ──────────────┐
+                    │                                                        │
+  ┌──────────┐     │  ┌────────────────┐          ┌───────────────┐         │
+  │ gizmo-ui │────▶│  │    gizmo-      │────────▶ │ gizmo-llama   │         │
+  │  :3100   │     │  │  orchestrator  │          │   :8080       │         │
+  │ SvelteKit│     │  │  :9100 FastAPI │          │  Qwen3.5-9B   │         │
+  │ + nginx  │     │  └───────┬────────┘          │  [GPU]        │         │
+  └──────────┘     │     ┌────┼─────┐             └───────────────┘         │
+                   │┌────▼──┐ │ ┌───▼─────┐  ┌─────────────┐               │
+                   ││searxng│ │ │gizmo-tts│  │gizmo-whisper│               │
+                   ││ :8300 │ │ │  :8400  │  │   :8200     │               │
+                   ││ [CPU] │ │ │  [GPU]  │  │   [CPU]     │               │
+                   │└───────┘ │ └─────────┘  └─────────────┘               │
+                   └──────────┴────────────────────────────────────────────┘
 ```
+
+| Service | Port | Role | GPU |
+|---------|------|------|-----|
+| **gizmo-llama** | 8080 | LLM inference (Qwen3.5-9B Q8_0 + vision) | Yes |
+| **gizmo-orchestrator** | 9100 | FastAPI backend — routing, streaming, tools | No |
+| **gizmo-ui** | 3100 | SvelteKit web UI via nginx | No |
+| **gizmo-tts** | 8400 | Qwen3-TTS neural voice cloning | Yes |
+| **gizmo-whisper** | 8200 | faster-whisper speech-to-text | No |
+| **gizmo-searxng** | 8300 | Self-hosted web search | No |
+
+---
+
+## Features
+
+<details>
+<summary><strong>Chat & Conversation</strong></summary>
+
+- Streaming chat with persistent server-side history and LLM-generated titles
+- Regenerate & edit — re-roll any response or edit a sent message, with `< 1/N >` variant navigation
+- Full-text search — sidebar filters by title; press Enter for deep message content search
+- Conversation export as formatted Markdown
+- Double-click to rename conversations
+- Scroll-to-bottom floating button when scrolled up
+- Mobile swipe gestures for sidebar (swipe right to open, left to close)
+
+</details>
+
+<details>
+<summary><strong>AI Capabilities</strong></summary>
+
+- **Thinking mode** — step-by-step reasoning in collapsible blocks (toggle on/off)
+- **Vision** — analyze images via multimodal vision projector (mmproj)
+- **Video analysis** — upload video, extract frames, analyze visual content with playback
+- **Audio transcription** — upload M4A/MP3/WAV for Whisper transcription + LLM analysis
+- **Multi-round tool calling** — model autonomously chains up to 5 rounds of tool calls
+- **Web search** via self-hosted SearXNG — no API keys
+- **Document upload** — PDFs, text, code up to 50MB
+- **Memory** — BM25-ranked facts with recency weighting + semantic session recall (CPU embeddings)
+- **Smart context windowing** — keeps most relevant older messages by semantic similarity
+- **Recitation** — fetches authoritative text from the web for poems, lyrics, speeches
+- **Character analysis** — accurate letter counting via pre-computed character maps
+
+</details>
+
+<details>
+<summary><strong>Voice & TTS</strong></summary>
+
+- **Voice Studio** — upload reference audio, name and save voices, adjustable clip duration
+- **Qwen3-TTS** — GPU-accelerated neural voice cloning (x-vector mode), long text chunking
+- **Speed control** — 0.5x to 2.0x
+- **10 languages** — English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian
+- **Speech-to-text** — dictate via microphone with Whisper
+- **Auto-unload** — TTS model frees VRAM after 60s idle
+
+</details>
+
+<details>
+<summary><strong>Code & Tools</strong></summary>
+
+- **Sandbox** — 7 languages (Python, JavaScript, Bash, C, C++, Go, Lua) in isolated containers (no network, 256MB RAM, read-only fs)
+- **Code Playground** — `/code` route with syntax highlighting (highlight.js), resizable split pane, auto-save, copy/download, word wrap, output file display
+- **AI code assistant** — isolated chat overlay with multi-round tool calling
+- **Document generation** — PDF, DOCX, XLSX, PPTX, CSV, TXT via natural language
+- **Markup preview** — live rendering for HTML, CSS, SVG, Markdown
+- **Memory Manager** — browse, add, and delete memories from the UI
+
+</details>
+
+<details>
+<summary><strong>Patterns & Routing</strong></summary>
+
+- **30 patterns** — Fabric-inspired cognitive templates (extract_wisdom, summarize, analyze_threat, etc.)
+- **Intelligent routing** — model sees only 3-8 relevant tools per request via keyword pre-routing
+- **Auto or explicit** — patterns activate by keyword matching or `[pattern:name]` prefix
+- **Pattern-scoped tools** — each pattern declares which tools are available
+
+</details>
+
+<details>
+<summary><strong>Task Tracker</strong></summary>
+
+- Built-in task and note management at `/tracker`
+- Tags, priorities, due dates, recurrence (daily/weekly/biweekly/monthly/yearly), subtasks
+- Free-text search across titles, descriptions, and tags
+- Keyboard navigation — `j`/`k` navigate, `x` toggle status, `n` new task, `/` search
+- Inline title editing (double-click), collapsible subtasks, undo delete with toast
+- LLM chat overlay for natural language task creation
+
+</details>
+
+<details>
+<summary><strong>UI & Accessibility</strong></summary>
+
+- **9 Nintendo themes** — NES, SNES, GBA, N64, GameCube, Wii, DS, 3DS, Switch with console frames, sound effects, screen overlays, and boot animations
+- **Keyboard shortcuts** — Ctrl+Shift+N (new chat), Ctrl+Shift+T (think), Ctrl+/ (focus), Escape (close)
+- **Mobile support** — swipe gestures, always-visible message actions on touch devices
+- **Accessibility** — focus trapping in modals, aria-expanded, sidebar keyboard nav, prefers-reduced-motion
+- **Service health** — live status dashboard for all backend services
+- **Dual API** — WebSocket for streaming UI, REST (`/api/chat`) for programmatic access
+- **Tailscale HTTPS** — secure access from any device on your tailnet
+- **100% local** — your data never leaves your machine
+
+</details>
+
+---
+
+## Hardware Requirements
+
+| | Minimum | Tested |
+|---|---|---|
+| **GPU** | NVIDIA, 16GB+ VRAM | RTX 4090, 24GB |
+| **RAM** | 32GB | 64GB DDR5 |
+| **Disk** | 50GB free | NVMe SSD |
+| **OS** | Linux (Ubuntu, Fedora, Arch) | Bazzite OS (Fedora) |
+| **Runtime** | Podman or Docker + NVIDIA container support | Podman 5.8 |
+
+<details>
+<summary>VRAM breakdown</summary>
+
+| Component | VRAM | Notes |
+|-----------|------|-------|
+| Qwen3.5-9B weights (Q8_0) | ~9.5 GB | Always loaded |
+| KV cache (Q8_0, 32K context) | ~6.2 GB | Grows with conversation |
+| Qwen3-TTS | ~4.0 GB | Auto-unloads after 60s idle |
+| **Peak total** | **~20.7 GB** | LLM + TTS active |
+| Whisper | 0 GB | Runs on CPU |
+
+</details>
+
+---
 
 ## Documentation
 
+Full documentation is available on the **[Wiki](https://github.com/nisakson2000/Gizmo-AI/wiki)**.
+
 | Page | Description |
 |------|-------------|
-| [How AI Works](wiki/how-ai-works.md) | First-principles explanation of LLMs and local AI |
-| [Architecture](wiki/architecture.md) | Full technical reference |
-| [Setup Guide](wiki/setup.md) | Step-by-step installation |
-| [Usage Guide](wiki/usage.md) | Day-to-day usage |
-| [Development](wiki/development.md) | Extending the stack |
-| [Model Reference](wiki/model-reference.md) | Qwen3.5-9B specs, quant table, llama.cpp config, VRAM budget, TTS and Whisper details |
+| [How Local AI Works](https://github.com/nisakson2000/Gizmo-AI/wiki/How-the-AI-Works) | First-principles explanation of LLMs and local AI |
+| [Setup Guide](https://github.com/nisakson2000/Gizmo-AI/wiki/Setup) | Step-by-step installation |
+| [Usage Guide](https://github.com/nisakson2000/Gizmo-AI/wiki/Usage) | Day-to-day usage |
+| [Architecture](https://github.com/nisakson2000/Gizmo-AI/wiki/Architecture) | Full technical reference |
+| [Model Reference](https://github.com/nisakson2000/Gizmo-AI/wiki/Model-Reference) | Qwen3.5-9B, TTS, Whisper specs and VRAM budget |
+| [Development](https://github.com/nisakson2000/Gizmo-AI/wiki/Development) | Extending the stack |
+
+---
 
 ## License
 

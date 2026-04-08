@@ -279,22 +279,22 @@ Every code change MUST include corresponding documentation updates. No exception
 
 ### Files that must stay in sync:
 - **README.md** — Features, architecture diagram, hardware requirements, quick start
-- **wiki/architecture.md** — Container table, WebSocket protocol, REST API table, file tree
-- **wiki/setup.md** — Download steps, verification, troubleshooting
-- **wiki/usage.md** — Feature descriptions, settings reference
-- **wiki/development.md** — Tool definitions, contributing guide
-- **wiki/model-reference.md** — Model specs, quantization, TTS details
+- **.github/wiki/architecture.md** — Container table, WebSocket protocol, REST API table, file tree
+- **.github/wiki/setup.md** — Download steps, verification, troubleshooting
+- **.github/wiki/usage.md** — Feature descriptions, settings reference
+- **.github/wiki/development.md** — Tool definitions, contributing guide
+- **.github/wiki/model-reference.md** — Model specs, quantization, TTS details
 - **AUDIT.md** — Update when issues are fixed or new ones found
 - **config/models.yaml** — Must match the actual model being served
 - **config/services.yaml** — Must match docker-compose.yml ports and service names
 - **CLAUDE.md** — System facts, architecture, known issues
 
 ### Checklist:
-1. New/changed user-facing feature? → README.md + wiki/usage.md
-2. Architecture change (service, port, endpoint)? → README.md diagram + wiki/architecture.md
-3. Setup change (dependency, download)? → wiki/setup.md
-4. New/changed tool? → wiki/architecture.md tool table + tools.py
-5. Model or TTS change? → wiki/model-reference.md + README.md + CLAUDE.md
-6. docker-compose.yml change? → wiki/architecture.md + config/services.yaml
+1. New/changed user-facing feature? → README.md + .github/wiki/usage.md
+2. Architecture change (service, port, endpoint)? → README.md diagram + .github/wiki/architecture.md
+3. Setup change (dependency, download)? → .github/wiki/setup.md
+4. New/changed tool? → .github/wiki/architecture.md tool table + tools.py
+5. Model or TTS change? → .github/wiki/model-reference.md + README.md + CLAUDE.md
+6. docker-compose.yml change? → .github/wiki/architecture.md + config/services.yaml
 7. VRAM change? → README.md hardware requirements + CLAUDE.md
 8. Fixed audit issue? → AUDIT.md resolved table
