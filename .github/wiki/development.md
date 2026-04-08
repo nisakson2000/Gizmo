@@ -165,7 +165,6 @@ The Dockerfile copies the build output at image build time. Just running `up -d`
 ## Future Features
 
 - **Model hot-swap** — switch models via API without restarting
-- **Streaming TTS** — chunk audio as it generates for lower latency
 - **Image generation** — Stable Diffusion integration
 
 ## Contributing

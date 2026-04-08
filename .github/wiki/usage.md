@@ -127,9 +127,11 @@ Voice cloning uses x-vector-only mode for clean synthesis without warmup artifac
 
 Toggle TTS in Settings under "Read Responses Aloud."
 
-When enabled, Gizmo speaks responses aloud. An audio player appears below each assistant message. The TTS engine is Qwen3-TTS — a GPU-accelerated neural voice cloning model. It loads into VRAM on demand and auto-unloads after 60 seconds of idle time to free memory for the LLM.
+When enabled, Gizmo speaks responses aloud using sentence-level streaming TTS. As the LLM generates text, a SentenceBuffer detects sentence boundaries and dispatches each sentence to the TTS server via WebSocket. Audio begins playing after roughly 3 seconds — compared to 7-45 seconds in the previous batch mode. The StreamingAudioPlayer component uses the Web Audio API (AudioContext) for gapless playback across sentence chunks.
 
-Full responses are now synthesized without truncation — text is split at ~200 character sentence boundaries and chunked, so even long responses get complete TTS audio (no more silent 4,000 character cutoff).
+If streaming fails, the system falls back to batch mode automatically (full response synthesized after generation completes). Voice Studio preview continues to use the batch endpoint (`POST /v1/audio/speech`).
+
+Saved voices now include precomputed speaker embeddings (~4KB `.pt` files), extracted when a voice is saved and shared between the orchestrator and TTS containers via the `./voices` volume. This eliminates redundant embedding extraction on every TTS request.
 
 By default, the bundled voice is used. To use a cloned voice for chat TTS, go to **Settings** and select a voice from the **TTS Voice** dropdown. Any voices you've created in Voice Studio will appear here.
 

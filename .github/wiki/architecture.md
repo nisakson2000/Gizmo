@@ -61,7 +61,7 @@
 | gizmo-orchestrator | gizmo-orchestrator:latest (built) | API gateway, routing, tools | 9100 | 9100 | No | gizmo-llama |
 | gizmo-ui | gizmo-ui:latest (built) | Web UI (SvelteKit + nginx) | 3100 | 3100 | No | gizmo-orchestrator |
 | gizmo-searxng | searxng/searxng:latest | Web search engine | 8080 | 8300 | No | — |
-| gizmo-tts | gizmo-tts:latest (built) | Text-to-speech (Qwen3-TTS) | 8400 | 8400 | Yes (RTX 4090) | — |
+| gizmo-tts | gizmo-tts:latest (built) | Text-to-speech (Qwen3-TTS via faster-qwen3-tts, streaming + batch) | 8400 | 8400 | Yes (RTX 4090) | — |
 | gizmo-whisper | fedirz/faster-whisper-server:0.5.0-cpu | Speech-to-text (Whisper) | 8000 | 8200 | No (CPU) | — |
 
 **Volumes:**
@@ -69,7 +69,7 @@
 - `./config:/app/config:ro` — Constitution and configs (orchestrator)
 - `./memory:/app/memory:rw` — Memory files (orchestrator)
 - `./logs:/app/logs:rw` — Runtime logs (orchestrator)
-- `./voices:/app/voices:rw` — Saved voice profiles (orchestrator)
+- `./voices:/app/voices:rw` — Saved voice profiles and precomputed speaker embeddings (shared by orchestrator and gizmo-tts)
 - `./media:/app/media:rw` — Uploaded video files and generated documents (orchestrator)
 - `MEDIA_HOST_DIR=${PWD}/media` — env var in docker-compose.yml, used by orchestrator for sandbox bind mount extraction
 - `./tracker:/app/tracker:rw` — Tracker tasks and notes database (orchestrator)
@@ -118,7 +118,8 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 | `tool_call` | `tool`, `status` | Tool execution started |
 | `tool_result` | `tool`, `result` | Tool execution result |
 | `tts_info` | `message` | TTS synthesis status info |
-| `audio` | `url` | Audio file URL (server-stored WAV) |
+| `audio` | `url` | Audio file URL (server-stored WAV, batch mode fallback) |
+| `audio_chunk` | `data` (base64 PCM) | Streaming TTS audio chunk (sentence-level, real-time) |
 | `title` | `title`, `conversation_id` | LLM-generated conversation title (async, after first exchange) |
 | `done` | `trace_id`, `conversation_id` | Generation complete |
 | `error` | `error`, `trace_id` | Error occurred |
@@ -199,6 +200,8 @@ Supports up to 5 rounds of automatic tool calling per request.
 | `/api/tracker/tags` | GET | List all tags across tasks and notes |
 | `ws://…/ws/tracker` | WS | Tracker LLM chat for natural language task creation |
 | `ws://…/ws/code-chat` | WS | Code Playground AI assistant (isolated, run_code tool only) |
+| `ws://gizmo-tts:8400/v1/audio/stream` | WS | Streaming TTS — accepts text per sentence, returns PCM audio chunks in real time |
+| `POST gizmo-tts:8400/v1/audio/embedding` | POST | Extract and return precomputed speaker embedding (~4KB .pt file) for a voice reference |
 | `/api/voices/{id}/preview` | POST | Synthesize a short preview with a saved voice (JSON: `text`) |
 | `/api/media/{filename}` | GET | Serve uploaded video/media files and generated documents (Content-Disposition: attachment for document types) |
 | `/api/logs/{log_name}` | GET | Tail log file (`?lines=100`, max 1000) |
@@ -447,11 +450,12 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │   │       ├── routes/code/+page.svelte   # Code Playground page (split-pane, AI chat overlay)
 │   │               ├── ThinkingBlock.svelte # Collapsible thinking display
 │   │               ├── ToolCallBlock.svelte # Tool call display (includes run_code)
+│   │               ├── StreamingAudioPlayer.svelte # AudioContext-based gapless playback for streaming TTS
 │   │               └── Toast.svelte       # Global toast notification overlay
 │   ├── tts/
 │   │   ├── Dockerfile                     # Qwen3-TTS container (PyTorch + CUDA)
-│   │   ├── requirements.txt               # qwen-tts, fastapi, uvicorn, scipy
-│   │   ├── main.py                        # TTS server with voice cloning, caching, chunking, speed control
+│   │   ├── requirements.txt               # faster-qwen3-tts, fastapi, uvicorn, scipy
+│   │   ├── main.py                        # TTS server with streaming WebSocket, batch endpoint, voice cloning, speaker embeddings
 │   │   └── assets/default_voice.wav       # Default reference voice
 │   ├── sandbox/
 │   │   └── Dockerfile                     # Python 3.12 slim (numpy, pandas, matplotlib, sympy, scipy, reportlab, openpyxl, python-docx, python-pptx)

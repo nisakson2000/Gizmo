@@ -20,7 +20,7 @@ Everything is containerized via Podman.
 - podman-compose has no `rm` subcommand — use stop+rm via podman directly
 - Python packages: pip install --break-system-packages or use venv
 - LLM: Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf (~9.5GB VRAM)
-- TTS: Qwen3-TTS-12Hz-1.7B-Base (~4GB VRAM, bfloat16), requires transformers==4.57.3
+- TTS: Qwen3-TTS-12Hz-1.7B-Base via faster-qwen3-tts (~4GB VRAM, bfloat16, CUDA graph streaming), requires transformers==4.57.3
 - STT: faster-whisper-base (CPU, no VRAM)
 - Total peak VRAM: ~20.7GB (LLM with Q8_0 KV cache + TTS loaded)
 - mmproj enabled: --mmproj flag active in docker-compose.yml, vision fully functional
@@ -112,16 +112,29 @@ Explicit pattern invocation: prefix message with `[pattern:name]` (stripped befo
 - Tool calls persisted as JSON in messages table for audit/replay
 
 ## TTS Implementation
-- Qwen3-TTS Base model — voice cloning only (no default voice built in), uses x_vector_only_mode=True
+- Package: faster-qwen3-tts (andimarafioti fork) — CUDA graph acceleration, streaming support
+- Qwen3-TTS Base model — voice cloning only (no default voice built in), uses xvec_only=True
 - Default voice: bundled espeak-ng WAV at /app/assets/default_voice.wav
-- API: POST /v1/audio/speech (OpenAI-compatible JSON body)
-- Voice cloning: accepts voice_reference (base64 WAV) + voice_reference_text
-- Long text chunking: split at ~200 char sentence boundaries for full response synthesis
-- Speed control: 0.5x-2.0x via scipy resampling (post-synthesis)
+- **Streaming mode**: sentence-level TTS interleaved with LLM token generation (~3s to first audio vs 7-45s batch)
+  - SentenceBuffer in orchestrator detects sentence boundaries during LLM streaming
+  - Each completed sentence dispatched to TTS server via WebSocket at ws://gizmo-tts:8400/v1/audio/stream
+  - TTS server streams PCM float32 chunks (chunk_size=8, ~667ms per chunk) via WebSocket binary frames
+  - Orchestrator forwards chunks to browser: JSON metadata + binary PCM frame pairs
+  - GPU access serialized via asyncio.Lock — sentences queue and process one at a time
+  - StreamingAudioPlayer component plays chunks via AudioContext with gapless scheduling
+  - After all sentences complete, PCM chunks assembled into WAV file for message history
+  - Falls back to batch mode if streaming fails (tts_streaming_failed flag)
+- Batch mode: POST /v1/audio/speech (OpenAI-compatible JSON body) — used by Voice Studio preview and as fallback
+- Voice cloning: accepts voice_reference (base64 WAV) or voice_id (direct file lookup via shared volume)
+- Precomputed speaker embeddings: extracted on voice save, stored at /app/voices/embeddings/{voice_id}.pt (~4KB)
+  - POST /v1/audio/embedding endpoint extracts x-vector from reference audio
+  - Streaming endpoint checks for cached embedding before loading WAV
+- Long text chunking: split at ~200 char sentence boundaries (batch mode only)
+- Speed control: 0.5x-2.0x via scipy resampling (per-chunk in streaming, post-synthesis in batch)
 - Language selection: Auto, English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian
-- Auto-unloads from VRAM after TTS_IDLE_UNLOAD_SECONDS (default 60), reloads on next request
+- Auto-unloads from VRAM after TTS_IDLE_UNLOAD_SECONDS (default 60) — full model destruction (CUDA graphs cannot migrate)
 - Container base: docker.io/pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
-- scipy>=1.12.0 required in TTS container for speed control
+- Shared voices volume: ./voices:/app/voices:rw,Z mounted on both TTS and orchestrator containers
 
 ## Voice Studio
 - Dedicated TTS playground component (VoiceStudio.svelte)
@@ -365,6 +378,7 @@ Explicit layered assembly with per-layer token budget logging:
 - prefers-reduced-motion: all CSS animations disabled for users who request reduced motion
 - Responsive message width: user bubbles max-w-[85%] on mobile, 75% on tablet, 65% on desktop
 - Animation optimization: msg-appear class only applied to last 3 messages when conversation exceeds 20 messages
+- Streaming TTS audio: StreamingAudioPlayer component uses AudioContext for gapless playback of PCM chunks during generation; transitions to standard `<audio>` tag when final WAV is available
 
 ## Usage Analytics (analytics.py)
 - Captures real token counts from llama.cpp streaming responses (usage field in final chunk)
@@ -422,6 +436,9 @@ The ws_chat handler logs per-system latency for each request:
 - WebSocket origin validation: origins.py allowlist rejects connections from unknown origins (code 4003)
 - CORS: explicit allowlist (ALLOWED_ORIGINS env var), not wildcard
 - nginx security headers: X-Content-Type-Options nosniff, X-Frame-Options SAMEORIGIN
+- faster-qwen3-tts CUDA graphs cannot be moved to CPU — idle unload destroys and recreates the entire model object
+- TTS WebSocket streaming uses binary frames for PCM data (float32, 24kHz) paired with JSON metadata frames
+- SentenceBuffer minimum 20 chars per sentence to avoid firing TTS for fragments
 
 ## Documentation Sync Mandate (MANDATORY)
 

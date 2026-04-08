@@ -38,6 +38,7 @@ all in six containers. Zero cloud dependencies.
 <td width="33%" valign="top">
 
 ### Voice
+- Streaming audio — hear responses as they generate (~3s to first audio)
 - Neural TTS with voice cloning
 - Speech-to-text via Whisper
 - 10 language support
@@ -143,8 +144,9 @@ bash scripts/start.sh            # Starts all 6 services
 <details>
 <summary><strong>Voice & TTS</strong></summary>
 
+- **Streaming TTS** — sentence-level audio streaming via WebSocket (~3s to first audio vs 7-45s batch mode), with gapless browser playback
 - **Voice Studio** — upload reference audio, name and save voices, adjustable clip duration
-- **Qwen3-TTS** — GPU-accelerated neural voice cloning (x-vector mode), long text chunking
+- **Qwen3-TTS** — GPU-accelerated neural voice cloning (x-vector mode) via faster-qwen3-tts
 - **Speed control** — 0.5x to 2.0x
 - **10 languages** — English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian
 - **Speech-to-text** — dictate via microphone with Whisper

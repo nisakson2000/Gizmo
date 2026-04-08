@@ -154,18 +154,20 @@ Qwen3-TTS is a voice cloning model. It takes a text prompt and a reference audio
 
 ### Gizmo Integration
 - Runs as a separate GPU-accelerated container (`gizmo-tts`)
+- **Streaming mode**: sentence-level audio via WebSocket (`ws://gizmo-tts:8400/v1/audio/stream`) — ~3s to first audio (152ms TTFA with CUDA graphs), PCM chunks streamed to browser in real time
+- **Batch mode**: full-response synthesis via `POST /v1/audio/speech` (used by Voice Studio preview and as streaming fallback)
+- Precomputed speaker embeddings: extracted on voice save via `POST /v1/audio/embedding`, stored as ~4KB `.pt` files in the shared `./voices` volume
 - Loads on startup, auto-unloads from VRAM after 60 seconds idle
 - Reloads automatically on next TTS request
 - Bundles a default reference voice (espeak-ng generated) for out-of-box use
 - Voice Studio: upload, name, save, and select from multiple cloned voices
 - Voice references truncated via ffmpeg (30-120s configurable) and downsampled to 16kHz mono to prevent VRAM OOM
-- OpenAI-compatible endpoint at `/v1/audio/speech`
 
 ### Python Package
 ```
-pip install qwen-tts>=0.1.1
+pip install faster-qwen3-tts
 ```
-Requires `transformers==4.57.3` (exact pin).
+Uses the andimarafioti fork with CUDA graph support for low-latency streaming.
 
 **Source:** [Qwen/Qwen3-TTS-12Hz-1.7B-Base](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) on HuggingFace
 

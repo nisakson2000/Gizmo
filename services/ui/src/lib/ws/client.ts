@@ -12,6 +12,9 @@ import {
 	updateConversationTitle,
 	pendingTtsInfo,
 	generatingConversationId,
+	streamingAudioChunks,
+	streamingAudioDone,
+	type AudioChunkMeta,
 } from '$lib/stores/chat';
 import { connectionStatus } from '$lib/stores/connection';
 import { thinkingEnabled, ttsEnabled, ttsVoiceId, ttsSpeed, ttsLanguage, contextLength, activeMode } from '$lib/stores/settings';
@@ -20,6 +23,7 @@ let ws: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let reconnectDelay = 1000;
 let audioFinalized = false;
+let pendingAudioMeta: AudioChunkMeta | null = null;
 const MAX_RECONNECT_DELAY = 30000;
 
 function getWsUrl(): string {
@@ -56,7 +60,19 @@ export function connect() {
 		connectionStatus.set('disconnected');
 	};
 
+	ws.binaryType = 'blob';
 	ws.onmessage = (event) => {
+		if (event.data instanceof Blob) {
+			// Binary frame: PCM audio chunk paired with previous metadata
+			if (pendingAudioMeta) {
+				streamingAudioChunks.update((chunks) => [
+					...chunks,
+					{ meta: pendingAudioMeta!, blob: event.data },
+				]);
+				pendingAudioMeta = null;
+			}
+			return;
+		}
 		try {
 			const data = JSON.parse(event.data);
 			handleEvent(data);
@@ -104,6 +120,18 @@ function handleEvent(data: any) {
 				});
 			});
 			break;
+		case 'audio_chunk':
+			if (data.is_last) {
+				streamingAudioDone.set(true);
+			} else {
+				// Store metadata — next binary frame is the PCM data for this chunk
+				pendingAudioMeta = {
+					chunkIndex: data.chunk_index,
+					sentenceIndex: data.sentence_index,
+					sampleRate: data.sample_rate,
+				};
+			}
+			break;
 		case 'tts_info':
 			pendingTtsInfo.set(data.message || '');
 			break;
@@ -133,10 +161,13 @@ function handleEvent(data: any) {
 			}
 			// Always cleanup
 			audioFinalized = false;
+			pendingAudioMeta = null;
 			generatingConversationId.set(null);
 			streamingThinking.set('');
 			streamingContent.set('');
 			streamingToolCalls.set([]);
+			streamingAudioChunks.set([]);
+			streamingAudioDone.set(false);
 			loadConversations();
 			break;
 		}
@@ -162,9 +193,12 @@ export function send(message: string, imageDataUrl?: string, videoFrames?: strin
 	generatingConversationId.set(get(activeConversationId));
 	connectionStatus.set('generating');
 	audioFinalized = false;
+	pendingAudioMeta = null;
 	streamingThinking.set('');
 	streamingContent.set('');
 	streamingToolCalls.set([]);
+	streamingAudioChunks.set([]);
+	streamingAudioDone.set(false);
 
 	const payload: Record<string, unknown> = {
 		message,
@@ -198,6 +232,9 @@ export function stopGeneration() {
 	if (!get(generating)) return;
 	finalizeAssistantMessage(get(currentTraceId));
 	generating.set(false);
+	streamingAudioChunks.set([]);
+	streamingAudioDone.set(true);
+	pendingAudioMeta = null;
 	connectionStatus.set('connecting');
 	// Close and reconnect — backend handles WebSocketDisconnect cleanly
 	if (ws) {

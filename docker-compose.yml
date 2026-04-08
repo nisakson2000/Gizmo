@@ -78,6 +78,7 @@ services:
       - "8400:8400"
     volumes:
       - ./models/qwen3-tts:/models/qwen3-tts:ro,Z
+      - ./voices:/app/voices:rw,Z
     devices:
       - nvidia.com/gpu=all
     security_opt:

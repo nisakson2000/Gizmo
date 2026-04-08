@@ -1,21 +1,24 @@
-"""Gizmo-AI TTS Server — Qwen3-TTS voice synthesis with optional voice cloning."""
+"""Gizmo-AI TTS Server — faster-qwen3-tts streaming voice synthesis with voice cloning."""
 
 import asyncio
 import base64
 import hashlib
 import io
+import json
 import logging
 import os
+import queue as sync_queue
 import re
 import tempfile
 import time
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 import numpy as np
 import soundfile as sf
 import torch
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, Response
 
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +28,8 @@ MODEL_DIR = os.getenv("TTS_MODEL_DIR", "/models/qwen3-tts/1.7B-Base")
 IDLE_UNLOAD_SECONDS = int(os.getenv("TTS_IDLE_UNLOAD_SECONDS", "60"))
 DEFAULT_REF_AUDIO = "/app/assets/default_voice.wav"
 DEFAULT_REF_TEXT = "Hello, I am Gizmo, your local AI assistant."
+VOICES_DIR = Path("/app/voices")
+EMBEDDINGS_DIR = VOICES_DIR / "embeddings"
 
 MAX_CHUNK_CHARS = 200
 
@@ -34,49 +39,48 @@ model_loaded = False
 last_request_time = 0.0
 unload_task = None
 
-# Cache for voice clone prompts (speaker embeddings)
-_clone_prompt_cache: dict[str, object] = {}
+# GPU lock — only one generation at a time
+_gpu_lock = asyncio.Lock()
 
 
 def load_model():
-    """Load the Qwen3-TTS model onto GPU."""
+    """Load the faster-qwen3-tts model onto GPU."""
     global model, model_loaded
     if model_loaded:
         return
 
-    logger.info("Loading Qwen3-TTS model from %s ...", MODEL_DIR)
+    logger.info("Loading faster-qwen3-tts model from %s ...", MODEL_DIR)
     start = time.time()
 
-    from qwen_tts import Qwen3TTSModel
+    from faster_qwen3_tts import FasterQwen3TTS
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
 
-    model = Qwen3TTSModel.from_pretrained(
+    model = FasterQwen3TTS.from_pretrained(
         MODEL_DIR,
-        device_map=device,
+        device=device,
         dtype=dtype,
     )
 
     elapsed = round(time.time() - start, 1)
-    logger.info("Qwen3-TTS loaded on %s in %ss", device, elapsed)
+    logger.info("faster-qwen3-tts loaded on %s in %ss", device, elapsed)
     model_loaded = True
 
 
 def unload_model():
-    """Unload the model from VRAM."""
+    """Unload the model from VRAM (full destruction — CUDA graphs cannot migrate)."""
     global model, model_loaded
     if not model_loaded:
         return
 
-    logger.info("Unloading Qwen3-TTS from VRAM (idle timeout)")
-    _clone_prompt_cache.clear()
+    logger.info("Unloading faster-qwen3-tts from VRAM (idle timeout)")
     del model
     model = None
     model_loaded = False
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    logger.info("Qwen3-TTS unloaded")
+    logger.info("faster-qwen3-tts unloaded")
 
 
 async def idle_watcher():
@@ -100,7 +104,7 @@ async def lifespan(app: FastAPI):
     unload_model()
 
 
-app = FastAPI(title="Gizmo-AI TTS", version="3.0.0", lifespan=lifespan)
+app = FastAPI(title="Gizmo-AI TTS", version="4.0.0", lifespan=lifespan)
 
 
 @app.get("/health")
@@ -108,10 +112,10 @@ async def health():
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     return {
         "status": "ok" if model_loaded else "idle",
-        "model": "Qwen3-TTS-12Hz-1.7B-Base",
+        "model": "faster-qwen3-tts (Qwen3-TTS-12Hz-1.7B-Base)",
         "device": device,
         "loaded": model_loaded,
-        "cached_voices": len(_clone_prompt_cache),
+        "streaming": True,
     }
 
 
@@ -131,74 +135,223 @@ def _chunk_text(text: str) -> list[str]:
     return chunks if chunks else [text]
 
 
-def _get_clone_prompt(ref_audio_path: str, ref_text: str | None, x_vector_only: bool):
-    """Get or create a cached voice clone prompt."""
-    with open(ref_audio_path, "rb") as f:
-        file_hash = hashlib.md5(f.read()).hexdigest()
-    cache_key = f"{file_hash}:{ref_text or ''}:{x_vector_only}"
+def _resolve_voice(voice_id: str | None = None, voice_reference: str | None = None):
+    """Resolve voice to a voice_clone_prompt dict for generation.
 
-    if cache_key in _clone_prompt_cache:
-        logger.info("Using cached voice clone prompt for %s", file_hash[:8])
-        return _clone_prompt_cache[cache_key]
+    Priority: precomputed embedding > voice WAV on disk > voice_reference base64 > default voice.
+    Returns (voice_clone_prompt, tmp_path_to_clean) tuple.
+    """
+    # Precomputed embedding
+    if voice_id:
+        emb_path = EMBEDDINGS_DIR / f"{voice_id}.pt"
+        if emb_path.exists():
+            device = "cuda:0" if torch.cuda.is_available() else "cpu"
+            spk_emb = torch.load(str(emb_path), weights_only=True).to(device)
+            logger.info("Using precomputed embedding for voice %s", voice_id)
+            return {"ref_spk_embedding": [spk_emb]}, None
 
-    prompt = model.create_voice_clone_prompt(
-        ref_audio=ref_audio_path,
-        ref_text=ref_text,
-        x_vector_only_mode=x_vector_only,
+        # Voice WAV on disk
+        wav_path = VOICES_DIR / f"{voice_id}.wav"
+        if wav_path.exists():
+            prompt = model.model.create_voice_clone_prompt(
+                ref_audio=str(wav_path), ref_text="", x_vector_only_mode=True,
+            )
+            logger.info("Using voice WAV for %s (x-vector only)", voice_id)
+            return prompt, None
+
+    # Base64 voice reference
+    if voice_reference:
+        ref_bytes = base64.b64decode(voice_reference)
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        tmp.write(ref_bytes)
+        tmp.close()
+        prompt = model.model.create_voice_clone_prompt(
+            ref_audio=tmp.name, ref_text="", x_vector_only_mode=True,
+        )
+        return prompt, tmp.name
+
+    # Default voice
+    prompt = model.model.create_voice_clone_prompt(
+        ref_audio=DEFAULT_REF_AUDIO, ref_text=DEFAULT_REF_TEXT, x_vector_only_mode=False,
     )
-    _clone_prompt_cache[cache_key] = prompt
-    logger.info("Cached voice clone prompt for %s (ICL=%s)", file_hash[:8], not x_vector_only)
-    return prompt
+    return prompt, None
 
 
-def _generate_chunks(chunks: list[str], language: str, clone_prompt=None,
-                     ref_audio: str | None = None, ref_text: str | None = None,
-                     x_vector_only: bool = False) -> tuple[np.ndarray, int]:
-    """Generate audio for text chunks and concatenate."""
-    all_wavs = []
-    sr = 24000  # fallback
+# ---------------------------------------------------------------------------
+# Streaming WebSocket endpoint
+# ---------------------------------------------------------------------------
 
-    for chunk in chunks:
-        if clone_prompt is not None:
-            chunk_wavs, sr = model.generate_voice_clone(
-                text=chunk,
-                language=language,
-                voice_clone_prompt=clone_prompt,
-            )
-        elif ref_audio:
-            chunk_wavs, sr = model.generate_voice_clone(
-                text=chunk,
-                language=language,
-                ref_audio=ref_audio,
-                ref_text=ref_text,
-                x_vector_only_mode=x_vector_only,
-            )
-        else:
-            chunk_wavs, sr = model.generate_voice_clone(
-                text=chunk,
-                language=language,
-                ref_audio=DEFAULT_REF_AUDIO,
-                ref_text=DEFAULT_REF_TEXT,
-                x_vector_only_mode=False,
-            )
-        all_wavs.append(chunk_wavs[0])
+@app.websocket("/v1/audio/stream")
+async def stream_tts(ws: WebSocket):
+    """Stream TTS audio chunks over WebSocket.
 
-    final_wav = np.concatenate(all_wavs) if len(all_wavs) > 1 else all_wavs[0]
-    return final_wav, sr
+    Client sends JSON config: {text, language, speed, voice_id, voice_reference}
+    Server responds with alternating JSON metadata + binary PCM float32 frames,
+    ending with {done: true}.
+    """
+    global last_request_time
+    await ws.accept()
 
+    try:
+        raw = await ws.receive_text()
+        config = json.loads(raw)
+
+        text = config.get("text", "")
+        if not text:
+            await ws.send_json({"error": "Missing text"})
+            return
+
+        language = config.get("language", "Auto")
+        speed = max(0.5, min(float(config.get("speed", 1.0)), 2.0))
+        voice_id = config.get("voice_id")
+        voice_reference = config.get("voice_reference")
+
+        last_request_time = time.time()
+        if not model_loaded:
+            load_model()
+
+        async with _gpu_lock:
+            last_request_time = time.time()
+            tmp_path = None
+            try:
+                voice_prompt, tmp_path = _resolve_voice(voice_id, voice_reference)
+
+                # Run streaming generator in a thread, queue chunks
+                q = sync_queue.Queue()
+
+                def _generate():
+                    try:
+                        for chunk, sr, timing in model.generate_voice_clone_streaming(
+                            text=text,
+                            language=language,
+                            voice_clone_prompt=voice_prompt,
+                            chunk_size=8,
+                        ):
+                            q.put((chunk, sr, timing))
+                    except Exception as e:
+                        q.put(e)
+                    finally:
+                        q.put(None)
+
+                loop = asyncio.get_event_loop()
+                gen_future = loop.run_in_executor(None, _generate)
+
+                chunk_idx = 0
+                while True:
+                    item = await loop.run_in_executor(None, q.get)
+                    if item is None:
+                        break
+                    if isinstance(item, Exception):
+                        logger.error("Streaming generation error: %s", item)
+                        await ws.send_json({"error": str(item)})
+                        break
+
+                    chunk_data, sr, timing = item
+
+                    # Apply speed adjustment per-chunk
+                    if abs(speed - 1.0) > 0.05:
+                        import scipy.signal
+                        new_len = int(len(chunk_data) / speed)
+                        if new_len > 0:
+                            chunk_data = scipy.signal.resample(chunk_data, new_len).astype(np.float32)
+
+                    pcm_bytes = chunk_data.astype(np.float32).tobytes()
+
+                    await ws.send_json({
+                        "sample_rate": sr,
+                        "samples": len(chunk_data),
+                        "chunk_index": chunk_idx,
+                        "is_final": timing.get("is_final", False),
+                    })
+                    await ws.send_bytes(pcm_bytes)
+                    chunk_idx += 1
+
+                    if timing.get("is_final", False):
+                        break
+
+                await gen_future
+            finally:
+                if tmp_path:
+                    os.unlink(tmp_path)
+
+            await ws.send_json({"done": True})
+
+    except WebSocketDisconnect:
+        logger.info("Streaming client disconnected")
+    except Exception as e:
+        logger.error("Stream endpoint error: %s", e, exc_info=True)
+        try:
+            await ws.send_json({"error": str(e)})
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Precomputed embedding extraction
+# ---------------------------------------------------------------------------
+
+@app.post("/v1/audio/embedding")
+async def extract_embedding(request: Request):
+    """Extract and save a speaker embedding for a voice_id.
+
+    Body JSON: {voice_id: str}
+    Reads /app/voices/{voice_id}.wav, extracts x-vector embedding,
+    saves to /app/voices/embeddings/{voice_id}.pt (~4KB).
+    """
+    global last_request_time
+    last_request_time = time.time()
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    voice_id = body.get("voice_id", "")
+    if not voice_id or not re.match(r'^[a-f0-9]{8}$', voice_id):
+        return JSONResponse(status_code=400, content={"error": "Invalid voice_id"})
+
+    wav_path = VOICES_DIR / f"{voice_id}.wav"
+    if not wav_path.exists():
+        return JSONResponse(status_code=404, content={"error": "Voice WAV not found"})
+
+    if not model_loaded:
+        load_model()
+
+    try:
+        prompt_items = model.model.create_voice_clone_prompt(
+            ref_audio=str(wav_path), ref_text="", x_vector_only_mode=True,
+        )
+        spk_emb = prompt_items[0].ref_spk_embedding
+
+        EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
+        emb_path = EMBEDDINGS_DIR / f"{voice_id}.pt"
+        torch.save(spk_emb.detach().cpu(), str(emb_path))
+
+        size = emb_path.stat().st_size
+        logger.info("Saved speaker embedding for %s (%d bytes)", voice_id, size)
+        return {"status": "ok", "voice_id": voice_id, "embedding_size": size}
+
+    except Exception as e:
+        logger.error("Embedding extraction failed for %s: %s", voice_id, e, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# Batch endpoint (unchanged API, updated internals for faster-qwen3-tts)
+# ---------------------------------------------------------------------------
 
 @app.post("/v1/audio/speech")
 async def synthesize(request: Request):
-    """OpenAI-compatible TTS endpoint.
+    """OpenAI-compatible TTS endpoint (batch mode).
 
     Body JSON:
-        model: str (ignored, always qwen3-tts)
+        model: str (ignored)
         input: str — text to synthesize
-        voice: str — "default" or voice name (currently unused)
+        voice: str — "default" or voice name
         response_format: str — "wav" (default)
-        speed: float — speech speed multiplier (0.5–2.0)
+        speed: float — speech speed multiplier (0.5-2.0)
         voice_reference: str — base64-encoded WAV for voice cloning (optional)
-        voice_reference_text: str — transcript of the reference audio (optional, improves clone quality)
+        voice_reference_text: str — transcript of the reference audio (optional)
         language: str — language hint (default: "Auto")
     """
     global last_request_time
@@ -218,36 +371,47 @@ async def synthesize(request: Request):
     language = body.get("language", "Auto")
     speed = max(0.5, min(float(body.get("speed", 1.0)), 2.0))
 
-    # Ensure model is loaded
     if not model_loaded:
         load_model()
 
     try:
         chunks = _chunk_text(text) if len(text) > MAX_CHUNK_CHARS else [text]
-        logger.info("Generating TTS: %d chars, %d chunks, speed=%.1f, lang=%s",
+        logger.info("Generating TTS (batch): %d chars, %d chunks, speed=%.1f, lang=%s",
                      len(text), len(chunks), speed, language)
 
-        if voice_ref:
-            # Voice cloning mode — single call (no chunking to avoid per-chunk warmup artifacts)
-            ref_audio_bytes = base64.b64decode(voice_ref)
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        tmp_path = None
+        try:
+            if voice_ref:
+                ref_audio_bytes = base64.b64decode(voice_ref)
+                tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
                 tmp.write(ref_audio_bytes)
+                tmp.close()
                 tmp_path = tmp.name
 
-            try:
                 wavs, sr = model.generate_voice_clone(
                     text=text,
                     language=language,
                     ref_audio=tmp_path,
                     ref_text=None,
-                    x_vector_only_mode=True,
+                    xvec_only=True,
                 )
                 final_wav = wavs[0]
-            finally:
+            else:
+                all_wavs = []
+                sr = 24000
+                for chunk in chunks:
+                    chunk_wavs, sr = model.generate_voice_clone(
+                        text=chunk,
+                        language=language,
+                        ref_audio=DEFAULT_REF_AUDIO,
+                        ref_text=DEFAULT_REF_TEXT,
+                        xvec_only=False,
+                    )
+                    all_wavs.append(chunk_wavs[0])
+                final_wav = np.concatenate(all_wavs) if len(all_wavs) > 1 else all_wavs[0]
+        finally:
+            if tmp_path:
                 os.unlink(tmp_path)
-        else:
-            # Default voice mode — chunking is safe (no cloning artifacts)
-            final_wav, sr = _generate_chunks(chunks, language)
 
     except Exception as e:
         logger.error("TTS generation error: %s", e, exc_info=True)
@@ -260,11 +424,10 @@ async def synthesize(request: Request):
             original_len = len(final_wav)
             new_len = int(original_len / speed)
             final_wav = scipy.signal.resample(final_wav, new_len).astype(np.float32)
-            logger.info("Applied speed %.1fx: %d → %d samples", speed, original_len, new_len)
+            logger.info("Applied speed %.1fx: %d -> %d samples", speed, original_len, new_len)
         except ImportError:
             logger.warning("scipy not available, speed control disabled")
 
-    # Convert to WAV bytes
     buf = io.BytesIO()
     sf.write(buf, final_wav, sr, format="WAV")
     buf.seek(0)

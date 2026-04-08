@@ -4,10 +4,12 @@
 	import { highlightCode } from '$lib/actions/highlight';
 	import ThinkingBlock from './ThinkingBlock.svelte';
 	import ToolCallBlock from './ToolCallBlock.svelte';
-	import { messages, generating, truncateMessagesFrom, addUserMessage, pendingVariants, pendingPromptIndex, setVariantIndex, lastAssistantId } from '$lib/stores/chat';
+	import { messages, generating, truncateMessagesFrom, addUserMessage, pendingVariants, pendingPromptIndex, setVariantIndex, lastAssistantId, streamingAudioChunks, streamingAudioDone } from '$lib/stores/chat';
 	import { send } from '$lib/ws/client';
 	import { get } from 'svelte/store';
 	import { toast } from '$lib/stores/toast';
+	import { ttsEnabled } from '$lib/stores/settings';
+	import StreamingAudioPlayer from './StreamingAudioPlayer.svelte';
 	import type { Message, MessageVariant } from '$lib/stores/chat';
 
 	let { message }: { message: Message } = $props();
@@ -30,6 +32,10 @@
 	let displayThinking = $derived(activeVariant?.thinking ?? message.thinking);
 	let displayToolCalls = $derived(activeVariant?.toolCalls ?? message.toolCalls);
 	let displayAudioUrl = $derived(activeVariant?.audioUrl ?? message.audioUrl);
+	let hasStreamingChunks = $derived($streamingAudioChunks.length > 0);
+	let showStreamingPlayer = $derived(
+		$generating && isLastAssistant && $ttsEnabled && hasStreamingChunks && !displayAudioUrl
+	);
 
 	let renderedHtml = $derived.by(() => {
 		try {
@@ -291,7 +297,9 @@
 			{@html renderedHtml}
 		</div>
 
-		{#if displayAudioUrl}
+		{#if showStreamingPlayer}
+			<StreamingAudioPlayer />
+		{:else if displayAudioUrl}
 			<div class="mt-3">
 				<audio controls src={displayAudioUrl} class="w-full h-9 rounded-lg" aria-label="TTS audio">
 					<track kind="captions" src="" default />

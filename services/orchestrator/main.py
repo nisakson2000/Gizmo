@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import io
 import json
 import logging
 import os
@@ -40,7 +41,8 @@ from analytics import store_analytics, get_summary as analytics_summary, get_dai
 from tracker import router as tracker_router
 from code_chat import router as code_chat_router
 from tracker_db import init_tracker_db
-from tts import synthesize
+import soundfile as _sf
+from tts import synthesize, stream_tts_sentence, extract_voice_embedding
 
 _TRUNCATION_NOTICE = "\n\n---\n*Response reached the maximum length. Ask me to continue if you'd like the rest.*"
 _REPETITION_NOTICE = "\n\n---\n*Response reached a repetitive pattern and was stopped. You can ask me to continue from where I left off.*"
@@ -65,6 +67,45 @@ def _detect_repetition(text: str, min_seg: int = 50, min_repeats: int = 3) -> bo
         if all_match:
             return True
     return False
+
+
+class SentenceBuffer:
+    """Accumulates LLM tokens, detects sentence boundaries for streaming TTS."""
+
+    _SENT_END = re.compile(r'([.!?])(\s+)')
+    _ABBREV = re.compile(
+        r'(?:\b(?:Dr|Mr|Mrs|Ms|Jr|Sr|Prof|Inc|Ltd|Corp|vs|etc|approx|dept|govt)\.'
+        r'|\b[A-Z]\.'  # single initial
+        r'|\.{2,})$',  # ellipsis
+        re.I,
+    )
+    MIN_CHARS = 20
+
+    def __init__(self):
+        self._buf = ""
+
+    def add(self, token: str) -> list[str]:
+        """Add a token, return list of completed sentences (usually 0 or 1)."""
+        self._buf += token
+        sentences = []
+        start = 0
+        for m in self._SENT_END.finditer(self._buf):
+            candidate = self._buf[start:m.end(1)]
+            if len(candidate.strip()) < self.MIN_CHARS:
+                continue
+            if self._ABBREV.search(candidate):
+                continue
+            sentences.append(candidate.strip())
+            start = m.end()
+        if sentences:
+            self._buf = self._buf[start:]
+        return sentences
+
+    def flush(self) -> str | None:
+        """Return remaining buffered text when LLM stream ends."""
+        text = self._buf.strip()
+        self._buf = ""
+        return text if text else None
 
 
 IDENTITY_REINFORCE_MIN_MESSAGES = int(os.getenv("IDENTITY_REINFORCE_MIN_MESSAGES", "30"))
@@ -1146,6 +1187,41 @@ async def ws_chat(ws: WebSocket):
                 mode=active_mode)
             messages = build_messages(history_msgs, system_prompt)
 
+            # Streaming TTS state
+            sentence_buffer = SentenceBuffer() if request_tts else None
+            tts_tasks: list[asyncio.Task] = []
+            tts_pcm_chunks: dict[int, list[bytes]] = {}
+            tts_sample_rate = 24000
+            tts_streaming_failed = False
+            ws_send_lock = asyncio.Lock()
+
+            async def _stream_sentence_to_client(text: str, sent_idx: int):
+                """Stream TTS for one sentence, forwarding chunks to browser."""
+                nonlocal tts_streaming_failed, tts_sample_rate
+                chunk_count = 0
+                try:
+                    async for pcm_bytes, sr in stream_tts_sentence(
+                        text, voice_id=voice_id,
+                        voice_clone_data_url=voice_clone_ref if not voice_id else None,
+                        speed=tts_speed, language=tts_language,
+                    ):
+                        tts_sample_rate = sr
+                        tts_pcm_chunks.setdefault(sent_idx, []).append(pcm_bytes)
+                        async with ws_send_lock:
+                            await ws.send_json({
+                                "type": "audio_chunk",
+                                "chunk_index": chunk_count,
+                                "sentence_index": sent_idx,
+                                "sample_rate": sr,
+                                "is_last": False,
+                            })
+                            await ws.send_bytes(pcm_bytes)
+                        chunk_count += 1
+                except Exception as e:
+                    error_log.warning("[%s] Streaming TTS failed for sentence %d: %s", trace_id, sent_idx, e)
+                    if sent_idx == 0:
+                        tts_streaming_failed = True
+
             # Stream with selected tools
             full_response = ""
             full_thinking = ""
@@ -1163,6 +1239,12 @@ async def ws_chat(ws: WebSocket):
                 elif event["type"] == "token":
                     full_response += event["content"]
                     await ws.send_json(event)
+                    # Feed token to sentence buffer for streaming TTS
+                    if sentence_buffer and not tts_streaming_failed:
+                        for sentence in sentence_buffer.add(event["content"]):
+                            idx = len(tts_tasks)
+                            tts_tasks.append(asyncio.create_task(
+                                _stream_sentence_to_client(sentence, idx)))
                     if len(full_response) - _rep_check_len >= 200:
                         _rep_check_len = len(full_response)
                         if _detect_repetition(full_response):
@@ -1244,6 +1326,11 @@ async def ws_chat(ws: WebSocket):
                     if event["type"] == "token":
                         full_response += event["content"]
                         await ws.send_json(event)
+                        if sentence_buffer and not tts_streaming_failed:
+                            for sentence in sentence_buffer.add(event["content"]):
+                                idx = len(tts_tasks)
+                                tts_tasks.append(asyncio.create_task(
+                                    _stream_sentence_to_client(sentence, idx)))
                         if len(full_response) - _rep_check_len >= 200:
                             _rep_check_len = len(full_response)
                             if _detect_repetition(full_response):
@@ -1283,29 +1370,68 @@ async def ws_chat(ws: WebSocket):
             # TTS if requested
             audio_file_url = ""
             if request_tts and full_response:
-                if len(full_response) > 4000:
-                    await ws.send_json({
-                        "type": "tts_info",
-                        "message": f"Generating audio for {len(full_response)} characters — this may take a moment",
-                    })
-                audio_data = await synthesize(
-                    full_response,
-                    voice_clone_data_url=voice_clone_ref,
-                    voice_reference_text=voice_ref_text,
-                    speed=tts_speed,
-                    language=tts_language,
-                )
-                if audio_data:
-                    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-                    audio_filename = f"tts-{trace_id}.wav"
-                    (MEDIA_DIR / audio_filename).write_bytes(audio_data)
-                    audio_file_url = f"/api/media/{audio_filename}"
-                    await ws.send_json({
-                        "type": "audio",
-                        "url": audio_file_url,
-                    })
+                # Flush remaining text from sentence buffer
+                if sentence_buffer and not tts_streaming_failed:
+                    remaining = sentence_buffer.flush()
+                    if remaining:
+                        idx = len(tts_tasks)
+                        tts_tasks.append(asyncio.create_task(
+                            _stream_sentence_to_client(remaining, idx)))
+
+                if tts_tasks and not tts_streaming_failed:
+                    # Streaming mode — await all sentence TTS tasks
+                    results = await asyncio.gather(*tts_tasks, return_exceptions=True)
+                    for i, r in enumerate(results):
+                        if isinstance(r, Exception):
+                            error_log.warning("[%s] TTS task %d failed: %s", trace_id, i, r)
+
+                    # Signal streaming complete
+                    await ws.send_json({"type": "audio_chunk", "is_last": True})
+
+                    # Assemble final WAV from all PCM chunks (sentence order)
+                    if tts_pcm_chunks:
+                        all_pcm = b""
+                        for si in sorted(tts_pcm_chunks.keys()):
+                            for chunk in tts_pcm_chunks[si]:
+                                all_pcm += chunk
+                        if all_pcm:
+                            MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+                            audio_filename = f"tts-{trace_id}.wav"
+                            wav_path = MEDIA_DIR / audio_filename
+                            buf = io.BytesIO()
+                            pcm_array = np.frombuffer(all_pcm, dtype=np.float32)
+                            _sf.write(buf, pcm_array, tts_sample_rate, format="WAV")
+                            buf.seek(0)
+                            wav_path.write_bytes(buf.read())
+                            audio_file_url = f"/api/media/{audio_filename}"
+                            await ws.send_json({"type": "audio", "url": audio_file_url})
                 else:
-                    await ws.send_json({"type": "error", "error": "TTS synthesis failed — audio unavailable"})
+                    # Fallback to batch TTS (streaming failed or no sentences buffered)
+                    if tts_streaming_failed:
+                        await ws.send_json({
+                            "type": "tts_info",
+                            "message": "Streaming TTS unavailable — generating audio in batch mode",
+                        })
+                    if len(full_response) > 4000:
+                        await ws.send_json({
+                            "type": "tts_info",
+                            "message": f"Generating audio for {len(full_response)} characters — this may take a moment",
+                        })
+                    audio_data = await synthesize(
+                        full_response,
+                        voice_clone_data_url=voice_clone_ref,
+                        voice_reference_text=voice_ref_text,
+                        speed=tts_speed,
+                        language=tts_language,
+                    )
+                    if audio_data:
+                        MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+                        audio_filename = f"tts-{trace_id}.wav"
+                        (MEDIA_DIR / audio_filename).write_bytes(audio_data)
+                        audio_file_url = f"/api/media/{audio_filename}"
+                        await ws.send_json({"type": "audio", "url": audio_file_url})
+                    else:
+                        await ws.send_json({"type": "error", "error": "TTS synthesis failed — audio unavailable"})
 
             # Save assistant response (skip if stream errored before any tokens)
             if full_response:
@@ -1347,7 +1473,11 @@ async def ws_chat(ws: WebSocket):
             })
 
     except WebSocketDisconnect:
-        pass
+        try:
+            for task in tts_tasks:
+                task.cancel()
+        except NameError:
+            pass
     except Exception as e:
         error_log.error("WebSocket handler error: %s", e, exc_info=True)
 
@@ -2074,6 +2204,9 @@ async def save_voice(file: UploadFile = File(...), name: str = Form(...), max_du
     meta_path = VOICES_DIR / f"{voice_id}.json"
     meta_path.write_text(json.dumps(meta))
 
+    # Fire-and-forget: precompute speaker embedding for streaming TTS
+    asyncio.create_task(extract_voice_embedding(voice_id))
+
     return meta
 
 
@@ -2084,6 +2217,10 @@ async def delete_voice(voice_id: str):
         raise HTTPException(status_code=400, detail="Invalid voice ID format")
     for f in VOICES_DIR.glob(f"{voice_id}.*"):
         f.unlink()
+    # Clean up precomputed embedding if it exists
+    emb_path = VOICES_DIR / "embeddings" / f"{voice_id}.pt"
+    if emb_path.exists():
+        emb_path.unlink()
     return {"status": "deleted"}
 
 

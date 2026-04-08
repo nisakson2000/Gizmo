@@ -60,6 +60,15 @@ export const pendingTtsInfo = writable<string>('');
 export const loadingConversation = writable(false);
 export const conversationsLoaded = writable(false);
 
+// Streaming TTS state
+export interface AudioChunkMeta {
+	chunkIndex: number;
+	sentenceIndex: number;
+	sampleRate: number;
+}
+export const streamingAudioChunks = writable<{ meta: AudioChunkMeta; blob: Blob }[]>([]);
+export const streamingAudioDone = writable(false);
+
 // Derived: ID of the last assistant message (avoids O(N) scan per ChatMessage)
 export const lastAssistantId = derived(messages, ($msgs) => {
 	for (let i = $msgs.length - 1; i >= 0; i--) {
