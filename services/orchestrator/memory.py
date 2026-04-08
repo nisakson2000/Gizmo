@@ -11,7 +11,7 @@ from rank_bm25 import BM25Okapi
 MEMORY_ROOT = Path("/app/memory")
 SUBDIRS = ["facts", "conversations", "notes"]
 MAX_INJECT = 5
-MAX_INJECT_CHARS = 800
+MAX_INJECT_CHARS = 600
 
 STOP_WORDS = frozenset({
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",

@@ -133,3 +133,7 @@ async def stream_chat(
                             "name": tc["name"],
                             "arguments": tc["arguments"],
                         }
+
+                # Handle max_tokens truncation
+                if finish == "length":
+                    yield {"type": "truncated"}

@@ -197,6 +197,12 @@ When a conversation exceeds the context window budget, Gizmo uses semantic scori
 
 This activates automatically for conversations with 6+ messages that have stored embeddings. The last 6 messages (3 exchanges) are always kept for recency. If embeddings are unavailable, standard oldest-first dropping is used as a fallback.
 
+## Response Handling
+
+**Repetition detection:** If the model enters a repetitive loop (3+ identical blocks of 50+ characters), generation stops automatically with a notice. You can ask it to continue from where it left off.
+
+**Truncation notice:** If a response hits the maximum token limit, a notice appears at the end instead of silently cutting off. You can ask the model to continue.
+
 ## Character Analysis
 
 When you ask about individual characters in a word — letter counting, spelling, character positions — Gizmo pre-computes a character breakdown and provides it to the model. This overcomes a fundamental limitation of LLM tokenizers, which see subword tokens rather than individual letters.

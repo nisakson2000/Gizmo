@@ -209,6 +209,33 @@ Explicit pattern invocation: prefix message with `[pattern:name]` (stripped befo
 - Falls back to FIFO (drop oldest) when embeddings are unavailable or conversation is short
 - Query embedding computed via asyncio.to_thread to avoid blocking the event loop
 
+## Repetition Detection
+- Rolling check every 200 chars of accumulated response in both initial and tool-round streaming loops
+- Detects 3+ consecutive identical segments of 50+ chars at the tail of the response
+- Stops generation and appends user-friendly notice: "Response reached a repetitive pattern and was stopped"
+- Conservative: checks segment lengths from 50 to 500 chars to avoid false positives on legitimate repeated content
+
+## Response Truncation
+- When llama.cpp returns `finish_reason: "length"` (max_tokens hit), `llm.py` yields a `{"type": "truncated"}` event
+- `ws_chat` appends a notice: "Response reached the maximum length. Ask me to continue if you'd like the rest."
+- Handled in both initial and tool-round streaming loops
+
+## Importance Scoring (importance.py)
+- Heuristic-based message importance scoring (0.0-1.0), no LLM calls
+- Used by V6 cross-conversation memory to prioritize indexing and recall
+- Additive scoring: base 0.3, tool calls +0.2, questions +0.1, code blocks +0.1, corrections +0.2, short messages -0.1, URLs/paths +0.1
+
+## Recitation Content Cleaning
+- `strip_line_numbers()` in recite.py removes leading line numbers from fetched web content
+- Only strips if >50% of non-empty lines match `^\s*\d{1,4}[\s\t]+` (prevents false positives on numbered lists)
+- Applied in `build_recitation_context()` before system prompt injection
+
+## V6 Database Tables (created empty, populated by later V6 prompts)
+- `conversation_summaries` — rolling LLM summaries of conversation segments (for compaction)
+- `cross_conv_embeddings` — semantic chunks indexed across all conversations (for cross-conv search)
+- `knowledge_facts` — temporal knowledge graph with validity windows (for fact extraction)
+- Cascade deletes in `prune_conversations()`, `delete_conversation()`, and related cleanup paths
+
 ## Character Analysis (charmap.py)
 - Detects letter-counting, spelling, and character-position questions via regex
 - Pre-computes character breakdown: positions, total count, per-letter frequency

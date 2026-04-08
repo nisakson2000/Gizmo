@@ -87,8 +87,28 @@ async def fetch_recitation_content(subject: str) -> tuple[str, str]:
     return best_content, best_url
 
 
+_LINE_NUM_RE = re.compile(r"^\s*\d{1,4}[\s\t]+")
+
+
+def strip_line_numbers(text: str) -> str:
+    """Strip leading line numbers if >50% of non-empty lines match the pattern.
+
+    Prevents false positives on numbered lists (1. First, 2. Second) which
+    typically have a period or paren after the number, not a space/tab.
+    """
+    lines = text.split("\n")
+    non_empty = [line for line in lines if line.strip()]
+    if not non_empty:
+        return text
+    matching = sum(1 for line in non_empty if _LINE_NUM_RE.match(line))
+    if matching / len(non_empty) <= 0.5:
+        return text
+    return "\n".join(_LINE_NUM_RE.sub("", line) for line in lines)
+
+
 def build_recitation_context(content: str, source_url: str, subject: str) -> str:
     """Build the XML-tagged recitation context block for system prompt injection."""
+    content = strip_line_numbers(content)
     return f"""<recitation-content>
 The user has asked you to recite or present the following known text.
 The complete, authoritative text is provided below. Present it EXACTLY as shown.

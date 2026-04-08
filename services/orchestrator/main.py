@@ -35,6 +35,31 @@ from code_chat import router as code_chat_router
 from tracker_db import init_tracker_db
 from tts import synthesize
 
+_TRUNCATION_NOTICE = "\n\n---\n*Response reached the maximum length. Ask me to continue if you'd like the rest.*"
+_REPETITION_NOTICE = "\n\n---\n*Response reached a repetitive pattern and was stopped. You can ask me to continue from where I left off.*"
+
+
+def _detect_repetition(text: str, min_seg: int = 50, min_repeats: int = 3) -> bool:
+    """Check if text ends with min_repeats consecutive identical segments of min_seg+ chars."""
+    if len(text) < min_seg * min_repeats:
+        return False
+    max_seg = min(len(text) // min_repeats, 500)
+    for seg_len in range(min_seg, max_seg + 1):
+        segment = text[-seg_len:]
+        all_match = True
+        for i in range(1, min_repeats):
+            start = len(text) - seg_len * (i + 1)
+            if start < 0:
+                all_match = False
+                break
+            if text[start:start + seg_len] != segment:
+                all_match = False
+                break
+        if all_match:
+            return True
+    return False
+
+
 VISION_PROMPT = """
 --- VISION ANALYSIS MODE ---
 An image or video has been attached to this message. Apply these rules:
@@ -175,6 +200,69 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_session_embeddings_conv
             ON session_embeddings(conversation_id)
         """)
+        # V6 tables — created now, populated by later prompts
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS conversation_summaries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                segment_start INTEGER NOT NULL,
+                segment_end INTEGER NOT NULL,
+                summary TEXT NOT NULL,
+                topic TEXT,
+                token_count INTEGER NOT NULL,
+                created_at TIMESTAMP,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_summaries_conv
+            ON conversation_summaries(conversation_id)
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS cross_conv_embeddings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                chunk_type TEXT NOT NULL,
+                chunk_text TEXT NOT NULL,
+                embedding BLOB NOT NULL,
+                message_start INTEGER,
+                message_end INTEGER,
+                topic_category TEXT DEFAULT 'general',
+                importance REAL DEFAULT 0.5,
+                created_at TIMESTAMP,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_cross_conv_emb_conv
+            ON cross_conv_embeddings(conversation_id)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_cross_conv_emb_type
+            ON cross_conv_embeddings(chunk_type)
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS knowledge_facts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subject TEXT NOT NULL,
+                predicate TEXT NOT NULL,
+                object TEXT NOT NULL,
+                valid_from TIMESTAMP NOT NULL,
+                valid_to TIMESTAMP,
+                source_conversation_id TEXT,
+                source_message_index INTEGER,
+                confidence REAL DEFAULT 0.7,
+                created_at TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_knowledge_facts_subject
+            ON knowledge_facts(subject)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_knowledge_facts_valid
+            ON knowledge_facts(valid_to)
+        """)
         conn.commit()
     finally:
         conn.close()
@@ -195,6 +283,9 @@ def prune_conversations():
         placeholders = ",".join("?" * len(ids))
         conn.execute(f"DELETE FROM messages WHERE conversation_id IN ({placeholders})", ids)
         conn.execute(f"DELETE FROM session_embeddings WHERE conversation_id IN ({placeholders})", ids)
+        conn.execute(f"DELETE FROM conversation_summaries WHERE conversation_id IN ({placeholders})", ids)
+        conn.execute(f"DELETE FROM cross_conv_embeddings WHERE conversation_id IN ({placeholders})", ids)
+        conn.execute(f"DELETE FROM knowledge_facts WHERE source_conversation_id IN ({placeholders})", ids)
         conn.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", ids)
         conn.commit()
         conn.execute("VACUUM")
@@ -744,6 +835,7 @@ async def ws_chat(ws: WebSocket):
             executed_tool_calls = []  # Accumulate for DB persistence
             tool_calls_pending = []
 
+            _rep_check_len = 0
             async for event in stream_chat(messages, thinking_enabled=thinking,
                                            tool_schemas=route_result.tool_schemas,
                                            temperature=llm_temperature):
@@ -753,6 +845,17 @@ async def ws_chat(ws: WebSocket):
                 elif event["type"] == "token":
                     full_response += event["content"]
                     await ws.send_json(event)
+                    if len(full_response) - _rep_check_len >= 200:
+                        _rep_check_len = len(full_response)
+                        if _detect_repetition(full_response):
+                            full_response += _REPETITION_NOTICE
+                            await ws.send_json({"type": "token", "content": _REPETITION_NOTICE})
+                            conv_log.info("[%s] Repetition detected, stopping generation", trace_id)
+                            break
+                elif event["type"] == "truncated":
+                    full_response += _TRUNCATION_NOTICE
+                    await ws.send_json({"type": "token", "content": _TRUNCATION_NOTICE})
+                    conv_log.info("[%s] Response truncated at max_tokens", trace_id)
                 elif event["type"] == "tool_call":
                     tool_calls_pending.append(event)
                     await ws.send_json({
@@ -814,15 +917,28 @@ async def ws_chat(ws: WebSocket):
 
                 # Continue generation with tool results
                 tool_calls_pending = []
+                _rep_check_len = len(full_response)
                 async for event in stream_chat(messages, thinking_enabled=False,
                                                tool_schemas=route_result.tool_schemas,
                                                temperature=llm_temperature):
                     if event["type"] == "token":
                         full_response += event["content"]
                         await ws.send_json(event)
+                        if len(full_response) - _rep_check_len >= 200:
+                            _rep_check_len = len(full_response)
+                            if _detect_repetition(full_response):
+                                full_response += _REPETITION_NOTICE
+                                await ws.send_json({"type": "token", "content": _REPETITION_NOTICE})
+                                conv_log.info("[%s] Repetition detected (tool round %d), stopping", trace_id, tool_round)
+                                tool_calls_pending = []
+                                break
                     elif event["type"] == "thinking":
                         full_thinking += event["content"]
                         await ws.send_json(event)
+                    elif event["type"] == "truncated":
+                        full_response += _TRUNCATION_NOTICE
+                        await ws.send_json({"type": "token", "content": _TRUNCATION_NOTICE})
+                        conv_log.info("[%s] Response truncated at max_tokens (tool round %d)", trace_id, tool_round)
                     elif event["type"] == "tool_call":
                         tool_calls_pending.append(event)
                         await ws.send_json({
@@ -1303,6 +1419,9 @@ async def delete_conversation(conv_id: str):
     try:
         conn.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
         conn.execute("DELETE FROM session_embeddings WHERE conversation_id = ?", (conv_id,))
+        conn.execute("DELETE FROM conversation_summaries WHERE conversation_id = ?", (conv_id,))
+        conn.execute("DELETE FROM cross_conv_embeddings WHERE conversation_id = ?", (conv_id,))
+        conn.execute("DELETE FROM knowledge_facts WHERE source_conversation_id = ?", (conv_id,))
         conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
         conn.commit()
     finally:

@@ -122,6 +122,7 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 | `title` | `title`, `conversation_id` | LLM-generated conversation title (async, after first exchange) |
 | `done` | `trace_id`, `conversation_id` | Generation complete |
 | `error` | `error`, `trace_id` | Error occurred |
+| `truncated` | *(via token)* | Response hit max_tokens — continue notice appended |
 
 ### Client → Server
 
@@ -253,17 +254,30 @@ The Think toggle is a pill button in the chat input area (similar to Claude and 
 ### File Structure
 ```
 memory/
-├── conversations.db  # SQLite database (conversations + messages + session_embeddings tables)
+├── conversations.db  # SQLite database (6 tables — see schema below)
 ├── facts/            # Persistent facts (user's name, preferences)
 ├── conversations/    # Conversation summaries (future use)
 └── notes/            # General notes
 ```
 
+### Database Schema (`conversations.db`)
+
+| Table | Purpose |
+|-------|---------|
+| `conversations` | Conversation metadata (id, title, timestamps) |
+| `messages` | All chat messages with media URLs and tool call data |
+| `session_embeddings` | Per-conversation semantic embeddings for session recall |
+| `conversation_summaries` | Rolling LLM summaries of conversation segments (V6) |
+| `cross_conv_embeddings` | Semantic chunks indexed across all conversations (V6) |
+| `knowledge_facts` | Temporal knowledge graph with validity windows (V6) |
+
+All tables have cascade deletes — pruning or deleting a conversation removes its entries from all related tables.
+
 ### Injection Logic
 1. On each message, the orchestrator tokenizes the user's input (lowercase, stop-word filtered)
 2. Memory files are scored via BM25 (TF-IDF ranking) against the tokenized query
 3. A recency boost is applied: `score *= 1.0 + 0.5 * max(0, 1 - age_days/30)`
-4. Top 5 matches (max 800 chars each) are injected into the system prompt
+4. Top 5 matches (max 600 chars each) are injected into the system prompt
 5. Path traversal protection: `Path.is_relative_to()` validation on all file operations
 
 ## Tool Calling
