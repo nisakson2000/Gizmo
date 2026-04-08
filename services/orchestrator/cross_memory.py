@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from session_memory import embed_text, cosine_sim
+from importance import score_message
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,6 @@ def index_cross_conversation(
         embedding = embed_text(combined[:2000])
         room = classify_room(combined)
 
-        from importance import score_message
         importance = max(
             score_message(user_text, role="user"),
             score_message(assistant_text, role="assistant"),
@@ -234,23 +234,7 @@ def _two_tier_search(
         top_conv_ids,
     ).fetchall()
 
-    scored = []
-    for row in exchange_rows:
-        stored_vec = np.frombuffer(row["embedding"], dtype=np.float32)
-        sim = cosine_sim(query_vec, stored_vec)
-        if sim > 0.45:
-            scored.append({
-                "conversation_id": row["conversation_id"],
-                "title": row["title"] or "Untitled",
-                "chunk_text": row["chunk_text"],
-                "topic_category": row["topic_category"],
-                "importance": row["importance"],
-                "created_at": row["created_at"],
-                "similarity": sim,
-            })
-
-    scored.sort(key=lambda x: x["similarity"], reverse=True)
-    return scored[:top_k]
+    return _score_and_rank(exchange_rows, query_vec, top_k)
 
 
 def _search_with_filter(
@@ -277,11 +261,21 @@ def _search_with_filter(
     if not rows:
         return []
 
+    return _score_and_rank(rows, query_vec, top_k)
+
+
+def _score_and_rank(
+    rows: list,
+    query_vec: np.ndarray,
+    top_k: int,
+    threshold: float = 0.45,
+) -> list[dict]:
+    """Score rows by cosine similarity, filter by threshold, return top_k."""
     scored = []
     for row in rows:
         stored_vec = np.frombuffer(row["embedding"], dtype=np.float32)
         sim = cosine_sim(query_vec, stored_vec)
-        if sim > 0.45:
+        if sim > threshold:
             scored.append({
                 "conversation_id": row["conversation_id"],
                 "title": row["title"] or "Untitled",
@@ -291,7 +285,6 @@ def _search_with_filter(
                 "created_at": row["created_at"],
                 "similarity": sim,
             })
-
     scored.sort(key=lambda x: x["similarity"], reverse=True)
     return scored[:top_k]
 

@@ -192,7 +192,8 @@ def get_relevant_facts(query: str, max_facts: int = 8) -> list[dict]:
                 """SELECT subject, predicate, object, confidence
                    FROM knowledge_facts
                    WHERE valid_to IS NULL AND confidence >= 0.6
-                   ORDER BY created_at DESC""",
+                   ORDER BY created_at DESC
+                   LIMIT 100""",
             ).fetchall()
         finally:
             conn.close()

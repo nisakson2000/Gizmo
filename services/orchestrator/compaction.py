@@ -7,6 +7,7 @@ injected into the system prompt and indexed for cross-conversation search.
 All LLM calls are local (orchestrator → gizmo-llama within Podman network).
 """
 
+import asyncio
 import logging
 import os
 import sqlite3
@@ -117,8 +118,7 @@ async def maybe_compact(conversation_id: str, message_count: int) -> None:
             conn.close()
 
         # Index summary embedding for cross-conv two-tier search
-        from cross_memory import index_summary
-        import asyncio
+        from cross_memory import index_summary  # deferred: compaction → cross_memory dependency
         await asyncio.to_thread(index_summary, conversation_id, summary, topic)
 
         logger.info("Compaction: conv=%s segment=[%d-%d] topic=%s tokens=%d",

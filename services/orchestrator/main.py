@@ -277,6 +277,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_knowledge_facts_valid
             ON knowledge_facts(valid_to)
         """)
+        conn.execute("PRAGMA journal_mode=WAL")
         conn.commit()
     finally:
         conn.close()
@@ -539,32 +540,32 @@ async def _backfill_v6_systems():
                 await maybe_compact(row["id"], row["msg_count"])
             conv_log.info("V6 backfill: compaction complete")
 
-        # Backfill knowledge facts
+        # Backfill knowledge facts — fetch all messages upfront, close DB before await loop
         if fact_candidates:
             conv_log.info("V6 backfill: %d conversations need fact extraction", len(fact_candidates))
+            conv_messages = {}
             conn = sqlite3.connect(str(DB_PATH))
             conn.row_factory = sqlite3.Row
             try:
-                for i, row in enumerate(fact_candidates):
-                    conv_id = row["id"]
-                    messages = conn.execute(
+                for row in fact_candidates:
+                    conv_messages[row["id"]] = conn.execute(
                         "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY id ASC LIMIT 20",
-                        (conv_id,),
+                        (row["id"],),
                     ).fetchall()
-                    # Extract facts from pairs
-                    j = 0
-                    while j < len(messages) - 1:
-                        if messages[j]["role"] == "user" and messages[j + 1]["role"] == "assistant":
-                            user_text = messages[j]["content"] or ""
-                            asst_text = messages[j + 1]["content"] or ""
-                            if len(user_text.strip()) >= 20:
-                                await maybe_extract_facts(conv_id, user_text, asst_text, j)
-                            j += 2
-                        else:
-                            j += 1
-                    conv_log.info("V6 backfill: facts extracted for conversation %d of %d", i + 1, len(fact_candidates))
             finally:
                 conn.close()
+            for i, (conv_id, messages) in enumerate(conv_messages.items()):
+                j = 0
+                while j < len(messages) - 1:
+                    if messages[j]["role"] == "user" and messages[j + 1]["role"] == "assistant":
+                        user_text = messages[j]["content"] or ""
+                        asst_text = messages[j + 1]["content"] or ""
+                        if len(user_text.strip()) >= 20:
+                            await maybe_extract_facts(conv_id, user_text, asst_text, j)
+                        j += 2
+                    else:
+                        j += 1
+                conv_log.info("V6 backfill: facts extracted for conversation %d of %d", i + 1, len(conv_messages))
             conv_log.info("V6 backfill: fact extraction complete")
 
         if not candidates and not fact_candidates:
