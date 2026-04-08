@@ -273,6 +273,12 @@ memory/
 
 All tables have cascade deletes — pruning or deleting a conversation removes its entries from all related tables.
 
+### Cross-Conversation Semantic Search
+
+The orchestrator searches all past conversations for relevant context using the same fastembed model (BAAI/bge-small-en-v1.5) as session recall. Each user+assistant exchange pair is embedded and stored in `cross_conv_embeddings` with a MemPalace-inspired topic room classification (technical, architecture, planning, decisions, problems, general).
+
+Search runs in parallel with session recall via `asyncio.gather`. Results above a 0.45 cosine similarity threshold (max 3, 300 chars each) are injected as a `<cross-conversation-recall>` XML block. A startup backfill indexes existing conversations on first run.
+
 ### Injection Logic
 1. On each message, the orchestrator tokenizes the user's input (lowercase, stop-word filtered)
 2. Memory files are scored via BM25 (TF-IDF ranking) against the tokenized query

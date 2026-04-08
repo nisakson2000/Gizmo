@@ -230,10 +230,26 @@ Explicit pattern invocation: prefix message with `[pattern:name]` (stripped befo
 - Only strips if >50% of non-empty lines match `^\s*\d{1,4}[\s\t]+` (prevents false positives on numbered lists)
 - Applied in `build_recitation_context()` before system prompt injection
 
-## V6 Database Tables (created empty, populated by later V6 prompts)
-- `conversation_summaries` — rolling LLM summaries of conversation segments (for compaction)
-- `cross_conv_embeddings` — semantic chunks indexed across all conversations (for cross-conv search)
-- `knowledge_facts` — temporal knowledge graph with validity windows (for fact extraction)
+## Cross-Conversation Semantic Search (cross_memory.py)
+- Searches all past conversations for semantically relevant exchanges using fastembed (same BAAI/bge-small-en-v1.5 model as session recall)
+- Per-exchange indexing: each user+assistant pair embedded and stored in `cross_conv_embeddings` table
+- Background indexing: fire-and-forget after each response save via `asyncio.create_task(asyncio.to_thread(...))`
+- Startup backfill: indexes existing conversations from session_embeddings on first run (idempotent)
+- Search: cosine similarity > 0.45 threshold, top 3 results, max 300 chars each, excludes current conversation
+- Optional room filter: if query strongly matches a topic room (3+ keyword hits), searches that room first
+- Injection: `<cross-conversation-recall>` XML block in system prompt between session_recall and charmap
+- Runs parallel with session recall via `asyncio.gather`
+
+## Room Categorization (MemPalace-inspired)
+- Keyword-based topic classification: technical, architecture, planning, decisions, problems, general
+- Each exchange pair classified at index time, stored in `topic_category` column
+- No LLM calls — pure keyword counting, highest wins, tie → 'general'
+- Used as optional filter in cross-conv search (strong match filters, weak match searches all)
+
+## V6 Database Tables
+- `conversation_summaries` — rolling LLM summaries of conversation segments (for compaction, Prompt 3)
+- `cross_conv_embeddings` — semantic chunks indexed across all conversations (active, populated by cross_memory.py)
+- `knowledge_facts` — temporal knowledge graph with validity windows (for fact extraction, Prompt 4)
 - Cascade deletes in `prune_conversations()`, `delete_conversation()`, and related cleanup paths
 
 ## Character Analysis (charmap.py)
@@ -245,7 +261,7 @@ Explicit pattern invocation: prefix message with `[pattern:name]` (stripped befo
 ## Constitution & Epistemic Honesty
 - XML-tagged sections: `<identity>`, `<output-formatting>`, `<tool-discipline>`, `<web-search>`, `<response-quality>`, `<precision-awareness>`, `<epistemic-honesty>`, `<code-execution>`, `<document-generation>`, `<patterns>`
 - `<epistemic-honesty>` section: distinguishes retrieved content (present exactly), session recall (authoritative record), and training knowledge (confident but flag genuine uncertainty)
-- System prompt layer order: constitution → pattern → recitation → session_recall → charmap → vision → memories
+- System prompt layer order: constitution → pattern → recitation → session_recall → cross_conv_recall → charmap → vision → memories
 
 ## Tracker Module
 - SQLite database at /app/tracker/tracker.db (tasks + notes tables)

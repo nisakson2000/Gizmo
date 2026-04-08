@@ -99,7 +99,7 @@ def store_turn(conversation_id: str, message_index: int, role: str, content: str
         logger.warning("store_turn failed: %s", e)
 
 
-def retrieve_relevant(conversation_id: str, query: str, top_k: int = 5,
+def retrieve_relevant(conversation_id: str, query: str, top_k: int = 3,
                       exclude_recent: int = 10,
                       query_embedding: bytes | None = None) -> list[dict]:
     """Retrieve the most semantically relevant earlier turns from this conversation.

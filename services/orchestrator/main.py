@@ -28,6 +28,7 @@ from tools import TOOL_DEFINITIONS, execute_tool
 from recite import fetch_recitation_content, build_recitation_context
 import numpy as np
 from session_memory import retrieve_relevant, format_recalled, store_turn, get_query_embedding, get_stored_embeddings, cosine_sim
+from cross_memory import search_cross_conversations, format_cross_recall, index_cross_conversation, backfill_cross_conv_embeddings
 from router import route
 from patterns import reload_patterns, list_patterns
 from tracker import router as tracker_router
@@ -373,6 +374,7 @@ def build_system_prompt(user_message: str = "", has_vision: bool = False,
                         pattern: dict | None = None,
                         recitation_context: str = "",
                         session_recall: str = "",
+                        cross_memory: str = "",
                         charmap_content: str = "") -> str:
     """Build the full system prompt with all context layers."""
     constitution = load_constitution()
@@ -388,6 +390,9 @@ def build_system_prompt(user_message: str = "", has_vision: bool = False,
 
     if session_recall:
         parts.append(f"\n\n{session_recall}")
+
+    if cross_memory:
+        parts.append(f"\n\n{cross_memory}")
 
     if charmap_content:
         parts.append(f"\n\n{charmap_content}")
@@ -585,6 +590,7 @@ async def lifespan(app: FastAPI):
     reload_patterns()
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     asyncio.create_task(asyncio.to_thread(_prewarm_embeddings))
+    asyncio.create_task(asyncio.to_thread(backfill_cross_conv_embeddings))
     yield
 
 
@@ -793,16 +799,26 @@ async def ws_chat(ws: WebSocket):
             # Compute query embedding once — shared by session recall and smart windowing
             query_embedding = await prepare_query_embedding(user_text, len(history_msgs))
 
-            # Retrieve relevant earlier turns (raw list, not yet formatted)
+            # Retrieve session recall + cross-conversation context (parallel)
             recalled_turns = []
-            if len(history_msgs) > 15 and query_embedding:
+            cross_conv_results = []
+            if query_embedding:
                 try:
-                    recalled_turns = await asyncio.to_thread(
-                        retrieve_relevant, conversation_id, user_text, query_embedding=query_embedding)
-                    if recalled_turns:
+                    session_result, cross_result = await asyncio.gather(
+                        asyncio.to_thread(
+                            retrieve_relevant, conversation_id, user_text, query_embedding=query_embedding),
+                        asyncio.to_thread(
+                            search_cross_conversations, user_text, conversation_id, 3, query_embedding),
+                        return_exceptions=True,
+                    )
+                    if not isinstance(session_result, BaseException) and session_result:
+                        recalled_turns = session_result
                         conv_log.info("[%s] Session recall: %d turns retrieved", trace_id, len(recalled_turns))
+                    if not isinstance(cross_result, BaseException) and cross_result:
+                        cross_conv_results = cross_result
+                        conv_log.info("[%s] Cross-conv recall: %d results", trace_id, len(cross_conv_results))
                 except Exception as e:
-                    error_log.debug("Session recall retrieval failed: %s", e)
+                    error_log.debug("Recall retrieval failed: %s", e)
 
             has_vision = bool(image_data or video_frames)
 
@@ -822,10 +838,14 @@ async def ws_chat(ws: WebSocket):
                 if deduped:
                     session_recall = format_recalled(deduped)
 
-            # Final system prompt with session recall included
+            # Format cross-conversation recall
+            cross_memory_context = format_cross_recall(cross_conv_results) if cross_conv_results else ""
+
+            # Final system prompt with session recall and cross-conv recall
             system_prompt = build_system_prompt(
                 clean_text, has_vision=has_vision, pattern=route_result.pattern,
                 recitation_context=recitation_context, session_recall=session_recall,
+                cross_memory=cross_memory_context,
                 charmap_content=route_result.charmap_content)
             messages = build_messages(history_msgs, system_prompt)
 
@@ -992,6 +1012,9 @@ async def ws_chat(ws: WebSocket):
 
                 index_conversation_turns(conversation_id, user_msg_index, user_text,
                                          asst_msg_index, full_response)
+                asyncio.create_task(asyncio.to_thread(
+                    index_cross_conversation, conversation_id, user_text, full_response,
+                    user_msg_index, asst_msg_index))
 
             await ws.send_json({
                 "type": "done",

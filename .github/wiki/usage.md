@@ -189,7 +189,17 @@ In long conversations (15+ messages), Gizmo automatically retrieves relevant ear
 
 **When it activates:** Only in conversations with 15+ messages. Shorter conversations fit entirely in the context window, so recall isn't needed.
 
-**Limitations:** Session recall is per-conversation — it won't retrieve messages from other conversations (that's what the cross-conversation Memory system is for).
+**Limitations:** Session recall is per-conversation. For cross-conversation context, see below.
+
+## Cross-Conversation Recall
+
+When you reference something from a previous conversation — "we discussed malware analysis in another chat" — Gizmo searches all past conversations for semantically relevant exchanges. Results include the conversation title and date so you can see where they came from.
+
+**How it works:** Each user+assistant exchange is automatically embedded and classified into a topic room (technical, architecture, planning, decisions, problems). When your message is similar enough to a past exchange (above 0.45 cosine similarity), the relevant context is injected into the prompt.
+
+**Topic rooms:** If your question strongly matches a topic — e.g., asking about code or debugging — the search filters to the "technical" room first for more focused results, falling back to a broader search if needed.
+
+**No action needed.** Cross-conversation recall happens transparently. The first time the feature runs, it backfills context from all existing conversations.
 
 ## Smart Context Windowing
 
