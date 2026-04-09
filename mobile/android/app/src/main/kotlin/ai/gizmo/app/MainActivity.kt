@@ -124,6 +124,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onPause() {
+        webView.onPause()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webView.onResume()
+    }
+
+    override fun onDestroy() {
+        webView.destroy()
+        super.onDestroy()
+    }
+
     private fun setupWebView() {
         webView.settings.apply {
             javaScriptEnabled = true
