@@ -1,15 +1,7 @@
 <script lang="ts">
-	import { modeEditorOpen } from '$lib/stores/settings';
+	import { modeEditorOpen, modes, refreshModes, type ModeInfo } from '$lib/stores/settings';
 	import { focusTrap } from '$lib/actions/focusTrap';
 	import { toast } from '$lib/stores/toast';
-
-	interface ModeInfo {
-		name: string;
-		label: string;
-		description: string;
-		icon: string;
-		order: number;
-	}
 
 	interface ModeFull extends ModeInfo {
 		system_prompt: string;
@@ -17,7 +9,6 @@
 
 	const BUILTIN = new Set(['chat', 'brainstorm', 'coder', 'research', 'planner', 'roleplay']);
 
-	let modes = $state<ModeInfo[]>([]);
 	let selected = $state<string | null>(null);
 	let detail = $state<ModeFull | null>(null);
 	let editPrompt = $state('');
@@ -32,19 +23,10 @@
 
 	$effect(() => {
 		if ($modeEditorOpen) {
-			fetchModes();
+			refreshModes();
 			creating = false;
 		}
 	});
-
-	async function fetchModes() {
-		try {
-			const resp = await fetch('/api/modes');
-			if (resp.ok) modes = await resp.json();
-		} catch {
-			modes = [];
-		}
-	}
 
 	async function selectMode(name: string) {
 		creating = false;
@@ -80,7 +62,7 @@
 				detail.system_prompt = editPrompt;
 				detail.label = editLabel;
 				detail.description = editDescription;
-				await fetchModes();
+				await refreshModes();
 			} else {
 				toast('Save failed', 'error');
 			}
@@ -106,7 +88,7 @@
 				toast('Mode deleted', 'success');
 				selected = null;
 				detail = null;
-				await fetchModes();
+				await refreshModes();
 			} else {
 				toast('Delete failed', 'error');
 			}
@@ -145,7 +127,7 @@
 			if (resp.ok) {
 				toast('Mode created', 'success');
 				creating = false;
-				await fetchModes();
+				await refreshModes();
 				await selectMode(newName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
 			} else {
 				const err = await resp.json().catch(() => null);
@@ -191,7 +173,7 @@
 			<div class="flex flex-1 overflow-hidden">
 				<!-- Left: mode list -->
 				<div class="w-48 border-r border-border/40 overflow-y-auto flex-shrink-0 p-3 space-y-1">
-					{#each modes as m (m.name)}
+					{#each $modes as m (m.name)}
 						<button
 							onclick={() => selectMode(m.name)}
 							class="w-full text-left px-3 py-2 rounded-lg text-sm transition-all {selected === m.name

@@ -15,4 +15,23 @@ export const ttsSpeed = persistedWritable<number>('gizmo:ttsSpeed', 1.0);
 export const ttsLanguage = persistedWritable<string>('gizmo:ttsLanguage', 'Auto');
 export const activeMode = persistedWritable<string>('gizmo:mode', 'chat');
 export const modeEditorOpen = writable(false);
+
+export interface ModeInfo {
+	name: string;
+	label: string;
+	description: string;
+	icon: string;
+	order: number;
+}
+
+export const modes = writable<ModeInfo[]>([]);
+
+export async function refreshModes() {
+	try {
+		const resp = await fetch('/api/modes');
+		if (resp.ok) modes.set(await resp.json());
+	} catch {
+		// Keep existing modes on error
+	}
+}
 export const focusTrigger = writable(0);

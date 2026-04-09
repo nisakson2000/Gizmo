@@ -1,21 +1,12 @@
 <script lang="ts">
-	import { activeMode } from '$lib/stores/settings';
+	import { activeMode, modes, refreshModes } from '$lib/stores/settings';
 	import { playSelect } from '$lib/utils/sounds';
 
-	interface ModeInfo {
-		name: string;
-		label: string;
-		description: string;
-		icon: string;
-		order: number;
-	}
-
-	let modes = $state<ModeInfo[]>([]);
 	let open = $state(false);
 	let dropdownEl: HTMLDivElement;
 
 	$effect(() => {
-		fetchModes();
+		refreshModes();
 	});
 
 	// Close dropdown on outside click
@@ -30,22 +21,13 @@
 		return () => document.removeEventListener('click', handler, true);
 	});
 
-	async function fetchModes() {
-		try {
-			const resp = await fetch('/api/modes');
-			if (resp.ok) modes = await resp.json();
-		} catch {
-			// Modes will show just the current selection
-		}
-	}
-
 	function selectMode(name: string) {
 		playSelect();
 		activeMode.set(name);
 		open = false;
 	}
 
-	let currentLabel = $derived(modes.find((m) => m.name === $activeMode)?.label ?? 'Chat');
+	let currentLabel = $derived($modes.find((m) => m.name === $activeMode)?.label ?? 'Chat');
 	let isDefault = $derived($activeMode === 'chat');
 
 	const icons: Record<string, string> = {
@@ -72,7 +54,7 @@
 		aria-label="Switch mode"
 	>
 		<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={iconPath(modes.find((m) => m.name === $activeMode)?.icon ?? 'chat')} />
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={iconPath($modes.find((m) => m.name === $activeMode)?.icon ?? 'chat')} />
 		</svg>
 		{currentLabel}
 		<svg class="w-2.5 h-2.5 transition-transform {open ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +64,7 @@
 
 	{#if open}
 		<div class="absolute bottom-full left-0 mb-2 w-64 bg-bg-secondary border border-border/60 rounded-xl shadow-2xl overflow-hidden z-50">
-			{#each modes as m (m.name)}
+			{#each $modes as m (m.name)}
 				<button
 					onclick={() => selectMode(m.name)}
 					class="w-full flex items-start gap-3 px-3.5 py-2.5 hover:bg-bg-tertiary/50 transition-colors text-left"
