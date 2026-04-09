@@ -104,6 +104,43 @@
 		}
 	}
 
+	async function handlePaste(e: ClipboardEvent) {
+		const items = e.clipboardData?.items;
+		if (!items) return;
+
+		for (const item of items) {
+			if (item.type.startsWith('image/')) {
+				e.preventDefault();
+				const file = item.getAsFile();
+				if (!file) return;
+
+				if (file.size > MAX_IMAGE_SIZE) {
+					showError('Image too large. Max 50MB.');
+					return;
+				}
+
+				const formData = new FormData();
+				formData.append('file', file, `pasted-image.${file.type.split('/')[1] || 'png'}`);
+
+				try {
+					uploading = true;
+					const resp = await fetchWithTimeout('/api/upload-image', { method: 'POST', body: formData });
+					uploading = false;
+					if (!resp.ok) {
+						showError('Image paste failed.');
+						return;
+					}
+					const data = await resp.json();
+					pendingImage = { filename: data.filename, data_url: data.data_url };
+				} catch {
+					uploading = false;
+					showError('Image paste failed.');
+				}
+				return;
+			}
+		}
+	}
+
 	function showError(msg: string) {
 		toast(msg, 'error');
 	}
@@ -344,6 +381,7 @@
 				bind:value={input}
 				onkeydown={handleKeydown}
 				oninput={autoResize}
+				onpaste={handlePaste}
 				placeholder={$connectionStatus === 'connected' || $connectionStatus === 'generating' ? (pendingVideo ? 'Ask about the video...' : pendingImage ? 'Ask about the image...' : pendingFile ? 'Ask about the file...' : 'Message Gizmo...') : 'Connecting...'}
 				disabled={$connectionStatus === 'disconnected'}
 				rows="1"
