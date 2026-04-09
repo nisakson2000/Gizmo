@@ -69,6 +69,7 @@ Everything is containerized via Podman.
 - Dependencies: AndroidX only (core-ktx, appcompat, lifecycle, material, swiperefreshlayout, constraintlayout)
 - Activities: LauncherActivity (router), OnboardingActivity (welcome), AddServerActivity (add/edit), ServerListActivity (multi-server), MainActivity (WebView), ErrorActivity (connectivity)
 - ServerManager: SharedPreferences + org.json for server profile CRUD
+- HealthCheck: shared coroutine health check with trust-all SSL for LAN servers
 - GizmoBridge: @JavascriptInterface for blob URL downloads via MediaStore
 - Build-time defaults: `mobile/android/gizmo-defaults.json` (gitignored) pre-populates servers if present
 - No server-side changes required — WebView loads server URL directly (same-origin)

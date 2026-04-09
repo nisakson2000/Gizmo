@@ -479,9 +479,10 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │           ├── build.gradle.kts           # App module (ai.gizmo.app, minSdk 26, targetSdk 35)
 │           └── src/main/
 │               ├── AndroidManifest.xml    # Permissions, activities, network security config
-│               ├── kotlin/ai/gizmo/app/   # Kotlin source (10 files)
-│               │   ├── Server.kt          # Data class
+│               ├── kotlin/ai/gizmo/app/   # Kotlin source (11 files)
+│               │   ├── Server.kt          # Data class + EXTRA_* intent constants + putServerExtras extension
 │               │   ├── ServerManager.kt   # SharedPreferences CRUD + defaults import
+│               │   ├── HealthCheck.kt     # Shared coroutine health check (trust-all SSL for LAN)
 │               │   ├── LauncherActivity.kt # Transparent router
 │               │   ├── OnboardingActivity.kt # Welcome screen
 │               │   ├── AddServerActivity.kt  # Add/edit server with connection test
