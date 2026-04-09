@@ -10,6 +10,8 @@
     <!-- Add/Edit Server -->
     <string name="add_server">Add Server</string>
     <string name="edit_server">Edit Server</string>
+    <string name="label_name">Name</string>
+    <string name="label_server_url">Server URL</string>
     <string name="server_name_hint">e.g., Home LAN</string>
     <string name="server_url_hint">https://your-server.ts.net</string>
     <string name="https_info">Voice input requires HTTPS. Use a VPN like Tailscale for remote HTTPS access.</string>
