@@ -763,6 +763,9 @@
 		font-family: inherit;
 		font-size: inherit;
 		line-height: inherit;
+		padding: 0;
+		margin: 0;
+		display: inline;
 	}
 
 	@keyframes overlayFade {
