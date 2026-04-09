@@ -19,6 +19,13 @@ TTS_EMBED_URL = f"http://{TTS_HOST}:{TTS_PORT}/v1/audio/embedding"
 logger = logging.getLogger(__name__)
 
 
+def _strip_data_url(data_url: str) -> str:
+    """Extract raw base64 from a data URL, stripping the prefix if present."""
+    if ";base64," in data_url:
+        return data_url.split(";base64,", 1)[1]
+    return data_url
+
+
 async def synthesize(
     text: str,
     voice: str = "default",
@@ -42,12 +49,7 @@ async def synthesize(
     }
 
     if voice_clone_data_url:
-        # Extract raw base64 from data URL (strip "data:audio/wav;base64," prefix)
-        if ";base64," in voice_clone_data_url:
-            raw_b64 = voice_clone_data_url.split(";base64,", 1)[1]
-        else:
-            raw_b64 = voice_clone_data_url
-        payload["voice_reference"] = raw_b64
+        payload["voice_reference"] = _strip_data_url(voice_clone_data_url)
         if voice_reference_text:
             payload["voice_reference_text"] = voice_reference_text
 
@@ -89,10 +91,7 @@ async def stream_tts_sentence(
     if voice_id:
         config["voice_id"] = voice_id
     elif voice_clone_data_url:
-        if ";base64," in voice_clone_data_url:
-            config["voice_reference"] = voice_clone_data_url.split(";base64,", 1)[1]
-        else:
-            config["voice_reference"] = voice_clone_data_url
+        config["voice_reference"] = _strip_data_url(voice_clone_data_url)
 
     try:
         async with websockets.connect(TTS_WS_URL, close_timeout=5) as ws:

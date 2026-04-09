@@ -28,7 +28,7 @@ def _get_db():
 
 def store_analytics(
     conversation_id: str,
-    message_id: int,
+    message_index: int,
     prompt_tokens: int | None = None,
     completion_tokens: int | None = None,
     total_tokens: int | None = None,
@@ -42,10 +42,10 @@ def store_analytics(
     try:
         conn.execute(
             """INSERT INTO message_analytics
-               (conversation_id, message_id, prompt_tokens, completion_tokens, total_tokens,
+               (conversation_id, message_index, prompt_tokens, completion_tokens, total_tokens,
                 response_time_ms, context_build_ms, tool_rounds, mode, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (conversation_id, message_id, prompt_tokens, completion_tokens, total_tokens,
+            (conversation_id, message_index, prompt_tokens, completion_tokens, total_tokens,
              response_time_ms, context_build_ms, tool_rounds, mode,
              datetime.now(timezone.utc).isoformat()),
         )

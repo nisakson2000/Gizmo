@@ -2,7 +2,6 @@
 
 import asyncio
 import base64
-import hashlib
 import io
 import json
 import logging
@@ -15,6 +14,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 import numpy as np
+import scipy.signal
 import soundfile as sf
 import torch
 import uvicorn
@@ -144,13 +144,14 @@ def _resolve_voice(voice_id: str | None = None, voice_reference: str | None = No
     # Precomputed embedding
     if voice_id:
         emb_path = EMBEDDINGS_DIR / f"{voice_id}.pt"
-        if emb_path.exists():
+        try:
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
             spk_emb = torch.load(str(emb_path), weights_only=True).to(device)
             logger.info("Using precomputed embedding for voice %s", voice_id)
             return {"ref_spk_embedding": [spk_emb]}, None
+        except FileNotFoundError:
+            pass
 
-        # Voice WAV on disk
         wav_path = VOICES_DIR / f"{voice_id}.wav"
         if wav_path.exists():
             prompt = model.model.create_voice_clone_prompt(
@@ -233,7 +234,7 @@ async def stream_tts(ws: WebSocket):
                     finally:
                         q.put(None)
 
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 gen_future = loop.run_in_executor(None, _generate)
 
                 chunk_idx = 0
@@ -248,9 +249,7 @@ async def stream_tts(ws: WebSocket):
 
                     chunk_data, sr, timing = item
 
-                    # Apply speed adjustment per-chunk
                     if abs(speed - 1.0) > 0.05:
-                        import scipy.signal
                         new_len = int(len(chunk_data) / speed)
                         if new_len > 0:
                             chunk_data = scipy.signal.resample(chunk_data, new_len).astype(np.float32)
@@ -374,59 +373,42 @@ async def synthesize(request: Request):
     if not model_loaded:
         load_model()
 
-    try:
-        chunks = _chunk_text(text) if len(text) > MAX_CHUNK_CHARS else [text]
-        logger.info("Generating TTS (batch): %d chars, %d chunks, speed=%.1f, lang=%s",
-                     len(text), len(chunks), speed, language)
-
-        tmp_path = None
+    async with _gpu_lock:
+        last_request_time = time.time()
         try:
-            if voice_ref:
-                ref_audio_bytes = base64.b64decode(voice_ref)
-                tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-                tmp.write(ref_audio_bytes)
-                tmp.close()
-                tmp_path = tmp.name
+            chunks = _chunk_text(text) if len(text) > MAX_CHUNK_CHARS else [text]
+            logger.info("Generating TTS (batch): %d chars, %d chunks, speed=%.1f, lang=%s",
+                         len(text), len(chunks), speed, language)
 
-                wavs, sr = model.generate_voice_clone(
-                    text=text,
-                    language=language,
-                    ref_audio=tmp_path,
-                    ref_text=None,
-                    xvec_only=True,
-                )
-                final_wav = wavs[0]
-            else:
-                all_wavs = []
-                sr = 24000
-                for chunk in chunks:
-                    chunk_wavs, sr = model.generate_voice_clone(
-                        text=chunk,
-                        language=language,
-                        ref_audio=DEFAULT_REF_AUDIO,
-                        ref_text=DEFAULT_REF_TEXT,
-                        xvec_only=False,
+            voice_prompt, tmp_path = _resolve_voice(voice_reference=voice_ref)
+            try:
+                if voice_ref:
+                    wavs, sr = model.generate_voice_clone(
+                        text=text, language=language, voice_clone_prompt=voice_prompt,
                     )
-                    all_wavs.append(chunk_wavs[0])
-                final_wav = np.concatenate(all_wavs) if len(all_wavs) > 1 else all_wavs[0]
-        finally:
-            if tmp_path:
-                os.unlink(tmp_path)
+                    final_wav = wavs[0]
+                else:
+                    all_wavs = []
+                    sr = 24000
+                    for chunk in chunks:
+                        chunk_wavs, sr = model.generate_voice_clone(
+                            text=chunk, language=language, voice_clone_prompt=voice_prompt,
+                        )
+                        all_wavs.append(chunk_wavs[0])
+                    final_wav = np.concatenate(all_wavs) if len(all_wavs) > 1 else all_wavs[0]
+            finally:
+                if tmp_path:
+                    os.unlink(tmp_path)
 
-    except Exception as e:
-        logger.error("TTS generation error: %s", e, exc_info=True)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        except Exception as e:
+            logger.error("TTS generation error: %s", e, exc_info=True)
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
-    # Apply speed adjustment via resampling
     if abs(speed - 1.0) > 0.05:
-        try:
-            import scipy.signal
-            original_len = len(final_wav)
-            new_len = int(original_len / speed)
-            final_wav = scipy.signal.resample(final_wav, new_len).astype(np.float32)
-            logger.info("Applied speed %.1fx: %d -> %d samples", speed, original_len, new_len)
-        except ImportError:
-            logger.warning("scipy not available, speed control disabled")
+        original_len = len(final_wav)
+        new_len = int(original_len / speed)
+        final_wav = scipy.signal.resample(final_wav, new_len).astype(np.float32)
+        logger.info("Applied speed %.1fx: %d -> %d samples", speed, original_len, new_len)
 
     buf = io.BytesIO()
     sf.write(buf, final_wav, sr, format="WAV")

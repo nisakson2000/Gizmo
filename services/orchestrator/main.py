@@ -156,6 +156,8 @@ MEDIA_DIR = Path("/app/media")
 
 def voice_data_url(voice_id: str) -> str | None:
     """Build a base64 data URL from a saved voice WAV file."""
+    if not re.match(r'^[a-f0-9]{8}$', voice_id):
+        return None
     wav_path = VOICES_DIR / f"{voice_id}.wav"
     if not wav_path.exists():
         return None
@@ -165,6 +167,8 @@ def voice_data_url(voice_id: str) -> str | None:
 
 def voice_transcript(voice_id: str) -> str:
     """Read the saved transcript for a voice."""
+    if not re.match(r'^[a-f0-9]{8}$', voice_id):
+        return ""
     meta_path = VOICES_DIR / f"{voice_id}.json"
     if not meta_path.exists():
         return ""
@@ -324,7 +328,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS message_analytics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 conversation_id TEXT NOT NULL,
-                message_id INTEGER NOT NULL,
+                message_index INTEGER NOT NULL,
                 prompt_tokens INTEGER,
                 completion_tokens INTEGER,
                 total_tokens INTEGER,
@@ -336,6 +340,10 @@ def init_db():
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id)
             )
         """)
+        # Migrate message_id → message_index if needed (existing DBs)
+        analytics_cols = [r[1] for r in conn.execute("PRAGMA table_info(message_analytics)").fetchall()]
+        if "message_id" in analytics_cols and "message_index" not in analytics_cols:
+            conn.execute("ALTER TABLE message_analytics RENAME COLUMN message_id TO message_index")
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_analytics_conv
             ON message_analytics(conversation_id)
@@ -1028,6 +1036,8 @@ async def ws_chat(ws: WebSocket):
 
             user_text = msg.get("message", "")
             active_mode = msg.get("mode", "chat")
+            if not get_mode(active_mode):
+                active_mode = "chat"
             image_data = msg.get("image")  # base64 data URL for vision
             video_frames = msg.get("video_frames")  # list of base64 data URLs
             thinking = msg.get("thinking", False)
@@ -1187,13 +1197,20 @@ async def ws_chat(ws: WebSocket):
                 mode=active_mode)
             messages = build_messages(history_msgs, system_prompt)
 
-            # Streaming TTS state
             sentence_buffer = SentenceBuffer() if request_tts else None
             tts_tasks: list[asyncio.Task] = []
             tts_pcm_chunks: dict[int, list[bytes]] = {}
             tts_sample_rate = 24000
             tts_streaming_failed = False
             ws_send_lock = asyncio.Lock()
+
+            def _feed_tts(token: str):
+                """Feed a token to the sentence buffer, spawning TTS tasks for completed sentences."""
+                if sentence_buffer and not tts_streaming_failed:
+                    for sentence in sentence_buffer.add(token):
+                        idx = len(tts_tasks)
+                        tts_tasks.append(asyncio.create_task(
+                            _stream_sentence_to_client(sentence, idx)))
 
             async def _stream_sentence_to_client(text: str, sent_idx: int):
                 """Stream TTS for one sentence, forwarding chunks to browser."""
@@ -1239,12 +1256,7 @@ async def ws_chat(ws: WebSocket):
                 elif event["type"] == "token":
                     full_response += event["content"]
                     await ws.send_json(event)
-                    # Feed token to sentence buffer for streaming TTS
-                    if sentence_buffer and not tts_streaming_failed:
-                        for sentence in sentence_buffer.add(event["content"]):
-                            idx = len(tts_tasks)
-                            tts_tasks.append(asyncio.create_task(
-                                _stream_sentence_to_client(sentence, idx)))
+                    _feed_tts(event["content"])
                     if len(full_response) - _rep_check_len >= 200:
                         _rep_check_len = len(full_response)
                         if _detect_repetition(full_response):
@@ -1326,11 +1338,7 @@ async def ws_chat(ws: WebSocket):
                     if event["type"] == "token":
                         full_response += event["content"]
                         await ws.send_json(event)
-                        if sentence_buffer and not tts_streaming_failed:
-                            for sentence in sentence_buffer.add(event["content"]):
-                                idx = len(tts_tasks)
-                                tts_tasks.append(asyncio.create_task(
-                                    _stream_sentence_to_client(sentence, idx)))
+                        _feed_tts(event["content"])
                         if len(full_response) - _rep_check_len >= 200:
                             _rep_check_len = len(full_response)
                             if _detect_repetition(full_response):
@@ -1390,10 +1398,10 @@ async def ws_chat(ws: WebSocket):
 
                     # Assemble final WAV from all PCM chunks (sentence order)
                     if tts_pcm_chunks:
-                        all_pcm = b""
-                        for si in sorted(tts_pcm_chunks.keys()):
-                            for chunk in tts_pcm_chunks[si]:
-                                all_pcm += chunk
+                        all_pcm = b"".join(
+                            chunk for si in sorted(tts_pcm_chunks.keys())
+                            for chunk in tts_pcm_chunks[si]
+                        )
                         if all_pcm:
                             MEDIA_DIR.mkdir(parents=True, exist_ok=True)
                             audio_filename = f"tts-{trace_id}.wav"
@@ -1494,6 +1502,8 @@ async def rest_chat(
     mode: str = Form("chat"),
 ):
     """Non-streaming chat endpoint."""
+    if not get_mode(mode):
+        mode = "chat"
     if not conversation_id:
         conversation_id = str(uuid.uuid4())
 
@@ -1973,7 +1983,7 @@ async def delete_messages_from(conv_id: str, index: int):
             (conv_id, index),
         )
         conn.execute(
-            "DELETE FROM message_analytics WHERE conversation_id = ? AND message_id >= ?",
+            "DELETE FROM message_analytics WHERE conversation_id = ? AND message_index >= ?",
             (conv_id, index),
         )
         conn.commit()
@@ -2217,10 +2227,7 @@ async def delete_voice(voice_id: str):
         raise HTTPException(status_code=400, detail="Invalid voice ID format")
     for f in VOICES_DIR.glob(f"{voice_id}.*"):
         f.unlink()
-    # Clean up precomputed embedding if it exists
-    emb_path = VOICES_DIR / "embeddings" / f"{voice_id}.pt"
-    if emb_path.exists():
-        emb_path.unlink()
+    (VOICES_DIR / "embeddings" / f"{voice_id}.pt").unlink(missing_ok=True)
     return {"status": "deleted"}
 
 

@@ -32,9 +32,8 @@
 	let displayThinking = $derived(activeVariant?.thinking ?? message.thinking);
 	let displayToolCalls = $derived(activeVariant?.toolCalls ?? message.toolCalls);
 	let displayAudioUrl = $derived(activeVariant?.audioUrl ?? message.audioUrl);
-	let hasStreamingChunks = $derived($streamingAudioChunks.length > 0);
 	let showStreamingPlayer = $derived(
-		$generating && isLastAssistant && $ttsEnabled && hasStreamingChunks && !displayAudioUrl
+		$generating && isLastAssistant && $ttsEnabled && $streamingAudioChunks.length > 0 && !displayAudioUrl
 	);
 
 	let renderedHtml = $derived.by(() => {
