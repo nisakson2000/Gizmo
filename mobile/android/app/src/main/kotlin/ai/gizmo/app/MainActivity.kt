@@ -135,6 +135,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        webView.stopLoading()
+        (webView.parent as? android.view.ViewGroup)?.removeView(webView)
         webView.destroy()
         super.onDestroy()
     }
