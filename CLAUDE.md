@@ -207,7 +207,7 @@ Explicit pattern invocation: prefix message with `[pattern:name]` (stripped befo
 - Export: GET /api/conversations/{id}/export?format=markdown|json
 - Rename: PATCH /api/conversations/{id}
 - Pruning: MAX_CONVERSATIONS env var (default 500), prunes oldest on startup and new creation
-- LLM-generated titles: first exchange triggers async fire-and-forget title generation (5-word max)
+- LLM-generated titles: first exchange triggers async fire-and-forget title generation (5-word max, uses both user message and assistant response for context-aware titles — handles image/vision conversations where user message alone is vague)
 
 ## Memory System
 - BM25 ranking via rank_bm25 with recency boost and stop-word filtering

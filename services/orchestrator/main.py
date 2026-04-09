@@ -834,6 +834,8 @@ async def generate_title(conv_id: str, user_message: str, assistant_response: st
                                        "No quotes, no punctuation unless part of the title.",
                         },
                         {"role": "user", "content": user_message[:500]},
+                        {"role": "assistant", "content": assistant_response[:500]},
+                        {"role": "user", "content": "Based on the exchange above, generate a concise title (max 5 words)."},
                     ],
                     "max_tokens": 30,
                     "temperature": 0.3,
