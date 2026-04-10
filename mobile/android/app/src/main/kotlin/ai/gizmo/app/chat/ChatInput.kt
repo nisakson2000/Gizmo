@@ -75,11 +75,12 @@ fun ChatInput(
     onClearAttachment: () -> Unit,
     onPickImage: () -> Unit,
     onPickDocument: () -> Unit,
+    text: String,
+    onTextChange: (String) -> Unit,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var text by remember { mutableStateOf("") }
     var showAttachMenu by remember { mutableStateOf(false) }
     var showModeMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -167,7 +168,7 @@ fun ChatInput(
             // Text field
             TextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = onTextChange,
                 placeholder = {
                     Text(
                         stringResource(R.string.message_placeholder),
@@ -212,7 +213,6 @@ fun ChatInput(
                     onClick = {
                         if (hasContent) {
                             onSend(text)
-                            text = ""
                         }
                     }
                 ) {
@@ -290,8 +290,4 @@ fun ChatInput(
             }
         }
     }
-}
-
-fun setSuggestionText(text: String, setter: (String) -> Unit) {
-    setter(text)
 }

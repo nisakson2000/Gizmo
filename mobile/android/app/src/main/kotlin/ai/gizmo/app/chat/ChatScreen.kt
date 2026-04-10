@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -171,7 +172,8 @@ fun ChatScreen(
                 0 -> {
                     Column(modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)) {
+                        .padding(padding)
+                        .imePadding()) {
 
                         val hasMessages = viewModel.messages.isNotEmpty() || viewModel.generating.value
 
@@ -199,6 +201,8 @@ fun ChatScreen(
                             selectedMode = viewModel.selectedMode.value,
                             modes = viewModel.modes,
                             onModeSelected = { viewModel.selectedMode.value = it },
+                            text = inputText,
+                            onTextChange = { inputText = it },
                             pendingImageUri = viewModel.pendingImageUri.value,
                             pendingDocumentName = viewModel.pendingDocumentName.value,
                             onClearAttachment = { viewModel.clearAttachment() },

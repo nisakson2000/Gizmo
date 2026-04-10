@@ -81,6 +81,10 @@
     <string name="suggestion_code">Write or debug code</string>
     <string name="suggestion_files">Summarize or analyze a document</string>
     <string name="suggestion_audio">Transcribe or analyze audio</string>
+    <string name="video">Video</string>
+    <string name="suggestion_video">Analyze a video clip</string>
+    <string name="voice_studio">Voice Studio</string>
+    <string name="suggestion_voice_studio">Clone or customize a voice</string>
 
     <!-- Misc -->
     <string name="coming_soon">Coming in a future update</string>

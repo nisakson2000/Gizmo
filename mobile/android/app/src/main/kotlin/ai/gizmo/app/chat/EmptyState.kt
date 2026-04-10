@@ -18,7 +18,9 @@ import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -47,11 +49,13 @@ data class Suggestion(
 
 private val suggestions = listOf(
     Suggestion(R.string.vision, R.string.suggestion_vision, Icons.Default.Visibility),
+    Suggestion(R.string.video, R.string.suggestion_video, Icons.Default.VideoFile),
+    Suggestion(R.string.audio, R.string.suggestion_audio, Icons.Default.AudioFile),
     Suggestion(R.string.search, R.string.suggestion_search, Icons.Default.Search),
     Suggestion(R.string.reason, R.string.suggestion_reason, Icons.Default.Psychology),
     Suggestion(R.string.code, R.string.suggestion_code, Icons.Default.Code),
-    Suggestion(R.string.files, R.string.suggestion_files, Icons.Default.Description),
-    Suggestion(R.string.audio, R.string.suggestion_audio, Icons.Default.AudioFile)
+    Suggestion(R.string.voice_studio, R.string.suggestion_voice_studio, Icons.Default.RecordVoiceOver),
+    Suggestion(R.string.files, R.string.suggestion_files, Icons.Default.Description)
 )
 
 @Composable
