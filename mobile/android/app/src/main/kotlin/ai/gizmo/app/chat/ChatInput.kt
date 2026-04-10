@@ -72,9 +72,13 @@ fun ChatInput(
     onModeSelected: (String) -> Unit,
     pendingImageUri: Uri?,
     pendingDocumentName: String?,
+    pendingVideoUri: Uri?,
+    pendingAudioName: String?,
     onClearAttachment: () -> Unit,
     onPickImage: () -> Unit,
     onPickDocument: () -> Unit,
+    onPickVideo: () -> Unit,
+    onPickAudio: () -> Unit,
     text: String,
     onTextChange: (String) -> Unit,
     onSend: (String) -> Unit,
@@ -92,7 +96,7 @@ fun ChatInput(
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         // Pending attachment preview
-        if (pendingImageUri != null || pendingDocumentName != null) {
+        if (pendingImageUri != null || pendingDocumentName != null || pendingVideoUri != null || pendingAudioName != null) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = BgTertiary,
@@ -111,7 +115,9 @@ fun ChatInput(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = pendingDocumentName ?: stringResource(R.string.image_label),
+                        text = pendingAudioName ?: pendingDocumentName
+                            ?: if (pendingVideoUri != null) stringResource(R.string.video)
+                            else stringResource(R.string.image_label),
                         color = TextPrimary,
                         fontSize = 13.sp,
                         modifier = Modifier.weight(1f)
@@ -162,6 +168,22 @@ fun ChatInput(
                             onPickDocument()
                         }
                     )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.video)) },
+                        leadingIcon = { Icon(Icons.Default.Image, null) },
+                        onClick = {
+                            showAttachMenu = false
+                            onPickVideo()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.audio)) },
+                        leadingIcon = { Icon(Icons.Default.Mic, null) },
+                        onClick = {
+                            showAttachMenu = false
+                            onPickAudio()
+                        }
+                    )
                 }
             }
 
@@ -208,7 +230,7 @@ fun ChatInput(
                     )
                 }
             } else {
-                val hasContent = text.isNotBlank() || pendingImageUri != null || pendingDocumentName != null
+                val hasContent = text.isNotBlank() || pendingImageUri != null || pendingDocumentName != null || pendingVideoUri != null || pendingAudioName != null
                 IconButton(
                     onClick = {
                         if (hasContent) {

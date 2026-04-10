@@ -1,7 +1,10 @@
 package ai.gizmo.app.model
 
 import android.content.ContentResolver
+import android.content.ContentValues
 import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -35,12 +38,20 @@ class ChatViewModel(
     val isSearching = mutableStateOf(false)
     val pendingImageUri = mutableStateOf<Uri?>(null)
     val pendingDocumentName = mutableStateOf<String?>(null)
+    val pendingVideoUri = mutableStateOf<Uri?>(null)
+    val pendingAudioName = mutableStateOf<String?>(null)
+    val selectedMessageIndex = mutableStateOf<Int?>(null)
+    val editingMessageIndex = mutableStateOf<Int?>(null)
+    val snackbarMessage = mutableStateOf<String?>(null)
 
     private var pendingImageDataUrl: String? = null
     private var pendingDocumentContent: String? = null
+    private var pendingVideoFrames: List<String>? = null
+    private var pendingVideoUrl: String? = null
+    private var pendingAudioTranscription: String? = null
     private var currentTraceId: String = ""
 
-    private val api = GizmoApi(serverUrl)
+    val api = GizmoApi(serverUrl)
     private val webSocket = GizmoWebSocket(
         serverUrl = serverUrl,
         onEvent = ::handleEvent,
@@ -54,23 +65,32 @@ class ChatViewModel(
     }
 
     fun sendMessage(text: String) {
-        if (text.isBlank() && pendingImageUri.value == null && pendingDocumentName.value == null) return
+        if (text.isBlank() && pendingImageUri.value == null &&
+            pendingDocumentName.value == null && pendingVideoUri.value == null &&
+            pendingAudioName.value == null) return
+
+        currentTraceId = ""
 
         val imageDataUrl = pendingImageDataUrl
         val docContent = pendingDocumentContent
         val docName = pendingDocumentName.value
+        val videoFrames = pendingVideoFrames
+        val videoUrl = pendingVideoUrl
+        val audioTranscript = pendingAudioTranscription
 
-        val fullMessage = if (docContent != null && docName != null) {
-            if (text.isNotBlank()) "$text\n\n[Attached: $docName]\n$docContent"
-            else "[Attached: $docName]\n$docContent"
-        } else {
-            text
+        val fullMessage = when {
+            audioTranscript != null -> "Analyze this audio transcription: $audioTranscript"
+            docContent != null && docName != null ->
+                if (text.isNotBlank()) "$text\n\n[Attached: $docName]\n$docContent"
+                else "[Attached: $docName]\n$docContent"
+            else -> text
         }
 
         val userMessage = Message(
             role = "user",
-            content = text,
-            imageUrl = pendingImageUri.value?.toString()
+            content = if (audioTranscript != null) text.ifBlank { "Transcribe audio" } else text,
+            imageUrl = pendingImageUri.value?.toString(),
+            videoUrl = pendingVideoUri.value?.toString()
         )
         messages.add(userMessage)
 
@@ -79,6 +99,7 @@ class ChatViewModel(
         streamingThinking.value = ""
         streamingToolCalls.clear()
         generating.value = true
+        selectedMessageIndex.value = null
 
         webSocket.send(
             message = fullMessage,
@@ -86,8 +107,107 @@ class ChatViewModel(
             conversationId = activeConversationId.value,
             mode = selectedMode.value,
             contextLength = contextLength.value,
-            image = imageDataUrl
+            image = imageDataUrl,
+            videoFrames = videoFrames,
+            videoUrl = videoUrl
         )
+    }
+
+    fun editMessage(index: Int, newText: String) {
+        val convId = activeConversationId.value ?: return
+        editingMessageIndex.value = null
+        selectedMessageIndex.value = null
+
+        // Store old content as variant on the original message
+        val oldMsg = messages[index]
+        val oldVariants = oldMsg.variants.toMutableList()
+        if (oldVariants.isEmpty()) {
+            oldVariants.add(MessageVariant(oldMsg.content, oldMsg.thinking, oldMsg.toolCalls))
+        }
+        oldVariants.add(MessageVariant(newText))
+        messages[index] = oldMsg.copy(
+            content = newText,
+            variants = oldVariants,
+            currentVariantIndex = oldVariants.size - 1
+        )
+
+        viewModelScope.launch {
+            api.deleteMessagesFrom(convId, index + 1)
+            // Remove messages after the edited one
+            while (messages.size > index + 1) {
+                messages.removeAt(messages.size - 1)
+            }
+            // Re-send with edited text
+            currentTraceId = ""
+            streamingContent.value = ""
+            streamingThinking.value = ""
+            streamingToolCalls.clear()
+            generating.value = true
+            webSocket.send(
+                message = newText,
+                thinking = thinkingEnabled.value,
+                conversationId = convId,
+                mode = selectedMode.value,
+                contextLength = contextLength.value
+            )
+        }
+    }
+
+    fun regenerateLastResponse() {
+        val convId = activeConversationId.value ?: return
+        if (messages.size < 2) return
+        selectedMessageIndex.value = null
+
+        val lastAssistantIdx = messages.indexOfLast { it.role == "assistant" }
+        if (lastAssistantIdx < 0) return
+        val lastUserIdx = lastAssistantIdx - 1
+        if (lastUserIdx < 0 || messages[lastUserIdx].role != "user") return
+
+        val userText = messages[lastUserIdx].content
+        val oldAssistant = messages[lastAssistantIdx]
+
+        // Store old response as variant
+        val oldVariants = oldAssistant.variants.toMutableList()
+        if (oldVariants.isEmpty()) {
+            oldVariants.add(MessageVariant(oldAssistant.content, oldAssistant.thinking, oldAssistant.toolCalls))
+        }
+
+        viewModelScope.launch {
+            api.deleteMessagesFrom(convId, lastUserIdx)
+            // Remove from the user message onward
+            while (messages.size > lastUserIdx) {
+                messages.removeAt(messages.size - 1)
+            }
+            // Re-add the user message
+            messages.add(Message(role = "user", content = userText))
+
+            currentTraceId = ""
+            streamingContent.value = ""
+            streamingThinking.value = ""
+            streamingToolCalls.clear()
+            generating.value = true
+            webSocket.send(
+                message = userText,
+                thinking = thinkingEnabled.value,
+                conversationId = convId,
+                mode = selectedMode.value,
+                contextLength = contextLength.value,
+                regenerate = true
+            )
+        }
+
+        // We'll add the variant to the new response in finalizeAssistantMessage
+        pendingOldVariants = oldVariants
+    }
+
+    private var pendingOldVariants: List<MessageVariant>? = null
+
+    fun switchVariant(messageIndex: Int, direction: Int) {
+        if (messageIndex !in messages.indices) return
+        val msg = messages[messageIndex]
+        if (msg.variants.isEmpty()) return
+        val newIdx = (msg.currentVariantIndex + direction).coerceIn(0, msg.variants.size - 1)
+        messages[messageIndex] = msg.copy(currentVariantIndex = newIdx)
     }
 
     fun stopGeneration() {
@@ -102,6 +222,8 @@ class ChatViewModel(
         streamingThinking.value = ""
         streamingToolCalls.clear()
         generating.value = false
+        selectedMessageIndex.value = null
+        editingMessageIndex.value = null
         clearAttachment()
     }
 
@@ -116,6 +238,8 @@ class ChatViewModel(
                 streamingThinking.value = ""
                 streamingToolCalls.clear()
                 generating.value = false
+                selectedMessageIndex.value = null
+                editingMessageIndex.value = null
             }
         }
     }
@@ -170,20 +294,61 @@ class ChatViewModel(
         pendingImageUri.value = uri
         pendingDocumentName.value = null
         pendingDocumentContent = null
+        pendingVideoUri.value = null
+        pendingVideoFrames = null
+        pendingVideoUrl = null
+        pendingAudioName.value = null
+        pendingAudioTranscription = null
         viewModelScope.launch {
             val dataUrl = api.uploadImage(uri, contentResolver)
-            pendingImageDataUrl = dataUrl
+            if (dataUrl != null) {
+                pendingImageDataUrl = dataUrl
+            } else {
+                pendingImageUri.value = null
+                showSnackbar("Upload failed — check your connection")
+            }
         }
     }
 
     fun handleDocumentPick(uri: Uri, contentResolver: ContentResolver) {
-        pendingImageUri.value = null
-        pendingImageDataUrl = null
+        clearAttachment()
         viewModelScope.launch {
             val result = api.uploadDocument(uri, contentResolver)
             if (result != null) {
                 pendingDocumentName.value = result.first
                 pendingDocumentContent = result.second
+            } else {
+                showSnackbar("Upload failed — check your connection")
+            }
+        }
+    }
+
+    fun handleVideoPick(uri: Uri, contentResolver: ContentResolver) {
+        clearAttachment()
+        pendingVideoUri.value = uri
+        viewModelScope.launch {
+            val result = api.uploadVideo(uri, contentResolver)
+            if (result != null) {
+                pendingVideoFrames = result.frames
+                pendingVideoUrl = result.videoUrl
+            } else {
+                pendingVideoUri.value = null
+                showSnackbar("Video upload failed — check your connection")
+            }
+        }
+    }
+
+    fun handleAudioPick(uri: Uri, contentResolver: ContentResolver) {
+        clearAttachment()
+        pendingAudioName.value = "Transcribing\u2026"
+        viewModelScope.launch {
+            val text = api.transcribeAudio(uri, contentResolver)
+            if (text != null) {
+                pendingAudioName.value = "Audio transcribed"
+                pendingAudioTranscription = text
+            } else {
+                pendingAudioName.value = null
+                showSnackbar("Transcription failed — check your connection")
             }
         }
     }
@@ -193,6 +358,62 @@ class ChatViewModel(
         pendingImageDataUrl = null
         pendingDocumentName.value = null
         pendingDocumentContent = null
+        pendingVideoUri.value = null
+        pendingVideoFrames = null
+        pendingVideoUrl = null
+        pendingAudioName.value = null
+        pendingAudioTranscription = null
+    }
+
+    fun exportConversation(conversationId: String, contentResolver: ContentResolver) {
+        viewModelScope.launch {
+            val markdown = api.exportConversation(conversationId)
+            if (markdown != null) {
+                val title = conversations.find { it.id == conversationId }?.title ?: "conversation"
+                val filename = "${title.replace(Regex("[^a-zA-Z0-9 ]"), "").take(50)}.md"
+                saveToDownloads(contentResolver, filename, "text/markdown", markdown.toByteArray())
+                showSnackbar("Exported to Downloads")
+            } else {
+                showSnackbar("Export failed")
+            }
+        }
+    }
+
+    fun downloadMediaFile(url: String, contentResolver: ContentResolver) {
+        viewModelScope.launch {
+            val result = api.downloadFile(url)
+            if (result != null) {
+                val (filename, bytes) = result
+                val mimeType = when {
+                    filename.endsWith(".pdf") -> "application/pdf"
+                    filename.endsWith(".docx") -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    filename.endsWith(".xlsx") -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    else -> "application/octet-stream"
+                }
+                saveToDownloads(contentResolver, filename, mimeType, bytes)
+                showSnackbar("Saved to Downloads: $filename")
+            } else {
+                showSnackbar("Download failed")
+            }
+        }
+    }
+
+    private fun saveToDownloads(contentResolver: ContentResolver, filename: String, mimeType: String, bytes: ByteArray) {
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, filename)
+            put(MediaStore.Downloads.MIME_TYPE, mimeType)
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+        }
+        val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+        uri?.let { contentResolver.openOutputStream(it)?.use { out -> out.write(bytes) } }
+    }
+
+    fun showSnackbar(message: String) {
+        snackbarMessage.value = message
+    }
+
+    fun clearSnackbar() {
+        snackbarMessage.value = null
     }
 
     fun loadModes() {
@@ -227,7 +448,10 @@ class ChatViewModel(
                     streamingToolCalls.add(ToolCall(event.tool, event.status))
                 }
                 is ServerEvent.ToolResult -> {
-                    val idx = streamingToolCalls.indexOfLast { it.tool == event.tool }
+                    // Match first "running" tool call with this name
+                    val idx = streamingToolCalls.indexOfFirst {
+                        it.tool == event.tool && it.status == "running"
+                    }
                     if (idx >= 0) {
                         streamingToolCalls[idx] = streamingToolCalls[idx].copy(
                             status = "done",
@@ -276,15 +500,25 @@ class ChatViewModel(
         val toolCalls = streamingToolCalls.toList()
 
         if (content.isNotEmpty() || thinking.isNotEmpty() || toolCalls.isNotEmpty()) {
+            val oldVariants = pendingOldVariants
+            val variants = if (oldVariants != null) {
+                val all = oldVariants.toMutableList()
+                all.add(MessageVariant(content, thinking, toolCalls))
+                all
+            } else emptyList()
+
             messages.add(Message(
                 role = "assistant",
                 content = content,
                 thinking = thinking,
                 traceId = currentTraceId,
-                toolCalls = toolCalls
+                toolCalls = toolCalls,
+                variants = variants,
+                currentVariantIndex = if (variants.isNotEmpty()) variants.size - 1 else 0
             ))
         }
 
+        pendingOldVariants = null
         streamingContent.value = ""
         streamingThinking.value = ""
         streamingToolCalls.clear()

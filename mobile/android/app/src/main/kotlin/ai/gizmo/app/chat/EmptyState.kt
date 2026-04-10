@@ -63,7 +63,11 @@ private val suggestions = listOf(
 )
 
 @Composable
-fun EmptyState(onSuggestionClick: (String) -> Unit, modifier: Modifier = Modifier) {
+fun EmptyState(
+    onSuggestionClick: (String) -> Unit,
+    onPickAudio: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
 
     Column(
@@ -104,10 +108,12 @@ fun EmptyState(onSuggestionClick: (String) -> Unit, modifier: Modifier = Modifie
                 SuggestionCard(
                     suggestion = suggestion,
                     onClick = { prompt ->
-                        if (suggestion.special != null) {
-                            Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
-                        } else {
-                            onSuggestionClick(prompt)
+                        when (suggestion.special) {
+                            "audio" -> if (onPickAudio != null) onPickAudio() else {
+                                Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
+                            }
+                            "voice_studio" -> Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
+                            else -> onSuggestionClick(prompt)
                         }
                     }
                 )

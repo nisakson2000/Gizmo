@@ -22,6 +22,12 @@ import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 
+data class VideoUploadResult(
+    val filename: String,
+    val frames: List<String>,
+    val videoUrl: String
+)
+
 class GizmoApi(private val serverUrl: String) {
 
     companion object {
@@ -219,6 +225,102 @@ class GizmoApi(private val serverUrl: String) {
                 null
             }
         }
+
+    suspend fun deleteMessagesFrom(conversationId: String, index: Int): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$baseUrl/api/conversations/$conversationId/messages-from/$index")
+                    .delete()
+                    .build()
+                client.newCall(request).execute().isSuccessful
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+    suspend fun uploadVideo(uri: Uri, contentResolver: ContentResolver): VideoUploadResult? =
+        withContext(Dispatchers.IO) {
+            try {
+                val inputStream = contentResolver.openInputStream(uri) ?: return@withContext null
+                val bytes = inputStream.readBytes()
+                inputStream.close()
+                val mimeType = contentResolver.getType(uri) ?: "video/mp4"
+                val filename = "upload.${mimeType.substringAfter("/", "mp4")}"
+                val body = MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("file", filename, bytes.toRequestBody(mimeType.toMediaType()))
+                    .build()
+                val request = Request.Builder().url("$baseUrl/api/upload-video").post(body).build()
+                val response = client.newCall(request).execute()
+                if (!response.isSuccessful) return@withContext null
+                val respBody = response.body?.string() ?: return@withContext null
+                val obj = JSONObject(respBody)
+                val framesArr = obj.optJSONArray("frames")
+                val frames = if (framesArr != null) {
+                    (0 until framesArr.length()).map { framesArr.getString(it) }
+                } else emptyList()
+                VideoUploadResult(
+                    filename = obj.optString("filename", ""),
+                    frames = frames,
+                    videoUrl = obj.optString("video_url", "")
+                )
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+    suspend fun transcribeAudio(uri: Uri, contentResolver: ContentResolver): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val inputStream = contentResolver.openInputStream(uri) ?: return@withContext null
+                val bytes = inputStream.readBytes()
+                inputStream.close()
+                val mimeType = contentResolver.getType(uri) ?: "audio/wav"
+                val filename = "audio.${mimeType.substringAfter("/", "wav")}"
+                val body = MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("file", filename, bytes.toRequestBody(mimeType.toMediaType()))
+                    .build()
+                val request = Request.Builder().url("$baseUrl/api/transcribe").post(body).build()
+                val response = client.newCall(request).execute()
+                if (!response.isSuccessful) return@withContext null
+                val respBody = response.body?.string() ?: return@withContext null
+                JSONObject(respBody).optString("text").takeIf { it.isNotEmpty() }
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+    suspend fun exportConversation(conversationId: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$baseUrl/api/conversations/$conversationId/export?format=markdown")
+                .build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext null
+            response.body?.string()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    suspend fun downloadFile(url: String): Pair<String, ByteArray>? = withContext(Dispatchers.IO) {
+        try {
+            val fullUrl = if (url.startsWith("/")) "$baseUrl$url" else url
+            val request = Request.Builder().url(fullUrl).build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext null
+            val bytes = response.body?.bytes() ?: return@withContext null
+            val disposition = response.header("Content-Disposition")
+            val filename = disposition?.substringAfter("filename=", "")
+                ?.trim('"')?.takeIf { it.isNotEmpty() }
+                ?: fullUrl.substringAfterLast("/")
+            Pair(filename, bytes)
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     suspend fun getModes(): List<Mode> = withContext(Dispatchers.IO) {
         try {

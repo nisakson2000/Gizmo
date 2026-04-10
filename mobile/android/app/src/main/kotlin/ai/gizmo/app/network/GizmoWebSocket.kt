@@ -68,7 +68,10 @@ class GizmoWebSocket(
         conversationId: String? = null,
         mode: String = "chat",
         contextLength: Int = 32768,
-        image: String? = null
+        image: String? = null,
+        regenerate: Boolean = false,
+        videoFrames: List<String>? = null,
+        videoUrl: String? = null
     ) {
         val json = JSONObject().apply {
             put("message", message)
@@ -76,9 +79,15 @@ class GizmoWebSocket(
             put("tts", false)
             put("context_length", contextLength)
             put("mode", mode)
-            put("regenerate", false)
+            put("regenerate", regenerate)
             if (conversationId != null) put("conversation_id", conversationId)
             if (image != null) put("image", image)
+            if (videoFrames != null) {
+                val arr = org.json.JSONArray()
+                videoFrames.forEach { arr.put(it) }
+                put("video_frames", arr)
+            }
+            if (videoUrl != null) put("video_url", videoUrl)
         }
 
         onStateChange(ConnectionState.GENERATING)

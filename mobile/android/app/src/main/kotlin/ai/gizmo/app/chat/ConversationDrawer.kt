@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -65,6 +66,7 @@ fun ConversationDrawer(
     onConversationClick: (Conversation) -> Unit,
     onDeleteConversation: (Conversation) -> Unit,
     onRenameConversation: (Conversation, String) -> Unit,
+    onExportConversation: (Conversation) -> Unit,
     onSearch: (String) -> Unit,
     onSettingsClick: () -> Unit
 ) {
@@ -145,7 +147,8 @@ fun ConversationDrawer(
                             onRename = {
                                 renameTarget = conv
                                 renameText = conv.title
-                            }
+                            },
+                            onExport = { onExportConversation(conv) }
                         )
                     }
                 }
@@ -209,7 +212,8 @@ private fun ConversationItem(
     isActive: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
-    onRename: () -> Unit
+    onRename: () -> Unit,
+    onExport: () -> Unit
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -229,13 +233,11 @@ private fun ConversationItem(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+        IconButton(onClick = onExport, modifier = Modifier.padding(0.dp)) {
+            Icon(Icons.Default.FileDownload, contentDescription = "Export", tint = TextDim, modifier = Modifier.padding(0.dp))
+        }
         IconButton(onClick = onRename, modifier = Modifier.padding(0.dp)) {
-            Icon(
-                Icons.Default.Edit,
-                contentDescription = stringResource(R.string.rename),
-                tint = TextDim,
-                modifier = Modifier.padding(0.dp)
-            )
+            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.rename), tint = TextDim, modifier = Modifier.padding(0.dp))
         }
         IconButton(onClick = onDelete, modifier = Modifier.padding(0.dp)) {
             Icon(

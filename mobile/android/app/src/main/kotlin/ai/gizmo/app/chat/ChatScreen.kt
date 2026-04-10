@@ -27,6 +27,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ai.gizmo.app.R
 import ai.gizmo.app.model.ChatViewModel
-import ai.gizmo.app.model.Conversation
 import ai.gizmo.app.placeholder.PlaceholderScreen
 import ai.gizmo.app.settings.SettingsScreen
 import ai.gizmo.app.ui.components.BottomNav
@@ -66,6 +66,15 @@ fun ChatScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
     var inputText by remember { mutableStateOf("") }
+    var editText by remember { mutableStateOf("") }
+
+    // Unified snackbar: observe viewModel.snackbarMessage
+    LaunchedEffect(viewModel.snackbarMessage.value) {
+        viewModel.snackbarMessage.value?.let { msg ->
+            snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
+            viewModel.clearSnackbar()
+        }
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -74,6 +83,14 @@ fun ChatScreen(
     val docPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { viewModel.handleDocumentPick(it, context.contentResolver) } }
+
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { viewModel.handleVideoPick(it, context.contentResolver) } }
+
+    val audioPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { viewModel.handleAudioPick(it, context.contentResolver) } }
 
     val activeTitle = viewModel.conversations
         .find { it.id == viewModel.activeConversationId.value }?.title
@@ -111,6 +128,9 @@ fun ChatScreen(
                 onRenameConversation = { conv, title ->
                     viewModel.renameConversation(conv.id, title)
                 },
+                onExportConversation = { conv ->
+                    viewModel.exportConversation(conv.id, context.contentResolver)
+                },
                 onSearch = { viewModel.searchConversations(it) },
                 onSettingsClick = {
                     showSettings = true
@@ -130,11 +150,7 @@ fun ChatScreen(
                                 fontSize = 18.sp
                             )
                             if (activeTitle != null) {
-                                Text(
-                                    text = " \u2014 ",
-                                    color = TextDim,
-                                    fontSize = 18.sp
-                                )
+                                Text(text = " \u2014 ", color = TextDim, fontSize = 18.sp)
                                 Text(
                                     text = activeTitle,
                                     color = TextSecondary,
@@ -154,11 +170,7 @@ fun ChatScreen(
                     },
                     actions = {
                         IconButton(onClick = { showSettings = true }) {
-                            Icon(
-                                Icons.Default.Settings,
-                                contentDescription = stringResource(R.string.settings_title),
-                                tint = TextSecondary
-                            )
+                            Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title), tint = TextSecondary)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = BgPrimary)
@@ -185,11 +197,28 @@ fun ChatScreen(
                                 streamingToolCalls = viewModel.streamingToolCalls,
                                 generating = viewModel.generating.value,
                                 serverUrl = viewModel.serverUrl,
+                                selectedIndex = viewModel.selectedMessageIndex.value,
+                                editingIndex = viewModel.editingMessageIndex.value,
+                                onSelectMessage = { viewModel.selectedMessageIndex.value = it },
+                                onEditMessage = { idx ->
+                                    viewModel.editMessage(idx, editText)
+                                },
+                                onStartEdit = { idx ->
+                                    editText = viewModel.messages[idx].content
+                                    viewModel.editingMessageIndex.value = idx
+                                    viewModel.selectedMessageIndex.value = null
+                                },
+                                onCancelEdit = { viewModel.editingMessageIndex.value = null },
+                                onCopyMessage = { text -> copyToClipboard(context, text) },
+                                onRegenerate = { viewModel.regenerateLastResponse() },
+                                onVariantSwitch = { idx, dir -> viewModel.switchVariant(idx, dir) },
+                                onDownload = { url -> viewModel.downloadMediaFile(url, context.contentResolver) },
                                 modifier = Modifier.weight(1f)
                             )
                         } else {
                             EmptyState(
                                 onSuggestionClick = { inputText = it },
+                                onPickAudio = { audioPickerLauncher.launch("audio/*") },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -205,9 +234,13 @@ fun ChatScreen(
                             onTextChange = { inputText = it },
                             pendingImageUri = viewModel.pendingImageUri.value,
                             pendingDocumentName = viewModel.pendingDocumentName.value,
+                            pendingVideoUri = viewModel.pendingVideoUri.value,
+                            pendingAudioName = viewModel.pendingAudioName.value,
                             onClearAttachment = { viewModel.clearAttachment() },
                             onPickImage = { imagePickerLauncher.launch("image/*") },
                             onPickDocument = { docPickerLauncher.launch("*/*") },
+                            onPickVideo = { videoPickerLauncher.launch("video/*") },
+                            onPickAudio = { audioPickerLauncher.launch("audio/*") },
                             onSend = { text ->
                                 viewModel.sendMessage(text)
                                 inputText = ""
@@ -217,12 +250,7 @@ fun ChatScreen(
                     }
                 }
                 else -> PlaceholderScreen(
-                    tabName = when (selectedTab) {
-                        1 -> "Tasks"
-                        2 -> "Code"
-                        3 -> "Stats"
-                        else -> ""
-                    },
+                    tabName = when (selectedTab) { 1 -> "Tasks"; 2 -> "Code"; 3 -> "Stats"; else -> "" },
                     modifier = Modifier.padding(padding)
                 )
             }

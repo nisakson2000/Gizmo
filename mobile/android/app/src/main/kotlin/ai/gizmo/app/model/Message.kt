@@ -2,6 +2,12 @@ package ai.gizmo.app.model
 
 import java.util.UUID
 
+data class MessageVariant(
+    val content: String,
+    val thinking: String = "",
+    val toolCalls: List<ToolCall> = emptyList()
+)
+
 data class Message(
     val id: String = UUID.randomUUID().toString(),
     val role: String,
@@ -12,8 +18,20 @@ data class Message(
     val audioUrl: String? = null,
     val imageUrl: String? = null,
     val videoUrl: String? = null,
-    val toolCalls: List<ToolCall> = emptyList()
-)
+    val toolCalls: List<ToolCall> = emptyList(),
+    val variants: List<MessageVariant> = emptyList(),
+    val currentVariantIndex: Int = 0
+) {
+    val displayContent: String get() =
+        if (variants.isNotEmpty() && currentVariantIndex < variants.size)
+            variants[currentVariantIndex].content else content
+    val displayThinking: String get() =
+        if (variants.isNotEmpty() && currentVariantIndex < variants.size)
+            variants[currentVariantIndex].thinking else thinking
+    val displayToolCalls: List<ToolCall> get() =
+        if (variants.isNotEmpty() && currentVariantIndex < variants.size)
+            variants[currentVariantIndex].toolCalls else toolCalls
+}
 
 data class ToolCall(
     val tool: String,
