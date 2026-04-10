@@ -1,9 +1,10 @@
-name: Sync wiki/ to GitHub Wiki
+name: Sync wiki to GitHub Wiki
 
 on:
   push:
     branches: [main]
     paths: ['.github/wiki/**']
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -22,15 +23,30 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Copy and rename files
+        shell: bash
         run: |
-          cp .github/wiki/architecture.md    wiki-repo/Architecture.md
-          cp .github/wiki/development.md     wiki-repo/Development.md
-          cp .github/wiki/how-ai-works.md    wiki-repo/How-the-AI-Works.md
-          cp .github/wiki/model-reference.md wiki-repo/Model-Reference.md
-          cp .github/wiki/setup.md           wiki-repo/Setup.md
-          cp .github/wiki/usage.md           wiki-repo/Usage.md
-          cp .github/wiki/_Sidebar.md        wiki-repo/_Sidebar.md 2>/dev/null || true
-          cp .github/wiki/Home.md              wiki-repo/Home.md 2>/dev/null || true
+          declare -A MAP=(
+            ["Home.md"]="Home.md"
+            ["home.md"]="Home.md"
+            ["architecture.md"]="Architecture.md"
+            ["usage.md"]="Usage.md"
+            ["setup.md"]="Setup.md"
+            ["development.md"]="Development.md"
+            ["model-reference.md"]="Model-Reference.md"
+            ["how-ai-works.md"]="How-the-AI-Works.md"
+            ["_Sidebar.md"]="_Sidebar.md"
+          )
+
+          for src in .github/wiki/*.md; do
+            filename="$(basename "$src")"
+            dest="${MAP[$filename]:-}"
+            if [ -n "$dest" ]; then
+              cp "$src" "wiki-repo/$dest"
+              echo "Copied $filename → $dest"
+            else
+              echo "::warning::Skipping unmapped file: $filename"
+            fi
+          done
 
       - name: Push if changed
         run: |
@@ -41,6 +57,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No wiki changes to sync"
           else
-            git commit -m "Auto-sync from wiki/ in main repo"
+            git commit -m "docs: sync wiki from .github/wiki/ (auto)"
             git push
           fi
