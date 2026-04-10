@@ -50,7 +50,7 @@
     <string name="search_conversations">Search conversations\u2026</string>
     <string name="thinking_indicator">Gizmo is thinking\u2026</string>
     <string name="powered_by">Powered by Qwen3.5 9B</string>
-    <string name="fully_local">100%% local</string>
+    <string name="fully_local">100&#37; local</string>
     <string name="stop">Stop</string>
 
     <!-- Tabs -->
