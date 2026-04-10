@@ -13,4 +13,6 @@ ALLOWED_ORIGINS = [
 
 def check_ws_origin(ws: WebSocket) -> bool:
     origin = (ws.headers.get("origin") or "").rstrip("/")
+    if not origin:
+        return True  # No Origin header — native client, not a browser
     return any(origin == allowed.rstrip("/") for allowed in ALLOWED_ORIGINS)
