@@ -51,6 +51,8 @@ import ai.gizmo.app.ui.theme.UserMsg
 import coil3.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
 
+private val mediaUrlRegex = Regex("""\[([^\]]+)]\((/api/media/[^\)]+)\)""")
+
 @Composable
 fun MessageBubble(
     message: Message,
@@ -185,8 +187,7 @@ private fun AssistantBubble(
             Markdown(content = message.displayContent, modifier = Modifier.fillMaxWidth())
 
             // Detect download links (/api/media/ URLs)
-            val mediaRegex = Regex("""\[([^\]]+)]\((/api/media/[^\)]+)\)""")
-            mediaRegex.findAll(message.displayContent).forEach { match ->
+            mediaUrlRegex.findAll(message.displayContent).forEach { match ->
                 val label = match.groupValues[1]
                 val url = match.groupValues[2]
                 DownloadChip(label, url, onDownload)

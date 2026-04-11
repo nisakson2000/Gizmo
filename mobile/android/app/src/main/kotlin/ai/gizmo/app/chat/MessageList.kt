@@ -89,7 +89,7 @@ fun MessageList(
             streamingThinking.isNotEmpty() ||
             streamingToolCalls.isNotEmpty()
 
-    LaunchedEffect(messages.size, streamingContent, streamingThinking, streamingToolCalls.size) {
+    LaunchedEffect(messages.size, streamingContent.length, streamingThinking.length, streamingToolCalls.size) {
         val totalItems = listState.layoutInfo.totalItemsCount
         if (totalItems > 0 && (isAtBottom || generating)) {
             listState.animateScrollToItem(totalItems - 1)

@@ -37,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -89,6 +90,10 @@ fun VoiceStudioScreen(
     LaunchedEffect(Unit) {
         voices.clear()
         voices.addAll(api.getVoices())
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { mediaPlayer?.release() }
     }
 
     Scaffold(

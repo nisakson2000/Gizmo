@@ -166,10 +166,6 @@ class GizmoApi(private val serverUrl: String) {
     suspend fun uploadImage(uri: Uri, contentResolver: ContentResolver): String? =
         withContext(Dispatchers.IO) {
             try {
-                val inputStream = contentResolver.openInputStream(uri) ?: return@withContext null
-                val bytes = inputStream.readBytes()
-                inputStream.close()
-
                 val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
                 val filename = "upload.${mimeType.substringAfter("/", "jpg")}"
 
@@ -177,7 +173,7 @@ class GizmoApi(private val serverUrl: String) {
                     .setType(MultipartBody.FORM)
                     .addFormDataPart(
                         "file", filename,
-                        bytes.toRequestBody(mimeType.toMediaType())
+                        streamingBody(uri, contentResolver, mimeType.toMediaType())
                     )
                     .build()
 

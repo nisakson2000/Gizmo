@@ -315,14 +315,8 @@ class ChatViewModel(
     }
 
     fun handleImagePick(uri: Uri, contentResolver: ContentResolver) {
+        clearAttachment()
         pendingImageUri.value = uri
-        pendingDocumentName.value = null
-        pendingDocumentContent = null
-        pendingVideoUri.value = null
-        pendingVideoFrames = null
-        pendingVideoUrl = null
-        pendingAudioName.value = null
-        pendingAudioTranscription = null
         viewModelScope.launch {
             val dataUrl = api.uploadImage(uri, contentResolver)
             if (dataUrl != null) {
@@ -502,7 +496,6 @@ class ChatViewModel(
                     activeConversationId.value = event.conversationId
                     finalizeAssistantMessage()
                     connectionState.value = ConnectionState.CONNECTED
-                    loadConversations()
                 }
                 is ServerEvent.Error -> {
                     messages.add(Message(
@@ -603,12 +596,9 @@ class ChatViewModel(
         micRecorder = null
     }
 
-    // Binary audio chunk handler
     private fun handleBinaryMessage(bytes: ByteArray) {
-        viewModelScope.launch(Dispatchers.Main) {
-            if (ttsEnabled.value) {
-                audioPlayer.writeChunk(bytes)
-            }
+        if (ttsEnabled.value) {
+            audioPlayer.writeChunk(bytes)
         }
     }
 
