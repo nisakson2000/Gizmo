@@ -14,6 +14,7 @@ import kotlin.math.min
 
 class GizmoWebSocket(
     private val serverUrl: String,
+    private val wsPath: String = "/ws/chat",
     private val onEvent: (ServerEvent) -> Unit,
     private val onBinaryMessage: ((ByteArray) -> Unit)? = null,
     private val onStateChange: (ConnectionState) -> Unit
@@ -30,7 +31,7 @@ class GizmoWebSocket(
         val wsUrl = serverUrl
             .replace("https://", "wss://")
             .replace("http://", "ws://")
-            .trimEnd('/') + "/ws/chat"
+            .trimEnd('/') + wsPath
 
         val request = Request.Builder().url(wsUrl).build()
 

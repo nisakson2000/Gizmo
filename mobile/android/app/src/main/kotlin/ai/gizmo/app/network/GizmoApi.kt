@@ -558,4 +558,185 @@ class GizmoApi(private val serverUrl: String) {
             emptyList()
         }
     }
+
+    // --- Tracker API ---
+
+    private fun parseTask(obj: JSONObject): ai.gizmo.app.model.TrackerTask {
+        val tagsArr = obj.optJSONArray("tags")
+        val tags = if (tagsArr != null) (0 until tagsArr.length()).map { tagsArr.getString(it) } else emptyList()
+        val subtasksArr = obj.optJSONArray("subtasks")
+        val subtasks = if (subtasksArr != null) (0 until subtasksArr.length()).map { parseTask(subtasksArr.getJSONObject(it)) } else emptyList()
+        return ai.gizmo.app.model.TrackerTask(
+            id = obj.optString("id", ""), title = obj.optString("title", ""),
+            description = obj.optString("description", ""), status = obj.optString("status", "todo"),
+            priority = obj.optString("priority", "medium"),
+            dueDate = obj.optString("due_date").takeIf { it.isNotEmpty() },
+            tags = tags, parentId = obj.optString("parent_id").takeIf { it.isNotEmpty() },
+            recurrence = obj.optString("recurrence", "none"),
+            createdAt = obj.optString("created_at", ""), updatedAt = obj.optString("updated_at", ""),
+            completedAt = obj.optString("completed_at").takeIf { it.isNotEmpty() }, subtasks = subtasks
+        )
+    }
+
+    private fun parseNote(obj: JSONObject): ai.gizmo.app.model.TrackerNote {
+        val tagsArr = obj.optJSONArray("tags")
+        val tags = if (tagsArr != null) (0 until tagsArr.length()).map { tagsArr.getString(it) } else emptyList()
+        return ai.gizmo.app.model.TrackerNote(
+            id = obj.optString("id", ""), title = obj.optString("title", ""),
+            content = obj.optString("content", ""), tags = tags,
+            pinned = obj.optBoolean("pinned", false),
+            createdAt = obj.optString("created_at", ""), updatedAt = obj.optString("updated_at", "")
+        )
+    }
+
+    suspend fun getTasks(status: String? = null, priority: String? = null, tag: String? = null): List<ai.gizmo.app.model.TrackerTask> = withContext(Dispatchers.IO) {
+        try {
+            val params = mutableListOf<String>()
+            if (status != null) params.add("status=$status")
+            if (priority != null) params.add("priority=$priority")
+            if (tag != null) params.add("tag=${Uri.encode(tag)}")
+            val qs = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
+            val request = Request.Builder().url("$baseUrl/api/tracker/tasks$qs").build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList()
+            val obj = JSONObject(body)
+            val arr = obj.getJSONArray("tasks")
+            (0 until arr.length()).map { parseTask(arr.getJSONObject(it)) }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    suspend fun getTask(id: String): ai.gizmo.app.model.TrackerTask? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/tracker/tasks/$id").build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext null
+            val body = response.body?.string() ?: return@withContext null
+            parseTask(JSONObject(body).getJSONObject("task"))
+        } catch (_: Exception) { null }
+    }
+
+    suspend fun createTask(title: String, priority: String = "medium", parentId: String? = null): ai.gizmo.app.model.TrackerTask? = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply {
+                put("title", title); put("priority", priority)
+                if (parentId != null) put("parent_id", parentId)
+            }.toString()
+            val request = Request.Builder().url("$baseUrl/api/tracker/tasks")
+                .post(json.toRequestBody("application/json".toMediaType())).build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext null
+            val body = response.body?.string() ?: return@withContext null
+            parseTask(JSONObject(body).getJSONObject("task"))
+        } catch (_: Exception) { null }
+    }
+
+    suspend fun updateTask(id: String, fields: Map<String, Any>): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject(fields).toString()
+            val request = Request.Builder().url("$baseUrl/api/tracker/tasks/$id")
+                .patch(json.toRequestBody("application/json".toMediaType())).build()
+            client.newCall(request).execute().isSuccessful
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun completeTask(id: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/tracker/tasks/$id/complete")
+                .patch("{}".toRequestBody("application/json".toMediaType())).build()
+            client.newCall(request).execute().isSuccessful
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun deleteTask(id: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/tracker/tasks/$id").delete().build()
+            client.newCall(request).execute().isSuccessful
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun getNotes(tag: String? = null, search: String? = null): List<ai.gizmo.app.model.TrackerNote> = withContext(Dispatchers.IO) {
+        try {
+            val params = mutableListOf<String>()
+            if (tag != null) params.add("tag=${Uri.encode(tag)}")
+            if (search != null) params.add("search=${Uri.encode(search)}")
+            val qs = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
+            val request = Request.Builder().url("$baseUrl/api/tracker/notes$qs").build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList()
+            val obj = JSONObject(body)
+            val arr = obj.getJSONArray("notes")
+            (0 until arr.length()).map { parseNote(arr.getJSONObject(it)) }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    suspend fun createNote(title: String, content: String = ""): ai.gizmo.app.model.TrackerNote? = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply { put("title", title); put("content", content) }.toString()
+            val request = Request.Builder().url("$baseUrl/api/tracker/notes")
+                .post(json.toRequestBody("application/json".toMediaType())).build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext null
+            val body = response.body?.string() ?: return@withContext null
+            parseNote(JSONObject(body).getJSONObject("note"))
+        } catch (_: Exception) { null }
+    }
+
+    suspend fun updateNote(id: String, fields: Map<String, Any>): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject(fields).toString()
+            val request = Request.Builder().url("$baseUrl/api/tracker/notes/$id")
+                .patch(json.toRequestBody("application/json".toMediaType())).build()
+            client.newCall(request).execute().isSuccessful
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun deleteNote(id: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/tracker/notes/$id").delete().build()
+            client.newCall(request).execute().isSuccessful
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun getTags(): List<String> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/tracker/tags").build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList()
+            val arr = JSONObject(body).getJSONArray("tags")
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    // --- Code Playground API ---
+
+    suspend fun runCode(code: String, language: String, timeout: Int = 10, stdin: String = ""): ai.gizmo.app.model.ExecutionResult = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply {
+                put("code", code); put("language", language); put("timeout", timeout)
+                if (stdin.isNotEmpty()) put("stdin", stdin)
+            }.toString()
+            val request = Request.Builder().url("$baseUrl/api/run-code")
+                .post(json.toRequestBody("application/json".toMediaType())).build()
+            val response = client.newCall(request).execute()
+            val body = response.body?.string() ?: return@withContext ai.gizmo.app.model.ExecutionResult()
+            val obj = JSONObject(body)
+            val filesArr = obj.optJSONArray("output_files")
+            val files = if (filesArr != null) {
+                (0 until filesArr.length()).map { i ->
+                    val f = filesArr.getJSONObject(i)
+                    ai.gizmo.app.model.OutputFile(f.getString("filename"), f.getString("url"))
+                }
+            } else emptyList()
+            ai.gizmo.app.model.ExecutionResult(
+                stdout = obj.optString("stdout", ""),
+                stderr = obj.optString("stderr", ""),
+                exitCode = obj.optInt("exit_code", 0),
+                timedOut = obj.optBoolean("timed_out", false),
+                outputFiles = files
+            )
+        } catch (_: Exception) { ai.gizmo.app.model.ExecutionResult(stderr = "Request failed") }
+    }
 }

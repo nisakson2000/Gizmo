@@ -44,7 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ai.gizmo.app.R
 import ai.gizmo.app.model.ChatViewModel
+import ai.gizmo.app.code.CodeScreen
 import ai.gizmo.app.placeholder.PlaceholderScreen
+import ai.gizmo.app.tracker.TrackerScreen
 import ai.gizmo.app.settings.SettingsScreen
 import ai.gizmo.app.model.Voice
 import ai.gizmo.app.ui.components.BottomNav
@@ -273,8 +275,18 @@ fun ChatScreen(
                         )
                     }
                 }
+                1 -> TrackerScreen(
+                    api = viewModel.api,
+                    serverUrl = viewModel.serverUrl,
+                    modifier = Modifier.padding(padding)
+                )
+                2 -> CodeScreen(
+                    api = viewModel.api,
+                    serverUrl = viewModel.serverUrl,
+                    modifier = Modifier.padding(padding)
+                )
                 else -> PlaceholderScreen(
-                    tabName = when (selectedTab) { 1 -> "Tasks"; 2 -> "Code"; 3 -> "Stats"; else -> "" },
+                    tabName = "Stats",
                     modifier = Modifier.padding(padding)
                 )
             }
