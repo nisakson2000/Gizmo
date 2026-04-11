@@ -12,7 +12,7 @@
 	const suggestions = [
 		{ icon: 'eye', label: 'Vision', prompt: '__upload_image__', desc: 'Analyze images, screenshots, diagrams' },
 		{ icon: 'video', label: 'Video', prompt: '__upload_video__', desc: 'Upload videos for frame-by-frame analysis' },
-		{ icon: 'audio', label: 'Audio', prompt: '__audio_upload__', desc: 'Transcribe & analyze audio files' },
+		{ icon: 'audio', label: 'Audio', prompt: '__upload_audio__', desc: 'Transcribe & analyze audio files' },
 		{ icon: 'search', label: 'Search', prompt: 'Search the web for the latest news today', desc: 'Real-time web search via SearXNG' },
 		{ icon: 'brain', label: 'Reason', prompt: '__enable_thinking__Think through ', desc: 'Extended thinking for complex problems' },
 		{ icon: 'code', label: 'Code', prompt: 'Write code that ', desc: 'Ask Gizmo to write and run code' },
@@ -25,11 +25,7 @@
 			voiceStudioOpen.set(true);
 			return;
 		}
-		if (prompt.startsWith('__')) {
-			pendingSuggestion.set(prompt);
-			return;
-		}
-		if (prompt) pendingSuggestion.set(prompt);
+		pendingSuggestion.set(prompt);
 	}
 
 	let chatContainer: HTMLDivElement;

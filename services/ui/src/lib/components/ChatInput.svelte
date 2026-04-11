@@ -19,43 +19,30 @@
 	let mediaRecorder: MediaRecorder | null = null;
 
 	// Accept suggestion from empty state cards
+	function focusInput() {
+		if (!textarea) return;
+		textarea.focus();
+		textarea.style.height = 'auto';
+		textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+	}
+
 	$effect(() => {
 		const s = $pendingSuggestion;
 		if (s) {
 			pendingSuggestion.set('');
-			if (s === '__audio_upload__') {
-				openAudioPicker();
-				return;
-			}
-			if (s === '__upload_image__') {
-				openFilePicker('image/*');
-				return;
-			}
-			if (s === '__upload_video__') {
-				openFilePicker('video/*');
-				return;
-			}
-			if (s === '__upload_file__') {
-				openFilePicker('.pdf,.txt,.md,.py,.js,.ts,.json,.yaml,.yml,.toml,.csv,.html,.xml,.zip');
-				return;
-			}
+			if (s === '__upload_audio__') { openFilePicker('audio/*'); return; }
+			if (s === '__upload_image__') { openFilePicker('image/*'); return; }
+			if (s === '__upload_video__') { openFilePicker('video/*'); return; }
+			if (s === '__upload_file__') { openFilePicker('.pdf,.txt,.md,.py,.js,.ts,.json,.yaml,.yml,.toml,.csv,.html,.xml,.zip'); return; }
 			if (s.startsWith('__enable_thinking__')) {
 				thinkingEnabled.set(true);
 				const stub = s.slice('__enable_thinking__'.length);
 				if (stub) input = stub;
-				if (textarea) {
-					textarea.focus();
-					textarea.style.height = 'auto';
-					textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
-				}
+				focusInput();
 				return;
 			}
 			input = s;
-			if (textarea) {
-				textarea.focus();
-				textarea.style.height = 'auto';
-				textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
-			}
+			focusInput();
 		}
 	});
 
@@ -243,38 +230,7 @@
 	}
 
 	function openAudioPicker() {
-		const inp = document.createElement('input');
-		inp.type = 'file';
-		inp.accept = 'audio/*';
-		inp.onchange = async (e) => {
-			const file = (e.target as HTMLInputElement).files?.[0];
-			if (!file) return;
-			if (file.size > MAX_DOC_SIZE) {
-				showError('File too large. Max 50MB.');
-				return;
-			}
-			const formData = new FormData();
-			formData.append('file', file);
-			try {
-				uploading = true;
-				const resp = await fetchWithTimeout('/api/transcribe', { method: 'POST', body: formData });
-				uploading = false;
-				if (!resp.ok) {
-					showError('Audio transcription failed.');
-					return;
-				}
-				const data = await resp.json();
-				if (data.text) {
-					pendingFile = { filename: file.name, content: `[Transcribed audio from: ${file.name}]\n\n${data.text}` };
-				} else {
-					showError('No speech detected in audio.');
-				}
-			} catch {
-				uploading = false;
-				showError('Whisper service unavailable.');
-			}
-		};
-		inp.click();
+		openFilePicker('audio/*');
 	}
 
 	async function toggleRecording() {
