@@ -2,6 +2,7 @@ package ai.gizmo.app.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -33,6 +36,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -67,6 +74,16 @@ fun SettingsScreen(
     serverUrl: String,
     onRefreshHealth: () -> Unit,
     onSwitchServer: () -> Unit,
+    onOpenVoiceStudio: () -> Unit,
+    ttsEnabled: Boolean,
+    onTtsChanged: (Boolean) -> Unit,
+    ttsSpeed: Float,
+    onTtsSpeedChanged: (Float) -> Unit,
+    ttsLanguage: String,
+    onTtsLanguageChanged: (String) -> Unit,
+    voices: List<ai.gizmo.app.model.Voice>,
+    selectedVoiceId: String?,
+    onVoiceSelected: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -185,6 +202,86 @@ fun SettingsScreen(
                         Icon(Icons.Default.Check, contentDescription = null, tint = Accent, modifier = Modifier.size(20.dp))
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Border)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // TTS settings
+            SectionHeader("Text-to-Speech")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            ) {
+                Text("Read responses aloud", color = TextPrimary, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = ttsEnabled,
+                    onCheckedChange = onTtsChanged,
+                    colors = SwitchDefaults.colors(checkedThumbColor = Accent, checkedTrackColor = Accent.copy(alpha = 0.3f))
+                )
+            }
+            if (ttsEnabled) {
+                // Voice selector
+                var showVoiceMenu by remember { mutableStateOf(false) }
+                Box {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable { showVoiceMenu = true }.padding(vertical = 8.dp)
+                    ) {
+                        Text("Voice", color = TextSecondary, modifier = Modifier.weight(1f))
+                        Text(
+                            voices.find { it.id == selectedVoiceId }?.name ?: "Default",
+                            color = Accent
+                        )
+                    }
+                    DropdownMenu(expanded = showVoiceMenu, onDismissRequest = { showVoiceMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Default", color = if (selectedVoiceId == null) Accent else TextPrimary) },
+                            onClick = { onVoiceSelected(null); showVoiceMenu = false }
+                        )
+                        voices.forEach { v ->
+                            DropdownMenuItem(
+                                text = { Text(v.name, color = if (v.id == selectedVoiceId) Accent else TextPrimary) },
+                                onClick = { onVoiceSelected(v.id); showVoiceMenu = false }
+                            )
+                        }
+                    }
+                }
+                // Speed slider
+                Text("Speed: ${"%.1f".format(ttsSpeed)}x", color = TextSecondary, fontSize = 13.sp)
+                Slider(
+                    value = ttsSpeed,
+                    onValueChange = onTtsSpeedChanged,
+                    valueRange = 0.5f..2.0f,
+                    steps = 14,
+                    colors = SliderDefaults.colors(thumbColor = Accent, activeTrackColor = Accent, inactiveTrackColor = Border),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                // Language
+                val languages = listOf("Auto", "English", "Chinese", "Japanese", "Korean", "German", "French", "Russian", "Portuguese", "Spanish", "Italian")
+                var showLangMenu by remember { mutableStateOf(false) }
+                Box {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable { showLangMenu = true }.padding(vertical = 8.dp)
+                    ) {
+                        Text("Language", color = TextSecondary, modifier = Modifier.weight(1f))
+                        Text(ttsLanguage, color = Accent)
+                    }
+                    DropdownMenu(expanded = showLangMenu, onDismissRequest = { showLangMenu = false }) {
+                        languages.forEach { lang ->
+                            DropdownMenuItem(
+                                text = { Text(lang, color = if (lang == ttsLanguage) Accent else TextPrimary) },
+                                onClick = { onTtsLanguageChanged(lang); showLangMenu = false }
+                            )
+                        }
+                    }
+                }
+            }
+            // Voice Studio button
+            TextButton(onClick = onOpenVoiceStudio) {
+                Text("Voice Studio", color = Accent)
             }
 
             Spacer(modifier = Modifier.height(12.dp))

@@ -9,11 +9,15 @@ import android.content.ContentResolver
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
+import okio.source
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.SecureRandom
@@ -239,17 +243,23 @@ class GizmoApi(private val serverUrl: String) {
             }
         }
 
+    private fun streamingBody(uri: Uri, contentResolver: ContentResolver, mime: MediaType): RequestBody {
+        return object : RequestBody() {
+            override fun contentType() = mime
+            override fun writeTo(sink: BufferedSink) {
+                contentResolver.openInputStream(uri)?.use { sink.writeAll(it.source()) }
+            }
+        }
+    }
+
     suspend fun uploadVideo(uri: Uri, contentResolver: ContentResolver): VideoUploadResult? =
         withContext(Dispatchers.IO) {
             try {
-                val inputStream = contentResolver.openInputStream(uri) ?: return@withContext null
-                val bytes = inputStream.readBytes()
-                inputStream.close()
                 val mimeType = contentResolver.getType(uri) ?: "video/mp4"
                 val filename = "upload.${mimeType.substringAfter("/", "mp4")}"
                 val body = MultipartBody.Builder()
                     .setType(MultipartBody.FORM)
-                    .addFormDataPart("file", filename, bytes.toRequestBody(mimeType.toMediaType()))
+                    .addFormDataPart("file", filename, streamingBody(uri, contentResolver, mimeType.toMediaType()))
                     .build()
                 val request = Request.Builder().url("$baseUrl/api/upload-video").post(body).build()
                 val response = client.newCall(request).execute()
@@ -273,14 +283,11 @@ class GizmoApi(private val serverUrl: String) {
     suspend fun transcribeAudio(uri: Uri, contentResolver: ContentResolver): String? =
         withContext(Dispatchers.IO) {
             try {
-                val inputStream = contentResolver.openInputStream(uri) ?: return@withContext null
-                val bytes = inputStream.readBytes()
-                inputStream.close()
                 val mimeType = contentResolver.getType(uri) ?: "audio/wav"
                 val filename = "audio.${mimeType.substringAfter("/", "wav")}"
                 val body = MultipartBody.Builder()
                     .setType(MultipartBody.FORM)
-                    .addFormDataPart("file", filename, bytes.toRequestBody(mimeType.toMediaType()))
+                    .addFormDataPart("file", filename, streamingBody(uri, contentResolver, mimeType.toMediaType()))
                     .build()
                 val request = Request.Builder().url("$baseUrl/api/transcribe").post(body).build()
                 val response = client.newCall(request).execute()
@@ -317,6 +324,71 @@ class GizmoApi(private val serverUrl: String) {
                 ?.trim('"')?.takeIf { it.isNotEmpty() }
                 ?: fullUrl.substringAfterLast("/")
             Pair(filename, bytes)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    suspend fun getVoices(): List<ai.gizmo.app.model.Voice> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/voices").build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList()
+            val arr = JSONArray(body)
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                ai.gizmo.app.model.Voice(
+                    id = obj.getString("id"),
+                    name = obj.optString("name", ""),
+                    filename = obj.optString("filename", ""),
+                    size = obj.optLong("size", 0),
+                    transcript = obj.optString("transcript").takeIf { it.isNotEmpty() }
+                )
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun uploadVoice(uri: Uri, name: String, maxDuration: Int, contentResolver: ContentResolver): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val mimeType = contentResolver.getType(uri) ?: "audio/wav"
+                val filename = "voice.${mimeType.substringAfter("/", "wav")}"
+                val body = MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("file", filename, streamingBody(uri, contentResolver, mimeType.toMediaType()))
+                    .addFormDataPart("name", name)
+                    .addFormDataPart("max_duration", maxDuration.toString())
+                    .build()
+                val request = Request.Builder().url("$baseUrl/api/voices").post(body).build()
+                client.newCall(request).execute().isSuccessful
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+    suspend fun deleteVoice(id: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/voices/$id").delete().build()
+            client.newCall(request).execute().isSuccessful
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    suspend fun previewVoice(id: String, text: String, cacheDir: java.io.File): String? = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().put("text", text).toString()
+            val body = json.toRequestBody("application/json".toMediaType())
+            val request = Request.Builder().url("$baseUrl/api/voices/$id/preview").post(body).build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext null
+            val bytes = response.body?.bytes() ?: return@withContext null
+            val file = java.io.File(cacheDir, "preview_$id.wav")
+            file.writeBytes(bytes)
+            file.absolutePath
         } catch (_: Exception) {
             null
         }

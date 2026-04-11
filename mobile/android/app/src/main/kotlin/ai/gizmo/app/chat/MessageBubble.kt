@@ -172,6 +172,7 @@ private fun AssistantBubble(
                     VideoView(ctx).apply {
                         setVideoPath(fullUrl)
                         setOnPreparedListener { mp -> mp.isLooping = true; start() }
+                        setOnErrorListener { _, _, _ -> true }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(200.dp)

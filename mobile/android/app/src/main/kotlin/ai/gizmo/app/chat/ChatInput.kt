@@ -79,6 +79,9 @@ fun ChatInput(
     onPickDocument: () -> Unit,
     onPickVideo: () -> Unit,
     onPickAudio: () -> Unit,
+    isRecording: Boolean,
+    onMicTap: () -> Unit,
+    onMicLongPress: () -> Unit,
     text: String,
     onTextChange: (String) -> Unit,
     onSend: (String) -> Unit,
@@ -213,11 +216,13 @@ fun ChatInput(
                     .heightIn(max = 120.dp)
             )
 
-            // Mic button (placeholder)
-            IconButton(onClick = {
-                Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
-            }) {
-                Icon(Icons.Default.Mic, contentDescription = "Voice", tint = TextDim)
+            // Mic button
+            IconButton(onClick = onMicTap) {
+                Icon(
+                    Icons.Default.Mic,
+                    contentDescription = "Voice",
+                    tint = if (isRecording) ai.gizmo.app.ui.theme.ErrorColor else TextSecondary
+                )
             }
 
             // Send / Stop button
@@ -261,8 +266,8 @@ fun ChatInput(
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = Accent,
                     selectedLabelColor = BgPrimary,
-                    containerColor = Color.Transparent,
-                    labelColor = TextSecondary
+                    containerColor = BgTertiary,
+                    labelColor = TextPrimary
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     borderColor = if (thinkingEnabled) Accent else Border,
@@ -280,8 +285,8 @@ fun ChatInput(
                     onClick = { showModeMenu = true },
                     label = { Text(modeLabel, fontSize = 13.sp) },
                     colors = FilterChipDefaults.filterChipColors(
-                        containerColor = Color.Transparent,
-                        labelColor = TextSecondary
+                        containerColor = BgTertiary,
+                        labelColor = TextPrimary
                     ),
                     border = FilterChipDefaults.filterChipBorder(
                         borderColor = Border,

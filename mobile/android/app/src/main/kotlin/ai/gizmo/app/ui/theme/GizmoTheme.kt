@@ -5,11 +5,11 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val BgPrimary = Color(0xFF0D0D0D)
-val BgSecondary = Color(0xFF171717)
-val BgTertiary = Color(0xFF212121)
-val BgHover = Color(0xFF2A2A2A)
-val Border = Color(0xFF333333)
+val BgPrimary = Color(0xFF141414)
+val BgSecondary = Color(0xFF1E1E1E)
+val BgTertiary = Color(0xFF282828)
+val BgHover = Color(0xFF323232)
+val Border = Color(0xFF3D3D3D)
 val Accent = Color(0xFFD4A574)
 val AccentDim = Color(0xFFB8885A)
 val TextPrimary = Color(0xFFECECEC)

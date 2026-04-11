@@ -8,12 +8,14 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.ByteString
 import org.json.JSONObject
 import kotlin.math.min
 
 class GizmoWebSocket(
     private val serverUrl: String,
     private val onEvent: (ServerEvent) -> Unit,
+    private val onBinaryMessage: ((ByteArray) -> Unit)? = null,
     private val onStateChange: (ConnectionState) -> Unit
 ) {
     private var webSocket: WebSocket? = null
@@ -43,9 +45,11 @@ class GizmoWebSocket(
                     val json = JSONObject(text)
                     val event = ServerEvent.parse(json)
                     onEvent(event)
-                } catch (_: Exception) {
-                    // Ignore malformed messages
-                }
+                } catch (_: Exception) { }
+            }
+
+            override fun onMessage(ws: WebSocket, bytes: ByteString) {
+                onBinaryMessage?.invoke(bytes.toByteArray())
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
@@ -71,12 +75,16 @@ class GizmoWebSocket(
         image: String? = null,
         regenerate: Boolean = false,
         videoFrames: List<String>? = null,
-        videoUrl: String? = null
+        videoUrl: String? = null,
+        tts: Boolean = false,
+        voiceId: String? = null,
+        ttsSpeed: Float = 1.0f,
+        ttsLanguage: String = "Auto"
     ) {
         val json = JSONObject().apply {
             put("message", message)
             put("thinking", thinking)
-            put("tts", false)
+            put("tts", tts)
             put("context_length", contextLength)
             put("mode", mode)
             put("regenerate", regenerate)
@@ -88,6 +96,11 @@ class GizmoWebSocket(
                 put("video_frames", arr)
             }
             if (videoUrl != null) put("video_url", videoUrl)
+            if (tts && voiceId != null) put("voice_id", voiceId)
+            if (tts) {
+                put("tts_speed", ttsSpeed.toDouble())
+                put("tts_language", ttsLanguage)
+            }
         }
 
         onStateChange(ConnectionState.GENERATING)

@@ -44,17 +44,28 @@ class ChatViewModel(
     val editingMessageIndex = mutableStateOf<Int?>(null)
     val snackbarMessage = mutableStateOf<String?>(null)
 
+    // TTS state
+    val ttsEnabled = mutableStateOf(false)
+    val ttsVoiceId = mutableStateOf<String?>(null)
+    val ttsSpeed = mutableStateOf(1.0f)
+    val ttsLanguage = mutableStateOf("Auto")
+    val isPlayingAudio = mutableStateOf(false)
+    val isRecording = mutableStateOf(false)
+
     private var pendingImageDataUrl: String? = null
     private var pendingDocumentContent: String? = null
     private var pendingVideoFrames: List<String>? = null
     private var pendingVideoUrl: String? = null
     private var pendingAudioTranscription: String? = null
     private var currentTraceId: String = ""
+    private val audioPlayer = ai.gizmo.app.ui.components.StreamingAudioPlayer()
+    private var micRecorder: ai.gizmo.app.ui.components.MicRecorder? = null
 
     val api = GizmoApi(serverUrl)
     private val webSocket = GizmoWebSocket(
         serverUrl = serverUrl,
         onEvent = ::handleEvent,
+        onBinaryMessage = ::handleBinaryMessage,
         onStateChange = ::handleStateChange
     )
 
@@ -86,9 +97,13 @@ class ChatViewModel(
             else -> text
         }
 
+        val displayContent = when {
+            audioTranscript != null -> "[Audio transcription]\n$audioTranscript"
+            else -> text
+        }
         val userMessage = Message(
             role = "user",
-            content = if (audioTranscript != null) text.ifBlank { "Transcribe audio" } else text,
+            content = displayContent,
             imageUrl = pendingImageUri.value?.toString(),
             videoUrl = pendingVideoUri.value?.toString()
         )
@@ -109,7 +124,11 @@ class ChatViewModel(
             contextLength = contextLength.value,
             image = imageDataUrl,
             videoFrames = videoFrames,
-            videoUrl = videoUrl
+            videoUrl = videoUrl,
+            tts = ttsEnabled.value,
+            voiceId = ttsVoiceId.value,
+            ttsSpeed = ttsSpeed.value,
+            ttsLanguage = ttsLanguage.value
         )
     }
 
@@ -118,26 +137,29 @@ class ChatViewModel(
         editingMessageIndex.value = null
         selectedMessageIndex.value = null
 
-        // Store old content as variant on the original message
         val oldMsg = messages[index]
-        val oldVariants = oldMsg.variants.toMutableList()
-        if (oldVariants.isEmpty()) {
-            oldVariants.add(MessageVariant(oldMsg.content, oldMsg.thinking, oldMsg.toolCalls))
+        // Store original content as variant, set new text as current
+        val updatedVariants = oldMsg.variants.toMutableList()
+        if (updatedVariants.isEmpty()) {
+            updatedVariants.add(MessageVariant(oldMsg.content, oldMsg.thinking, oldMsg.toolCalls))
         }
-        oldVariants.add(MessageVariant(newText))
-        messages[index] = oldMsg.copy(
-            content = newText,
-            variants = oldVariants,
-            currentVariantIndex = oldVariants.size - 1
-        )
+        updatedVariants.add(MessageVariant(newText))
 
         viewModelScope.launch {
-            api.deleteMessagesFrom(convId, index + 1)
-            // Remove messages after the edited one
+            val success = api.deleteMessagesFrom(convId, index + 1)
+            if (!success) {
+                showSnackbar("Edit failed — try again")
+                return@launch
+            }
+            // Update local state only after API succeeds
+            messages[index] = oldMsg.copy(
+                content = newText,
+                variants = updatedVariants,
+                currentVariantIndex = updatedVariants.size - 1
+            )
             while (messages.size > index + 1) {
                 messages.removeAt(messages.size - 1)
             }
-            // Re-send with edited text
             currentTraceId = ""
             streamingContent.value = ""
             streamingThinking.value = ""
@@ -173,12 +195,14 @@ class ChatViewModel(
         }
 
         viewModelScope.launch {
-            api.deleteMessagesFrom(convId, lastUserIdx)
-            // Remove from the user message onward
+            val success = api.deleteMessagesFrom(convId, lastUserIdx)
+            if (!success) {
+                showSnackbar("Regenerate failed — try again")
+                return@launch
+            }
             while (messages.size > lastUserIdx) {
                 messages.removeAt(messages.size - 1)
             }
-            // Re-add the user message
             messages.add(Message(role = "user", content = userText))
 
             currentTraceId = ""
@@ -205,7 +229,7 @@ class ChatViewModel(
     fun switchVariant(messageIndex: Int, direction: Int) {
         if (messageIndex !in messages.indices) return
         val msg = messages[messageIndex]
-        if (msg.variants.isEmpty()) return
+        if (msg.variants.size < 2) return
         val newIdx = (msg.currentVariantIndex + direction).coerceIn(0, msg.variants.size - 1)
         messages[messageIndex] = msg.copy(currentVariantIndex = newIdx)
     }
@@ -489,6 +513,26 @@ class ChatViewModel(
                     generating.value = false
                     connectionState.value = ConnectionState.CONNECTED
                 }
+                is ServerEvent.AudioChunk -> {
+                    if (!event.isLast && ttsEnabled.value) {
+                        if (!isPlayingAudio.value) {
+                            audioPlayer.start(event.sampleRate)
+                            isPlayingAudio.value = true
+                        }
+                    }
+                    if (event.isLast) {
+                        audioPlayer.stop()
+                        isPlayingAudio.value = false
+                    }
+                }
+                is ServerEvent.Audio -> {
+                    // Store audio URL on the last assistant message for replay
+                    val lastIdx = messages.indexOfLast { it.role == "assistant" }
+                    if (lastIdx >= 0) {
+                        messages[lastIdx] = messages[lastIdx].copy(audioUrl = event.url)
+                    }
+                }
+                is ServerEvent.TtsInfo -> { /* Informational — log if needed */ }
                 is ServerEvent.Unknown -> { /* Ignore unrecognized event types */ }
             }
         }
@@ -531,9 +575,67 @@ class ChatViewModel(
         }
     }
 
+    // Mic recording
+    fun startRecording(context: android.content.Context) {
+        micRecorder = ai.gizmo.app.ui.components.MicRecorder(context)
+        if (micRecorder?.start() == true) {
+            isRecording.value = true
+        } else {
+            showSnackbar("Failed to start recording")
+            micRecorder = null
+        }
+    }
+
+    fun stopRecording(contentResolver: ContentResolver) {
+        isRecording.value = false
+        val file = micRecorder?.stop()
+        micRecorder = null
+        if (file != null) {
+            val uri = Uri.fromFile(file)
+            handleAudioPick(uri, contentResolver)
+            // Temp file cleaned up after upload completes
+        }
+    }
+
+    fun cancelRecording() {
+        isRecording.value = false
+        micRecorder?.cancel()
+        micRecorder = null
+    }
+
+    // Binary audio chunk handler
+    private fun handleBinaryMessage(bytes: ByteArray) {
+        viewModelScope.launch(Dispatchers.Main) {
+            if (ttsEnabled.value) {
+                audioPlayer.writeChunk(bytes)
+            }
+        }
+    }
+
+    // TTS settings persistence
+    fun loadTtsSettings(context: android.content.Context) {
+        val prefs = context.getSharedPreferences("gizmo_tts", android.content.Context.MODE_PRIVATE)
+        ttsEnabled.value = prefs.getBoolean("enabled", false)
+        ttsVoiceId.value = prefs.getString("voice_id", null)
+        ttsSpeed.value = prefs.getFloat("speed", 1.0f)
+        ttsLanguage.value = prefs.getString("language", "Auto") ?: "Auto"
+    }
+
+    fun saveTtsSettings(context: android.content.Context) {
+        val prefs = context.getSharedPreferences("gizmo_tts", android.content.Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("enabled", ttsEnabled.value)
+            .putString("voice_id", ttsVoiceId.value)
+            .putFloat("speed", ttsSpeed.value)
+            .putString("language", ttsLanguage.value)
+            .apply()
+    }
+
     override fun onCleared() {
         super.onCleared()
         webSocket.disconnect()
+        audioPlayer.release()
+        micRecorder?.cancel()
     }
 }
 

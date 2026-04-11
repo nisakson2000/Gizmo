@@ -68,7 +68,7 @@ fun MessageList(
     selectedIndex: Int?,
     editingIndex: Int?,
     onSelectMessage: (Int?) -> Unit,
-    onEditMessage: (Int) -> Unit,
+    onEditMessage: (Int, String) -> Unit,
     onStartEdit: (Int) -> Unit,
     onCancelEdit: () -> Unit,
     onCopyMessage: (String) -> Unit,
@@ -108,11 +108,8 @@ fun MessageList(
                 if (editingIndex == index && message.role == "user") {
                     InlineEditField(
                         originalText = message.content,
-                        onSave = { newText -> onEditMessage(index) },
-                        onCancel = onCancelEdit,
-                        onTextReady = { text ->
-                            // Store the text for when save is called
-                        }
+                        onSave = { newText -> onEditMessage(index, newText) },
+                        onCancel = onCancelEdit
                     )
                 } else {
                     MessageBubble(
@@ -177,8 +174,7 @@ fun MessageList(
 private fun InlineEditField(
     originalText: String,
     onSave: (String) -> Unit,
-    onCancel: () -> Unit,
-    onTextReady: (String) -> Unit
+    onCancel: () -> Unit
 ) {
     var editText by remember { mutableStateOf(originalText) }
 

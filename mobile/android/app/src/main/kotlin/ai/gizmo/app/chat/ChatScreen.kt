@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,11 +46,13 @@ import ai.gizmo.app.R
 import ai.gizmo.app.model.ChatViewModel
 import ai.gizmo.app.placeholder.PlaceholderScreen
 import ai.gizmo.app.settings.SettingsScreen
+import ai.gizmo.app.model.Voice
 import ai.gizmo.app.ui.components.BottomNav
 import ai.gizmo.app.ui.components.ConnectionIndicator
 import ai.gizmo.app.ui.theme.BgPrimary
 import ai.gizmo.app.ui.theme.TextDim
 import ai.gizmo.app.ui.theme.TextPrimary
+import ai.gizmo.app.voice.VoiceStudioScreen
 import ai.gizmo.app.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 
@@ -65,8 +68,16 @@ fun ChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
+    var showVoiceStudio by remember { mutableStateOf(false) }
     var inputText by remember { mutableStateOf("") }
     var editText by remember { mutableStateOf("") }
+    val voices = remember { mutableStateListOf<Voice>() }
+
+    // Load TTS settings
+    LaunchedEffect(Unit) {
+        viewModel.loadTtsSettings(context)
+        voices.addAll(viewModel.api.getVoices())
+    }
 
     // Unified snackbar: observe viewModel.snackbarMessage
     LaunchedEffect(viewModel.snackbarMessage.value) {
@@ -200,8 +211,8 @@ fun ChatScreen(
                                 selectedIndex = viewModel.selectedMessageIndex.value,
                                 editingIndex = viewModel.editingMessageIndex.value,
                                 onSelectMessage = { viewModel.selectedMessageIndex.value = it },
-                                onEditMessage = { idx ->
-                                    viewModel.editMessage(idx, editText)
+                                onEditMessage = { idx, newText ->
+                                    viewModel.editMessage(idx, newText)
                                 },
                                 onStartEdit = { idx ->
                                     editText = viewModel.messages[idx].content
@@ -241,6 +252,15 @@ fun ChatScreen(
                             onPickDocument = { docPickerLauncher.launch("*/*") },
                             onPickVideo = { videoPickerLauncher.launch("video/*") },
                             onPickAudio = { audioPickerLauncher.launch("audio/*") },
+                            isRecording = viewModel.isRecording.value,
+                            onMicTap = {
+                                if (viewModel.isRecording.value) {
+                                    viewModel.stopRecording(context.contentResolver)
+                                } else {
+                                    viewModel.startRecording(context)
+                                }
+                            },
+                            onMicLongPress = { viewModel.cancelRecording() },
                             onSend = { text ->
                                 viewModel.sendMessage(text)
                                 inputText = ""
@@ -271,7 +291,26 @@ fun ChatScreen(
             serverUrl = viewModel.serverUrl,
             onRefreshHealth = { viewModel.loadServiceHealth() },
             onSwitchServer = onSwitchServer,
+            onOpenVoiceStudio = { showSettings = false; showVoiceStudio = true },
+            ttsEnabled = viewModel.ttsEnabled.value,
+            onTtsChanged = { viewModel.ttsEnabled.value = it; viewModel.saveTtsSettings(context) },
+            ttsSpeed = viewModel.ttsSpeed.value,
+            onTtsSpeedChanged = { viewModel.ttsSpeed.value = it; viewModel.saveTtsSettings(context) },
+            ttsLanguage = viewModel.ttsLanguage.value,
+            onTtsLanguageChanged = { viewModel.ttsLanguage.value = it; viewModel.saveTtsSettings(context) },
+            voices = voices,
+            selectedVoiceId = viewModel.ttsVoiceId.value,
+            onVoiceSelected = { viewModel.ttsVoiceId.value = it; viewModel.saveTtsSettings(context) },
             onDismiss = { showSettings = false }
+        )
+    }
+
+    if (showVoiceStudio) {
+        VoiceStudioScreen(
+            api = viewModel.api,
+            selectedVoiceId = viewModel.ttsVoiceId.value,
+            onSelectVoice = { viewModel.ttsVoiceId.value = it; viewModel.saveTtsSettings(context) },
+            onDismiss = { showVoiceStudio = false; scope.launch { voices.clear(); voices.addAll(viewModel.api.getVoices()) } }
         )
     }
 }

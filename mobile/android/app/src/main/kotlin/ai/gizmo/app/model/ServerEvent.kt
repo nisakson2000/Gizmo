@@ -12,6 +12,9 @@ sealed class ServerEvent {
     data class Usage(val promptTokens: Int, val completionTokens: Int, val totalTokens: Int) : ServerEvent()
     data class Done(val traceId: String, val conversationId: String) : ServerEvent()
     data class Error(val error: String, val traceId: String?) : ServerEvent()
+    data class AudioChunk(val chunkIndex: Int, val sentenceIndex: Int, val sampleRate: Int, val isLast: Boolean) : ServerEvent()
+    data class Audio(val url: String) : ServerEvent()
+    data class TtsInfo(val message: String) : ServerEvent()
     data class Unknown(val type: String) : ServerEvent()
 
     companion object {
@@ -45,6 +48,14 @@ sealed class ServerEvent {
                     error = json.optString("error", ""),
                     traceId = json.optString("trace_id").takeIf { it.isNotEmpty() }
                 )
+                "audio_chunk" -> AudioChunk(
+                    chunkIndex = json.optInt("chunk_index", 0),
+                    sentenceIndex = json.optInt("sentence_index", 0),
+                    sampleRate = json.optInt("sample_rate", 24000),
+                    isLast = json.optBoolean("is_last", false)
+                )
+                "audio" -> Audio(url = json.optString("url", ""))
+                "tts_info" -> TtsInfo(message = json.optString("message", ""))
                 else -> Unknown(type)
             }
         }
