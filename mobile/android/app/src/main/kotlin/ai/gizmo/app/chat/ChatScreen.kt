@@ -44,8 +44,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ai.gizmo.app.R
 import ai.gizmo.app.model.ChatViewModel
+import ai.gizmo.app.analytics.AnalyticsScreen
 import ai.gizmo.app.code.CodeScreen
-import ai.gizmo.app.placeholder.PlaceholderScreen
 import ai.gizmo.app.tracker.TrackerScreen
 import ai.gizmo.app.settings.SettingsScreen
 import ai.gizmo.app.model.Voice
@@ -79,8 +79,9 @@ fun ChatScreen(
     var editText by remember { mutableStateOf("") }
     val voices = remember { mutableStateListOf<Voice>() }
 
-    // Load persisted settings
+    // Load persisted settings + theme
     LaunchedEffect(Unit) {
+        ai.gizmo.app.ui.theme.ThemeManager.loadTheme(context)
         viewModel.loadSettings(context)
         voices.addAll(viewModel.api.getVoices())
     }
@@ -285,8 +286,8 @@ fun ChatScreen(
                     serverUrl = viewModel.serverUrl,
                     modifier = Modifier.padding(padding)
                 )
-                else -> PlaceholderScreen(
-                    tabName = "Stats",
+                else -> AnalyticsScreen(
+                    api = viewModel.api,
                     modifier = Modifier.padding(padding)
                 )
             }

@@ -2,47 +2,55 @@ package ai.gizmo.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 
-val BgPrimary = Color(0xFF141414)
-val BgSecondary = Color(0xFF1E1E1E)
-val BgTertiary = Color(0xFF282828)
-val BgHover = Color(0xFF323232)
-val Border = Color(0xFF3D3D3D)
-val Accent = Color(0xFFD4A574)
-val AccentDim = Color(0xFFB8885A)
-val TextPrimary = Color(0xFFECECEC)
-val TextSecondary = Color(0xFFA0A0A0)
-val TextDim = Color(0xFF666666)
-val ThinkingBg = Color(0xFF2A2520)
-val ThinkingBorder = Color(0xFFD4A574)
-val Success = Color(0xFF5CB77A)
-val ErrorColor = Color(0xFFE06060)
-val UserMsg = Color(0xFF2B2B2B)
-
-private val GizmoDarkColorScheme = darkColorScheme(
-    primary = Accent,
-    onPrimary = BgPrimary,
-    primaryContainer = AccentDim,
-    secondary = Accent,
-    surface = BgPrimary,
-    surfaceContainer = BgSecondary,
-    surfaceContainerHigh = BgTertiary,
-    onSurface = TextPrimary,
-    onSurfaceVariant = TextSecondary,
-    background = BgPrimary,
-    onBackground = TextPrimary,
-    error = ErrorColor,
-    onError = TextPrimary,
-    outline = Border,
-    outlineVariant = Border
-)
+// Dynamic color accessors — these read from ThemeManager.currentPalette
+val BgPrimary: Color get() = ThemeManager.currentPalette.value.bgPrimary
+val BgSecondary: Color get() = ThemeManager.currentPalette.value.bgSecondary
+val BgTertiary: Color get() = ThemeManager.currentPalette.value.bgTertiary
+val BgHover: Color get() = ThemeManager.currentPalette.value.bgHover
+val Border: Color get() = ThemeManager.currentPalette.value.border
+val Accent: Color get() = ThemeManager.currentPalette.value.accent
+val AccentDim: Color get() = ThemeManager.currentPalette.value.accentDim
+val TextPrimary: Color get() = ThemeManager.currentPalette.value.textPrimary
+val TextSecondary: Color get() = ThemeManager.currentPalette.value.textSecondary
+val TextDim: Color get() = ThemeManager.currentPalette.value.textDim
+val ThinkingBg: Color get() = ThemeManager.currentPalette.value.thinkingBg
+val ThinkingBorder: Color get() = ThemeManager.currentPalette.value.thinkingBorder
+val Success: Color get() = ThemeManager.currentPalette.value.success
+val ErrorColor: Color get() = ThemeManager.currentPalette.value.error
+val UserMsg: Color get() = ThemeManager.currentPalette.value.userMsg
 
 @Composable
 fun GizmoTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = GizmoDarkColorScheme,
-        content = content
-    )
+    val palette by ThemeManager.currentPalette
+
+    val colorScheme = if (palette.isLight) {
+        lightColorScheme(
+            primary = palette.accent, onPrimary = palette.bgPrimary,
+            primaryContainer = palette.accentDim, secondary = palette.accent,
+            surface = palette.bgPrimary, surfaceContainer = palette.bgSecondary,
+            surfaceContainerHigh = palette.bgTertiary,
+            onSurface = palette.textPrimary, onSurfaceVariant = palette.textSecondary,
+            background = palette.bgPrimary, onBackground = palette.textPrimary,
+            error = palette.error, onError = palette.textPrimary,
+            outline = palette.border, outlineVariant = palette.border
+        )
+    } else {
+        darkColorScheme(
+            primary = palette.accent, onPrimary = palette.bgPrimary,
+            primaryContainer = palette.accentDim, secondary = palette.accent,
+            surface = palette.bgPrimary, surfaceContainer = palette.bgSecondary,
+            surfaceContainerHigh = palette.bgTertiary,
+            onSurface = palette.textPrimary, onSurfaceVariant = palette.textSecondary,
+            background = palette.bgPrimary, onBackground = palette.textPrimary,
+            error = palette.error, onError = palette.textPrimary,
+            outline = palette.border, outlineVariant = palette.border
+        )
+    }
+
+    MaterialTheme(colorScheme = colorScheme, content = content)
 }

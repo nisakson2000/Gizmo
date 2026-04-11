@@ -1,6 +1,7 @@
 package ai.gizmo.app.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -210,6 +211,31 @@ fun SettingsScreen(
             HorizontalDivider(color = Border)
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Theme selector
+            SectionHeader("Theme")
+            Spacer(modifier = Modifier.height(8.dp))
+            val themes = ai.gizmo.app.ui.theme.ALL_THEMES
+            val currentTheme = ai.gizmo.app.ui.theme.ThemeManager.currentThemeKey.value
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                themes.take(5).forEach { t ->
+                    ThemeButton(t.key, t.label, t.palette.accent, currentTheme == t.key) {
+                        ai.gizmo.app.ui.theme.ThemeManager.setTheme(t.key, null)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                themes.drop(5).forEach { t ->
+                    ThemeButton(t.key, t.label, t.palette.accent, currentTheme == t.key) {
+                        ai.gizmo.app.ui.theme.ThemeManager.setTheme(t.key, null)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Border)
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Mode & Memory tools
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onOpenModeEditor) { Text("Mode Editor", color = Accent) }
@@ -362,4 +388,20 @@ private fun SectionHeader(text: String) {
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.5.sp
     )
+}
+
+@Composable
+private fun ThemeButton(key: String, label: String, swatchColor: androidx.compose.ui.graphics.Color, isSelected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected) swatchColor.copy(alpha = 0.2f) else BgTertiary,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, swatchColor) else null,
+        modifier = Modifier.width(56.dp).height(48.dp)
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.padding(4.dp)) {
+            Surface(shape = CircleShape, color = swatchColor, modifier = Modifier.size(16.dp)) {}
+            Text(label, color = TextPrimary, fontSize = 8.sp, maxLines = 1)
+        }
+    }
 }

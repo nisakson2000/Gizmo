@@ -710,6 +710,72 @@ class GizmoApi(private val serverUrl: String) {
         } catch (_: Exception) { emptyList() }
     }
 
+    // --- Analytics API ---
+
+    suspend fun getAnalyticsSummary(): ai.gizmo.app.model.AnalyticsSummary = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/analytics/summary").build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext ai.gizmo.app.model.AnalyticsSummary()
+            val body = response.body?.string() ?: return@withContext ai.gizmo.app.model.AnalyticsSummary()
+            val obj = JSONObject(body)
+            val provArr = obj.optJSONArray("providers")
+            val providers = if (provArr != null) (0 until provArr.length()).map { i ->
+                val p = provArr.getJSONObject(i)
+                ai.gizmo.app.model.ProviderCost(p.getString("provider"), p.getDouble("input_price_per_1m"), p.getDouble("output_price_per_1m"), p.getDouble("estimated_cost_usd"))
+            } else emptyList()
+            ai.gizmo.app.model.AnalyticsSummary(
+                totalPromptTokens = obj.optLong("total_prompt_tokens"), totalCompletionTokens = obj.optLong("total_completion_tokens"),
+                totalTokens = obj.optLong("total_tokens"), totalMessages = obj.optInt("total_messages"),
+                totalConversations = obj.optInt("total_conversations"), avgResponseMs = obj.optLong("avg_response_ms"),
+                avgContextMs = obj.optLong("avg_context_ms"), estimatedSavingsUsd = obj.optDouble("estimated_savings_usd", 0.0),
+                providers = providers
+            )
+        } catch (_: Exception) { ai.gizmo.app.model.AnalyticsSummary() }
+    }
+
+    suspend fun getAnalyticsDaily(days: Int = 30): List<ai.gizmo.app.model.DailyUsage> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/analytics/daily?days=$days").build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList()
+            val arr = JSONArray(body)
+            (0 until arr.length()).map { i ->
+                val d = arr.getJSONObject(i)
+                ai.gizmo.app.model.DailyUsage(d.getString("date"), d.optLong("prompt_tokens"), d.optLong("completion_tokens"), d.optLong("total_tokens"), d.optInt("messages"))
+            }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    suspend fun getAnalyticsConversations(): List<ai.gizmo.app.model.ConversationUsage> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/analytics/conversations").build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList()
+            val arr = JSONArray(body)
+            (0 until arr.length()).map { i ->
+                val c = arr.getJSONObject(i)
+                ai.gizmo.app.model.ConversationUsage(c.getString("conversation_id"), c.optString("title", ""), c.optLong("prompt_tokens"), c.optLong("completion_tokens"), c.optLong("total_tokens"), c.optInt("messages"))
+            }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    suspend fun getAnalyticsModes(): List<ai.gizmo.app.model.ModeUsage> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/api/analytics/modes").build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList()
+            val arr = JSONArray(body)
+            (0 until arr.length()).map { i ->
+                val m = arr.getJSONObject(i)
+                ai.gizmo.app.model.ModeUsage(m.getString("mode"), m.optLong("total_tokens"), m.optInt("messages"))
+            }
+        } catch (_: Exception) { emptyList() }
+    }
+
     // --- Code Playground API ---
 
     suspend fun runCode(code: String, language: String, timeout: Int = 10, stdin: String = ""): ai.gizmo.app.model.ExecutionResult = withContext(Dispatchers.IO) {
