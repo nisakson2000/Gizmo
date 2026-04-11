@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { codePlaygroundOpen } from '$lib/stores/settings';
-	import { pendingSuggestion } from '$lib/stores/settings';
+	import { codePlaygroundOpen, pendingAction } from '$lib/stores/settings';
 	import { toast } from '$lib/stores/toast';
 	import { marked } from 'marked';
 
@@ -134,7 +133,7 @@
 		if (!code.trim()) return;
 		const langLabel = LANGUAGE_LABELS[language];
 		const prompt = `Run this ${langLabel} code and explain the output:\n\`\`\`${language}\n${code.trim()}\n\`\`\``;
-		pendingSuggestion.set(prompt);
+		pendingAction.set({ type: 'prompt', text: prompt });
 		codePlaygroundOpen.set(false);
 	}
 

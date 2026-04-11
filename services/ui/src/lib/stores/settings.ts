@@ -1,12 +1,13 @@
 import { writable } from 'svelte/store';
 import { persistedWritable } from './persisted';
+import type { SuggestionAction } from '$lib/constants/suggestions';
 
 export const thinkingEnabled = persistedWritable('gizmo:thinking', false);
 export const ttsEnabled = persistedWritable('gizmo:tts', false);
 export const contextLength = persistedWritable('gizmo:contextLength', 32768);
 export const sidebarOpen = persistedWritable('gizmo:sidebar', true);
 export const settingsOpen = writable(false);
-export const pendingSuggestion = writable('');
+export const pendingAction = writable<SuggestionAction | null>(null);
 export const voiceStudioOpen = writable(false);
 export const memoryManagerOpen = writable(false);
 export const codePlaygroundOpen = writable(false);

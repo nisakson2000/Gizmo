@@ -2,7 +2,8 @@
 	import { generating, generatingConversationId, activeConversationId, addUserMessage } from '$lib/stores/chat';
 	import { send, stopGeneration } from '$lib/ws/client';
 	import { connectionStatus } from '$lib/stores/connection';
-	import { pendingSuggestion, thinkingEnabled, voiceStudioOpen, focusTrigger } from '$lib/stores/settings';
+	import { pendingAction, thinkingEnabled, voiceStudioOpen, focusTrigger } from '$lib/stores/settings';
+	import { UPLOAD_ACCEPT_DOCS } from '$lib/constants/suggestions';
 	import ModeSelector from './ModeSelector.svelte';
 	import { toast } from '$lib/stores/toast';
 	import { fetchWithTimeout } from '$lib/utils/fetch';
@@ -18,7 +19,6 @@
 	let textarea: HTMLTextAreaElement;
 	let mediaRecorder: MediaRecorder | null = null;
 
-	// Accept suggestion from empty state cards
 	function focusInput() {
 		if (!textarea) return;
 		textarea.focus();
@@ -27,22 +27,23 @@
 	}
 
 	$effect(() => {
-		const s = $pendingSuggestion;
-		if (s) {
-			pendingSuggestion.set('');
-			if (s === '__upload_audio__') { openFilePicker('audio/*'); return; }
-			if (s === '__upload_image__') { openFilePicker('image/*'); return; }
-			if (s === '__upload_video__') { openFilePicker('video/*'); return; }
-			if (s === '__upload_file__') { openFilePicker('.pdf,.txt,.md,.py,.js,.ts,.json,.yaml,.yml,.toml,.csv,.html,.xml,.zip'); return; }
-			if (s.startsWith('__enable_thinking__')) {
+		const action = $pendingAction;
+		if (!action) return;
+		pendingAction.set(null);
+		switch (action.type) {
+			case 'upload':
+				if (action.prompt) input = action.prompt;
+				openFilePicker(action.accept);
+				break;
+			case 'think':
 				thinkingEnabled.set(true);
-				const stub = s.slice('__enable_thinking__'.length);
-				if (stub) input = stub;
+				input = action.stub;
 				focusInput();
-				return;
-			}
-			input = s;
-			focusInput();
+				break;
+			case 'prompt':
+				input = action.text;
+				focusInput();
+				break;
 		}
 	});
 
@@ -226,11 +227,7 @@
 	}
 
 	function handleFileUpload() {
-		openFilePicker('image/*,video/*,audio/*,.pdf,.txt,.md,.py,.js,.ts,.json,.yaml,.yml,.toml,.csv');
-	}
-
-	function openAudioPicker() {
-		openFilePicker('audio/*');
+		openFilePicker(`image/*,video/*,audio/*,${UPLOAD_ACCEPT_DOCS}`);
 	}
 
 	async function toggleRecording() {

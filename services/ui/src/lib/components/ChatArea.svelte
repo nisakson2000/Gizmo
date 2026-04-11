@@ -2,30 +2,20 @@
 	import { marked } from 'marked';
 	import { tick } from 'svelte';
 	import { messages, generating, streamingThinking, streamingContent, streamingToolCalls, activeConversationId, generatingConversationId, loadingConversation } from '$lib/stores/chat';
-	import { pendingSuggestion, voiceStudioOpen } from '$lib/stores/settings';
+	import { pendingAction, voiceStudioOpen } from '$lib/stores/settings';
 	import { sanitize } from '$lib/utils/sanitize';
 	import { highlightCode } from '$lib/actions/highlight';
 	import ChatMessage from './ChatMessage.svelte';
 	import ThinkingBlock from './ThinkingBlock.svelte';
 	import ToolCallBlock from './ToolCallBlock.svelte';
+	import { suggestions, type SuggestionAction } from '$lib/constants/suggestions';
 
-	const suggestions = [
-		{ icon: 'eye', label: 'Vision', prompt: '__upload_image__', desc: 'Analyze images, screenshots, diagrams' },
-		{ icon: 'video', label: 'Video', prompt: '__upload_video__', desc: 'Upload videos for frame-by-frame analysis' },
-		{ icon: 'audio', label: 'Audio', prompt: '__upload_audio__', desc: 'Transcribe & analyze audio files' },
-		{ icon: 'search', label: 'Search', prompt: 'Search the web for the latest news today', desc: 'Real-time web search via SearXNG' },
-		{ icon: 'brain', label: 'Reason', prompt: '__enable_thinking__Think through ', desc: 'Extended thinking for complex problems' },
-		{ icon: 'code', label: 'Code', prompt: 'Write code that ', desc: 'Ask Gizmo to write and run code' },
-		{ icon: 'mic', label: 'Voice Studio', prompt: '__voice_studio__', desc: 'Clone voices & text-to-speech' },
-		{ icon: 'file', label: 'Files', prompt: '__upload_file__', desc: 'Upload PDFs, code, text for analysis' },
-	];
-
-	function useSuggestion(prompt: string) {
-		if (prompt === '__voice_studio__') {
+	function useSuggestion(action: SuggestionAction) {
+		if (action.type === 'voice_studio') {
 			voiceStudioOpen.set(true);
 			return;
 		}
-		pendingSuggestion.set(prompt);
+		pendingAction.set(action);
 	}
 
 	let chatContainer: HTMLDivElement;
@@ -136,7 +126,7 @@
 			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-2xl w-full text-sm">
 				{#each suggestions as s}
 					<button
-						onclick={() => useSuggestion(s.prompt)}
+						onclick={() => useSuggestion(s.action)}
 						class="bg-bg-secondary/60 border border-border/50 rounded-xl px-4 py-3 text-left hover:border-accent/40 hover:bg-bg-secondary hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
 					>
 						<div class="flex items-center gap-2 mb-1">
