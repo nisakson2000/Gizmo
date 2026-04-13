@@ -195,6 +195,11 @@ fun CodeScreen(api: GizmoApi, serverUrl: String, modifier: Modifier = Modifier) 
                         factory = { ctx -> WebView(ctx).apply {
                             settings.javaScriptEnabled = true
                             settings.allowFileAccess = false
+                            settings.allowContentAccess = false
+                            @Suppress("DEPRECATION")
+                            settings.allowFileAccessFromFileURLs = false
+                            @Suppress("DEPRECATION")
+                            settings.allowUniversalAccessFromFileURLs = false
                             loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
                         }},
                         update = { it.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null) },

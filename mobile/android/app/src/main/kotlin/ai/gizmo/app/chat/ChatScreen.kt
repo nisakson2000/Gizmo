@@ -324,6 +324,8 @@ fun ChatScreen(
             voices = voices,
             selectedVoiceId = viewModel.ttsVoiceId.value,
             onVoiceSelected = { viewModel.ttsVoiceId.value = it; viewModel.saveSettings(context) },
+            trustAllCerts = viewModel.trustAllCerts.value,
+            onTrustAllCertsChanged = { viewModel.setTrustAllCerts(it, context) },
             onDismiss = { showSettings = false }
         )
     }

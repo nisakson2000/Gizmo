@@ -35,6 +35,11 @@ class GizmoPreferences(context: Context) {
         get() = prefs.getString("app_theme", "default") ?: "default"
         set(value) = prefs.edit().putString("app_theme", value).apply()
 
+    // Security
+    var trustAllCerts: Boolean
+        get() = prefs.getBoolean("trust_all_certs", true) // ON by default for backward compat
+        set(value) = prefs.edit().putBoolean("trust_all_certs", value).apply()
+
     fun loadAll(): SettingsSnapshot = SettingsSnapshot(
         ttsEnabled = ttsEnabled, ttsVoiceId = ttsVoiceId, ttsSpeed = ttsSpeed,
         ttsLanguage = ttsLanguage, selectedMode = selectedMode, appTheme = appTheme

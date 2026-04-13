@@ -51,6 +51,7 @@ class ChatViewModel(
     val ttsLanguage = mutableStateOf("Auto")
     val isPlayingAudio = mutableStateOf(false)
     val isRecording = mutableStateOf(false)
+    val trustAllCerts = mutableStateOf(true)
 
     private var pendingImageDataUrl: String? = null
     private var pendingDocumentContent: String? = null
@@ -602,6 +603,12 @@ class ChatViewModel(
         }
     }
 
+    fun setTrustAllCerts(value: Boolean, context: android.content.Context) {
+        trustAllCerts.value = value
+        GizmoPreferences(context).trustAllCerts = value
+        ai.gizmo.app.network.GizmoApi.rebuildClient(value)
+    }
+
     fun loadSettings(context: android.content.Context) {
         val prefs = GizmoPreferences(context)
         ttsEnabled.value = prefs.ttsEnabled
@@ -609,6 +616,8 @@ class ChatViewModel(
         ttsSpeed.value = prefs.ttsSpeed
         ttsLanguage.value = prefs.ttsLanguage
         selectedMode.value = prefs.selectedMode
+        trustAllCerts.value = prefs.trustAllCerts
+        ai.gizmo.app.network.GizmoApi.rebuildClient(prefs.trustAllCerts)
         thinkingEnabled.value = false // Always starts disabled per session
     }
 

@@ -87,6 +87,8 @@ fun SettingsScreen(
     voices: List<ai.gizmo.app.model.Voice>,
     selectedVoiceId: String?,
     onVoiceSelected: (String?) -> Unit,
+    trustAllCerts: Boolean,
+    onTrustAllCertsChanged: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -372,6 +374,28 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(onClick = onSwitchServer) {
                 Text(stringResource(R.string.switch_server), color = Accent)
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Border)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Security
+            SectionHeader("Security")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            ) {
+                Text("Trust all certificates", color = TextPrimary, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = trustAllCerts,
+                    onCheckedChange = onTrustAllCertsChanged,
+                    colors = SwitchDefaults.colors(checkedThumbColor = Accent, checkedTrackColor = Accent.copy(alpha = 0.3f))
+                )
+            }
+            if (trustAllCerts) {
+                Text("Certificate validation disabled — only use on trusted networks",
+                    color = ErrorColor, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
             }
 
             Spacer(modifier = Modifier.height(32.dp))

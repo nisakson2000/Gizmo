@@ -35,23 +35,51 @@ data class VideoUploadResult(
 class GizmoApi(private val serverUrl: String) {
 
     companion object {
-        private val trustManager = object : X509TrustManager {
+        private const val MAX_IMAGE_SIZE = 50L * 1024 * 1024 // 50MB
+        private const val MAX_DOC_SIZE = 50L * 1024 * 1024
+        private const val MAX_VIDEO_SIZE = 500L * 1024 * 1024
+
+        private val trustAllManager = object : X509TrustManager {
             override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
             override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
             override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
         }
 
-        private val sslContext: SSLContext = SSLContext.getInstance("TLS").apply {
-            init(null, arrayOf(trustManager), SecureRandom())
+        private val trustAllSslContext: SSLContext = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf(trustAllManager), SecureRandom())
         }
 
-        val client: OkHttpClient = OkHttpClient.Builder()
-            .sslSocketFactory(sslContext.socketFactory, trustManager)
-            .hostnameVerifier { _, _ -> true }
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
+        private var _trustAll = true
+        var client: OkHttpClient = buildClient(true)
+            private set
+
+        fun rebuildClient(trustAll: Boolean) {
+            if (_trustAll == trustAll) return
+            _trustAll = trustAll
+            client = buildClient(trustAll)
+        }
+
+        private fun buildClient(trustAll: Boolean): OkHttpClient {
+            val builder = OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+            if (trustAll) {
+                builder.sslSocketFactory(trustAllSslContext.socketFactory, trustAllManager)
+                builder.hostnameVerifier { _, _ -> true }
+            }
+            return builder.build()
+        }
+
+        fun sanitizeFilename(name: String): String =
+            name.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                .replace("..", "_")
+                .take(255)
+
+        fun validateServerUrl(url: String): Boolean {
+            val trimmed = url.trim().lowercase()
+            return trimmed.startsWith("http://") || trimmed.startsWith("https://")
+        }
     }
 
     private val baseUrl = serverUrl.trimEnd('/')
@@ -310,16 +338,18 @@ class GizmoApi(private val serverUrl: String) {
 
     suspend fun downloadFile(url: String): Pair<String, ByteArray>? = withContext(Dispatchers.IO) {
         try {
+            // Only allow /api/ paths or same-origin URLs
+            if (!url.startsWith("/api/") && !url.startsWith(baseUrl)) return@withContext null
             val fullUrl = if (url.startsWith("/")) "$baseUrl$url" else url
             val request = Request.Builder().url(fullUrl).build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) return@withContext null
             val bytes = response.body?.bytes() ?: return@withContext null
             val disposition = response.header("Content-Disposition")
-            val filename = disposition?.substringAfter("filename=", "")
+            val rawFilename = disposition?.substringAfter("filename=", "")
                 ?.trim('"')?.takeIf { it.isNotEmpty() }
                 ?: fullUrl.substringAfterLast("/")
-            Pair(filename, bytes)
+            Pair(sanitizeFilename(rawFilename), bytes)
         } catch (_: Exception) {
             null
         }
