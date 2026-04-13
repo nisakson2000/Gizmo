@@ -235,10 +235,12 @@ fun ChatScreen(
                         } else {
                             EmptyState(
                                 onSuggestionClick = { inputText = it },
-                                onPickImage = { imagePickerLauncher.launch("image/*") },
-                                onPickVideo = { videoPickerLauncher.launch("video/*") },
-                                onPickAudio = { audioPickerLauncher.launch("audio/*") },
-                                onPickDocument = { docPickerLauncher.launch("*/*") },
+                                filePickers = FilePickerCallbacks(
+                                    onPickImage = { imagePickerLauncher.launch("image/*") },
+                                    onPickVideo = { videoPickerLauncher.launch("video/*") },
+                                    onPickAudio = { audioPickerLauncher.launch("audio/*") },
+                                    onPickDocument = { docPickerLauncher.launch("*/*") }
+                                ),
                                 modifier = Modifier.weight(1f)
                             )
                         }

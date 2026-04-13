@@ -43,6 +43,13 @@ import ai.gizmo.app.ui.theme.TextDim
 import ai.gizmo.app.ui.theme.TextPrimary
 import ai.gizmo.app.ui.theme.TextSecondary
 
+data class FilePickerCallbacks(
+    val onPickImage: (() -> Unit)? = null,
+    val onPickVideo: (() -> Unit)? = null,
+    val onPickAudio: (() -> Unit)? = null,
+    val onPickDocument: (() -> Unit)? = null
+)
+
 data class Suggestion(
     val labelRes: Int,
     val descRes: Int,
@@ -65,10 +72,7 @@ private val suggestions = listOf(
 @Composable
 fun EmptyState(
     onSuggestionClick: (String) -> Unit,
-    onPickImage: (() -> Unit)? = null,
-    onPickVideo: (() -> Unit)? = null,
-    onPickAudio: (() -> Unit)? = null,
-    onPickDocument: (() -> Unit)? = null,
+    filePickers: FilePickerCallbacks = FilePickerCallbacks(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -112,10 +116,10 @@ fun EmptyState(
                     suggestion = suggestion,
                     onClick = { prompt ->
                         when (suggestion.special) {
-                            "image" -> onPickImage?.invoke() ?: onSuggestionClick(prompt)
-                            "video" -> onPickVideo?.invoke() ?: onSuggestionClick(prompt)
-                            "audio" -> onPickAudio?.invoke() ?: onSuggestionClick(prompt)
-                            "document" -> onPickDocument?.invoke() ?: onSuggestionClick(prompt)
+                            "image" -> filePickers.onPickImage?.invoke() ?: onSuggestionClick(prompt)
+                            "video" -> filePickers.onPickVideo?.invoke() ?: onSuggestionClick(prompt)
+                            "audio" -> filePickers.onPickAudio?.invoke() ?: onSuggestionClick(prompt)
+                            "document" -> filePickers.onPickDocument?.invoke() ?: onSuggestionClick(prompt)
                             "voice_studio" -> Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
                             else -> onSuggestionClick(prompt)
                         }
