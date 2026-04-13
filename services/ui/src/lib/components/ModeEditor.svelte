@@ -140,8 +140,9 @@
 		saving = false;
 	}
 
+	let isBuiltin = $derived(detail != null && BUILTIN.has(detail.name));
 	let hasChanges = $derived(
-		detail != null && (editPrompt !== detail.system_prompt || editLabel !== detail.label || editDescription !== detail.description)
+		detail != null && !isBuiltin && (editPrompt !== detail.system_prompt || editLabel !== detail.label || editDescription !== detail.description)
 	);
 </script>
 
@@ -226,33 +227,41 @@
 						</div>
 					{:else if detail}
 						<div class="space-y-4">
+							{#if isBuiltin}
+								<div class="flex items-center gap-2 px-3 py-2 bg-bg-tertiary/40 rounded-lg border border-border/20">
+									<svg class="w-3.5 h-3.5 text-text-dim shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+									</svg>
+									<span class="text-xs text-text-dim">Built-in mode — read only</span>
+								</div>
+							{/if}
 							<div class="flex gap-4">
 								<div class="flex-1">
 									<label class="block text-xs text-text-dim mb-1" for="edit-label">Label</label>
-									<input id="edit-label" bind:value={editLabel} class="w-full bg-bg-primary border border-border/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/40" />
+									<input id="edit-label" bind:value={editLabel} disabled={isBuiltin} class="w-full bg-bg-primary border border-border/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/40 disabled:opacity-50 disabled:cursor-not-allowed" />
 								</div>
 								<div class="flex-1">
 									<label class="block text-xs text-text-dim mb-1" for="edit-desc">Description</label>
-									<input id="edit-desc" bind:value={editDescription} class="w-full bg-bg-primary border border-border/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/40" />
+									<input id="edit-desc" bind:value={editDescription} disabled={isBuiltin} class="w-full bg-bg-primary border border-border/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/40 disabled:opacity-50 disabled:cursor-not-allowed" />
 								</div>
 							</div>
 							<div>
 								<label class="block text-xs text-text-dim mb-1" for="edit-prompt">System Prompt {detail.name === 'chat' ? '(empty = default behavior)' : ''}</label>
-								<textarea id="edit-prompt" bind:value={editPrompt} rows="14" class="w-full bg-bg-primary border border-border/50 rounded-lg px-3 py-2 text-sm text-text-primary font-mono focus:outline-none focus:border-accent/40 resize-y" placeholder="Behavioral instructions..."></textarea>
+								<textarea id="edit-prompt" bind:value={editPrompt} disabled={isBuiltin} rows="14" class="w-full bg-bg-primary border border-border/50 rounded-lg px-3 py-2 text-sm text-text-primary font-mono focus:outline-none focus:border-accent/40 resize-y disabled:opacity-50 disabled:cursor-not-allowed" placeholder="Behavioral instructions..."></textarea>
 							</div>
-							<div class="flex items-center gap-2">
-								<button onclick={saveMode} disabled={saving || !hasChanges} class="px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-dim transition-colors disabled:opacity-50">
-									{saving ? 'Saving...' : 'Save'}
-								</button>
-								<button onclick={resetMode} disabled={!hasChanges} class="px-4 py-2 rounded-lg text-sm font-medium bg-bg-tertiary/50 text-text-secondary hover:bg-bg-tertiary transition-colors disabled:opacity-50">
-									Reset
-								</button>
-								{#if !BUILTIN.has(detail.name)}
+							{#if !isBuiltin}
+								<div class="flex items-center gap-2">
+									<button onclick={saveMode} disabled={saving || !hasChanges} class="px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-dim transition-colors disabled:opacity-50">
+										{saving ? 'Saving...' : 'Save'}
+									</button>
+									<button onclick={resetMode} disabled={!hasChanges} class="px-4 py-2 rounded-lg text-sm font-medium bg-bg-tertiary/50 text-text-secondary hover:bg-bg-tertiary transition-colors disabled:opacity-50">
+										Reset
+									</button>
 									<button onclick={deleteMode} class="ml-auto px-4 py-2 rounded-lg text-sm font-medium text-error hover:bg-error/10 transition-colors">
 										Delete
 									</button>
-								{/if}
-							</div>
+								</div>
+							{/if}
 						</div>
 					{:else}
 						<div class="flex items-center justify-center h-full text-text-dim text-sm">

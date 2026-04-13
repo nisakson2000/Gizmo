@@ -351,7 +351,7 @@
 </script>
 
 <svelte:head>
-	<title>Gizmo-AI — Code</title>
+	<title>Gizmo — Code</title>
 </svelte:head>
 
 <div class="console-frame flex flex-col h-full bg-bg-primary">

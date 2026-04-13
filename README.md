@@ -1,6 +1,6 @@
 <div align="center">
 
-# Gizmo-AI
+# Gizmo
 
 **A fully local AI assistant — no cloud, no limits, no data leaving your machine.**
 
@@ -64,8 +64,8 @@ all in six containers. Zero cloud dependencies.
 ## Quick Start
 
 ```bash
-git clone https://github.com/nisakson2000/Gizmo-AI.git
-cd Gizmo-AI
+git clone https://github.com/nisakson2000/Gizmo.git
+cd Gizmo
 bash scripts/download-model.sh   # Downloads ~14GB (LLM + TTS + vision projector)
 bash scripts/build-llamacpp.sh   # Builds model server (~5-10min)
 bash scripts/start.sh            # Starts all 6 services
@@ -246,16 +246,16 @@ bash scripts/start.sh            # Starts all 6 services
 
 ## Documentation
 
-Full documentation is available on the **[Wiki](https://github.com/nisakson2000/Gizmo-AI/wiki)**.
+Full documentation is available on the **[Wiki](https://github.com/nisakson2000/Gizmo/wiki)**.
 
 | Page | Description |
 |------|-------------|
-| [How Local AI Works](https://github.com/nisakson2000/Gizmo-AI/wiki/How-the-AI-Works) | First-principles explanation of LLMs and local AI |
-| [Setup Guide](https://github.com/nisakson2000/Gizmo-AI/wiki/Setup) | Step-by-step installation |
-| [Usage Guide](https://github.com/nisakson2000/Gizmo-AI/wiki/Usage) | Day-to-day usage |
-| [Architecture](https://github.com/nisakson2000/Gizmo-AI/wiki/Architecture) | Full technical reference |
-| [Model Reference](https://github.com/nisakson2000/Gizmo-AI/wiki/Model-Reference) | Qwen3.5-9B, TTS, Whisper specs and VRAM budget |
-| [Development](https://github.com/nisakson2000/Gizmo-AI/wiki/Development) | Extending the stack |
+| [How Local AI Works](https://github.com/nisakson2000/Gizmo/wiki/How-the-AI-Works) | First-principles explanation of LLMs and local AI |
+| [Setup Guide](https://github.com/nisakson2000/Gizmo/wiki/Setup) | Step-by-step installation |
+| [Usage Guide](https://github.com/nisakson2000/Gizmo/wiki/Usage) | Day-to-day usage |
+| [Architecture](https://github.com/nisakson2000/Gizmo/wiki/Architecture) | Full technical reference |
+| [Model Reference](https://github.com/nisakson2000/Gizmo/wiki/Model-Reference) | Qwen3.5-9B, TTS, Whisper specs and VRAM budget |
+| [Development](https://github.com/nisakson2000/Gizmo/wiki/Development) | Extending the stack |
 
 ---
 

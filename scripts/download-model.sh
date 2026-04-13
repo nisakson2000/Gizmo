@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-MODELS_DIR="$HOME/gizmo-ai/models"
+MODELS_DIR="$HOME/gizmo/models"
 mkdir -p "$MODELS_DIR" "$MODELS_DIR/mmproj" "$MODELS_DIR/qwen3-tts"
 
 echo "╔════════════════════════════════════════════════╗"
-echo "║  Gizmo-AI — Model Download                     ║"
+echo "║  Gizmo — Model Download                        ║"
 echo "╚════════════════════════════════════════════════╝"
 echo ""
 echo "LLM:  Huihui-Qwen3.5-9B-abliterated Q8_0 (~9.5GB)"
@@ -25,7 +25,7 @@ python3 << 'PYEOF'
 from huggingface_hub import hf_hub_download, snapshot_download
 import os
 
-models_dir = os.path.expanduser("~/gizmo-ai/models")
+models_dir = os.path.expanduser("~/gizmo/models")
 mmproj_dir = os.path.join(models_dir, "mmproj")
 tts_dir = os.path.join(models_dir, "qwen3-tts")
 

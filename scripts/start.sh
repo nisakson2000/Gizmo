@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-PROJECT_DIR="$HOME/gizmo-ai"
+PROJECT_DIR="$HOME/gizmo"
 cd "$PROJECT_DIR"
 
 echo "╔════════════════════════════════╗"
-echo "║        Gizmo-AI Startup        ║"
+echo "║         Gizmo Startup          ║"
 echo "╚════════════════════════════════╝"
 echo ""
 
@@ -72,7 +72,7 @@ sleep 3
 
 echo ""
 echo "╔═══════════════════════════════════════════════════════╗"
-echo "║  Gizmo-AI is running                                  ║"
+echo "║  Gizmo is running                                     ║"
 echo "║  UI:           http://localhost:3100                  ║"
 echo "║  Orchestrator: http://localhost:9100                  ║"
 echo "║  LLM API:      http://localhost:8080                  ║"

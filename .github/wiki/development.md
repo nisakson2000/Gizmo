@@ -1,6 +1,6 @@
 # Development Guide
 
-> **Audience:** Developers extending Gizmo-AI. Assumes strong Python and JavaScript skills.
+> **Audience:** Developers extending Gizmo. Assumes strong Python and JavaScript skills.
 
 ---
 
@@ -121,7 +121,7 @@ tools:
 
 ## How to Change the Model
 
-1. Download the new GGUF to `~/gizmo-ai/models/`
+1. Download the new GGUF to `~/gizmo/models/`
 2. Update `docker-compose.yml` — change the `--model` path in gizmo-llama's command
 3. Update `config/models.yaml` with the new model's specs
 4. Update `CLAUDE.md` with model-specific facts

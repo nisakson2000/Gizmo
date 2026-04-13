@@ -1,6 +1,6 @@
 <div align="center">
 
-# Gizmo-AI Wiki
+# Gizmo Wiki
 
 **A fully local AI assistant — 9B LLM, voice cloning, code execution, and more.**
 
@@ -8,16 +8,16 @@
 
 ---
 
-Welcome to the Gizmo-AI documentation. Choose a starting point below.
+Welcome to the Gizmo documentation. Choose a starting point below.
 
 ### Getting Started
 
 | Page | For... |
 |------|--------|
 | **[[How Local AI Works\|How-the-AI-Works]]** | Understanding how LLMs, quantization, and local inference work — from first principles |
-| **[[Setup Guide\|Setup]]** | Installing Gizmo-AI on a fresh Linux machine (~1-2 hours) |
+| **[[Setup Guide\|Setup]]** | Installing Gizmo on a fresh Linux machine (~1-2 hours) |
 
-### Using Gizmo-AI
+### Using Gizmo
 
 | Page | For... |
 |------|--------|
@@ -35,6 +35,6 @@ Welcome to the Gizmo-AI documentation. Choose a starting point below.
 
 ### Quick Links
 
-- **Source:** [github.com/nisakson2000/Gizmo-AI](https://github.com/nisakson2000/Gizmo-AI)
+- **Source:** [github.com/nisakson2000/Gizmo](https://github.com/nisakson2000/Gizmo)
 - **License:** MIT
 - **Hardware:** NVIDIA GPU with 16GB+ VRAM, 32GB RAM, Linux

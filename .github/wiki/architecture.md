@@ -45,8 +45,8 @@
 │  │         └──────────┘ └────────┘ └─────────────┘        │      │
 │  └────────────────────────────────────────────────────────┘      │
 │                                                                    │
-│  Volumes: ~/gizmo-ai/models, ~/gizmo-ai/memory, ~/gizmo-ai/logs  │
-│           ~/gizmo-ai/voices, ~/gizmo-ai/media                     │
+│  Volumes: ~/gizmo/models, ~/gizmo/memory, ~/gizmo/logs  │
+│           ~/gizmo/voices, ~/gizmo/media                     │
 └──────────────────────────────────────────────────────────────────┘
          ▲                                    ▲
   Browser/App                           Tailscale HTTPS
@@ -84,12 +84,12 @@ Step-by-step walkthrough: user sends "Search for AI news" with thinking mode ON.
 2. UI sends JSON via WebSocket to `ws://gizmo-orchestrator:9100/ws/chat`
 3. Message payload: `{"message": "Search for AI news", "thinking": true, "conversation_id": "uuid"}`
 4. Orchestrator receives message, loads conversation history from SQLite database
-5. Orchestrator loads constitution file, scans memory for relevant files
+5. Orchestrator loads constitution and chat prompt files, scans memory for relevant files
 5a. Router checks for recitation intent (regex detection) — if matched, fetches authoritative text from the web via SearXNG + page scraping and injects it into the system prompt; LLM temperature lowered to 0.2
 5b. If conversation has 15+ messages, session recall retrieves semantically relevant earlier turns via fastembed cosine similarity (excludes recent 10 already in sliding window)
 5c. Character analysis: regex detects letter-counting/spelling questions, pre-computes character map
 5d. Smart windowing: if conversation > 6 messages, scores older messages by cosine similarity to current query, keeps most relevant within token budget (falls back to FIFO)
-6. System prompt assembled: constitution.txt + pattern (if any) + recitation content (if any) + session recall (if any) + charmap (if any) + relevant memories
+6. System prompt assembled: constitution.txt + chat-prompt.txt + pattern (if any) + recitation content (if any) + session recall (if any) + charmap (if any) + relevant memories
 7. Messages array built in OpenAI format: `[system, ...history, user]`
 8. Orchestrator POSTs to `http://gizmo-llama:8080/v1/chat/completions` with `stream: true`, `enable_thinking: true`, and tool definitions
 9. Model begins generating — llama.cpp separates reasoning into `reasoning_content` field
@@ -226,7 +226,7 @@ Supports up to 5 rounds of automatic tool calling per request.
 
 ## Pattern System
 
-Gizmo-AI includes a Fabric-inspired pattern library — 30 cognitive templates that give the model structured rubrics for complex tasks.
+Gizmo includes a Fabric-inspired pattern library — 30 cognitive templates that give the model structured rubrics for complex tasks.
 
 ### How It Works
 
@@ -235,7 +235,7 @@ Gizmo-AI includes a Fabric-inspired pattern library — 30 cognitive templates t
    - **Pattern matching**: keyword matching activates analysis patterns (e.g., "key takeaways" → `extract_wisdom`)
    - **Default fallback**: unmatched messages get the core tool set (web_search, memory, run_code)
 
-2. **Pattern injection** — matched pattern's system prompt is inserted between the constitution and memories in the system prompt
+2. **Pattern injection** — matched pattern's system prompt is inserted between the chat prompt and memories in the system prompt
 
 3. **Tool scoping** — each pattern declares which tools should be available, preventing the model from seeing irrelevant tools
 
@@ -336,9 +336,12 @@ Tools follow the OpenAI function-calling format. llama.cpp supports this nativel
 
 ## Constitution System
 
-The model's persona and behavior are defined by a single constitution file:
+The model's persona and behavior are defined by two files:
 
-- **`config/constitution.txt`** — System prompt with XML-tagged sections (`<identity>`, `<style>`, `<capabilities>`, `<tool-discipline>`, `<memory-rules>`, `<code-execution>`, `<document-generation>`, `<web-search>`, `<response-quality>`, `<precision-awareness>`). Lines starting with `#` are stripped as comments. The XML structure helps the 9B model parse and follow different instruction sets without cross-contamination. Includes an explicit 5-step tool decision tree and abliteration-aware precision rules. The `<document-generation>` section instructs the LLM to use the `generate_document` tool (not `run_code`) for file creation. Relevant memories from the BM25 memory system are appended after the constitution content.
+- **`config/constitution.txt`** — Core identity and principles with XML-tagged sections (`<identity>`, `<style>`, `<capabilities>`, `<response-quality>`, `<precision-awareness>`, `<epistemic-honesty>`, `<topic-awareness>`). Lines starting with `#` are stripped as comments. Defines who Gizmo is — always applied regardless of context.
+- **`config/chat-prompt.txt`** — Operational chat instructions with XML-tagged sections (`<tool-discipline>`, `<patterns>`, `<memory-rules>`, `<code-execution>`, `<document-generation>`, `<web-search>`, `<memory-awareness>`, `<knowledge-awareness>`). Includes the 5-step tool decision tree, memory integration rules, and format-specific generation instructions. Applied in the main chat flow; code chat and tracker use their own dedicated prompts instead.
+
+The XML structure helps the 9B model parse and follow different instruction sets without cross-contamination. Relevant memories from the BM25 memory system are appended after the constitution and chat prompt content.
 
 ## Configuration Files
 
@@ -367,7 +370,7 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 ## File Tree
 
 ```
-~/gizmo-ai/
+~/gizmo/
 ├── CLAUDE.md                              # Claude Code session knowledge
 ├── README.md                              # Public-facing documentation
 ├── AUDIT.md                               # Version audit reports
@@ -375,7 +378,8 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 ├── .gitignore                             # Git ignore rules
 ├── docker-compose.yml                     # Podman compose — all 6 services
 ├── config/
-│   ├── constitution.txt                   # System prompt / persona (prose, # = comments)
+│   ├── constitution.txt                   # Core identity and principles (prose, # = comments)
+│   ├── chat-prompt.txt                    # Operational chat instructions (tools, memory, patterns)
 │   ├── models.yaml                        # Model configuration
 │   ├── services.yaml                      # Service endpoints
 │   ├── patterns/                          # Fabric-inspired cognitive templates (30 patterns)

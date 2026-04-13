@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "Gizmo-AI Service Health"
+echo "Gizmo Service Health"
 echo "─────────────────────────────────"
 
 services=(

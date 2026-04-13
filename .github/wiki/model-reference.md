@@ -1,6 +1,6 @@
 # Model Reference
 
-> **Audience:** Anyone who wants to understand the models powering Gizmo-AI.
+> **Audience:** Anyone who wants to understand the models powering Gizmo.
 >
 > Covers Qwen3.5-9B (language + vision), Qwen3-TTS (speech synthesis), and Whisper (speech-to-text).
 
@@ -37,7 +37,7 @@
 
 ## Abliteration
 
-The model used by Gizmo-AI is `huihui-ai/Huihui-Qwen3.5-9B-abliterated`.
+The model used by Gizmo is `huihui-ai/Huihui-Qwen3.5-9B-abliterated`.
 
 **What abliteration does:** Standard models are fine-tuned with RLHF to refuse certain requests. The model learns a "refusal direction" in its residual stream — a specific vector in the model's internal representation space that, when activated, causes it to output refusals. Abliteration identifies this direction and removes it by editing the model weights directly.
 
@@ -69,7 +69,7 @@ All quantizations from [mradermacher/Huihui-Qwen3.5-9B-abliterated-GGUF](https:/
 
 ## llama.cpp Configuration
 
-Gizmo-AI's llama.cpp instance is tuned for the RTX 4090:
+Gizmo's llama.cpp instance is tuned for the RTX 4090:
 
 | Flag | Value | Purpose |
 |------|-------|---------|

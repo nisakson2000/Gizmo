@@ -33,13 +33,13 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/gizmo-ai.apk
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/gizmo.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gizmo-ai
-          path: mobile/android/app/build/outputs/apk/debug/gizmo-ai.apk
+          name: gizmo
+          path: mobile/android/app/build/outputs/apk/debug/gizmo.apk
 
       - name: Generate release notes
         if: startsWith(github.ref, 'refs/tags/')
@@ -54,9 +54,9 @@ jobs:
           fi
           {
             echo "body<<NOTES_EOF"
-            echo "## Gizmo AI for Android"
+            echo "## Gizmo for Android"
             echo ""
-            echo "Native Android app for one-tap access to your Gizmo-AI instance."
+            echo "Native Android app for one-tap access to your Gizmo instance."
             echo ""
             echo "### What's Changed"
             echo ""
@@ -66,12 +66,12 @@ jobs:
             echo ""
             echo "### Install"
             echo ""
-            echo "1. Download **gizmo-ai.apk** below"
+            echo "1. Download **gizmo.apk** below"
             echo "2. Enable \"Install unknown apps\" on your Android device"
             echo "3. Open the APK and install"
-            echo "4. Launch Gizmo AI, enter your server URL, and connect"
+            echo "4. Launch Gizmo, enter your server URL, and connect"
             echo ""
-            echo "**Requirements:** Android 8.0+ • A running Gizmo-AI server • HTTPS for voice input"
+            echo "**Requirements:** Android 8.0+ • A running Gizmo server • HTTPS for voice input"
             echo "NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -79,7 +79,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          name: "Gizmo AI for Android — ${{ github.ref_name }}"
+          name: "Gizmo for Android — ${{ github.ref_name }}"
           body: ${{ steps.notes.outputs.body }}
           make_latest: "true"
-          files: mobile/android/app/build/outputs/apk/debug/gizmo-ai.apk
+          files: mobile/android/app/build/outputs/apk/debug/gizmo.apk

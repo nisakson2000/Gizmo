@@ -115,9 +115,12 @@ def list_modes() -> list[dict]:
 
 
 def save_mode_prompt(name: str, system_prompt: str) -> bool:
-    """Update an existing mode's system.md content. Returns True on success."""
+    """Update an existing mode's system.md content. Built-in modes cannot be edited."""
     _ensure_loaded()
     if name not in _mode_cache:
+        return False
+    if name in BUILTIN_MODES:
+        logger.warning("Cannot edit built-in mode prompt: %s", name)
         return False
 
     mode_dir = MODES_DIR / name
@@ -134,9 +137,12 @@ def save_mode_prompt(name: str, system_prompt: str) -> bool:
 
 def save_mode_config(name: str, label: str | None = None,
                      description: str | None = None) -> bool:
-    """Update an existing mode's config.yaml fields. Returns True on success."""
+    """Update an existing mode's config.yaml fields. Built-in modes cannot be edited."""
     _ensure_loaded()
     if name not in _mode_cache:
+        return False
+    if name in BUILTIN_MODES:
+        logger.warning("Cannot edit built-in mode config: %s", name)
         return False
 
     mode_dir = MODES_DIR / name

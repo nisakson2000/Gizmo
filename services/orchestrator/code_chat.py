@@ -1,4 +1,4 @@
-"""Gizmo-AI Code Chat — isolated AI assistant for the Code Playground."""
+"""Gizmo Code Chat — isolated AI assistant for the Code Playground."""
 
 import json
 import logging

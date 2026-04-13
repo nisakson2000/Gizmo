@@ -59,7 +59,7 @@
 </script>
 
 <svelte:head>
-	<title>Gizmo-AI</title>
+	<title>Gizmo</title>
 </svelte:head>
 
 <div

@@ -1,6 +1,6 @@
 # Usage Guide
 
-> **Audience:** Daily users of Gizmo-AI. Assumes [[setup|Setup]] is complete and services are running.
+> **Audience:** Daily users of Gizmo. Assumes [[setup|Setup]] is complete and services are running.
 
 ---
 
@@ -388,7 +388,7 @@ All data is stored locally. No telemetry or external reporting.
 
 ## Themes
 
-Gizmo-AI includes a Nintendo console-inspired theme system. Select a theme in **Settings → Theme**.
+Gizmo includes a Nintendo console-inspired theme system. Select a theme in **Settings → Theme**.
 
 **Available themes:**
 
@@ -553,7 +553,7 @@ Gizmo has a native Android app with a full chat experience — streaming respons
 
 ### Getting the APK
 
-Download the latest APK from [GitHub Releases](https://github.com/nisakson2000/Gizmo-AI/releases), or build from source:
+Download the latest APK from [GitHub Releases](https://github.com/nisakson2000/Gizmo/releases), or build from source:
 
 ```bash
 bash mobile/build-apk.sh

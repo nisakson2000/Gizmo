@@ -1,4 +1,4 @@
-"""Usage analytics for Gizmo-AI — stores per-message metrics and computes cost comparisons."""
+"""Usage analytics for Gizmo — stores per-message metrics and computes cost comparisons."""
 
 import logging
 import sqlite3

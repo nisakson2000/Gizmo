@@ -1,4 +1,4 @@
-"""Shared LLM streaming logic for the Gizmo-AI orchestrator."""
+"""Shared LLM streaming logic for the Gizmo orchestrator."""
 
 import asyncio
 import json

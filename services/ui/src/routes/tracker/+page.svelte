@@ -121,7 +121,7 @@
 </script>
 
 <svelte:head>
-	<title>Gizmo-AI — Tracker</title>
+	<title>Gizmo — Tracker</title>
 </svelte:head>
 
 <div class="console-frame flex flex-col h-full bg-bg-primary">

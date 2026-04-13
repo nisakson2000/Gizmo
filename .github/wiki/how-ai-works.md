@@ -2,7 +2,7 @@
 
 > **Audience:** Anyone curious about how AI works. No prior AI knowledge assumed.
 >
-> This page explains large language models from first principles, using Gizmo-AI as the concrete example throughout.
+> This page explains large language models from first principles, using Gizmo as the concrete example throughout.
 
 ---
 
@@ -38,7 +38,7 @@ At full precision (16-bit floating point), 9 billion parameters would require ab
 
 **Quantization** reduces the precision of each parameter to shrink the model into available memory. Instead of storing each weight as a 16-bit float, you store it as a 5-bit, 4-bit, or even 3-bit number.
 
-Gizmo-AI uses **Q8_0** quantization — the highest practical quality:
+Gizmo uses **Q8_0** quantization — the highest practical quality:
 - **Q8**: 8-bit precision per weight
 - **0**: Basic symmetric quantization (lossless at this bit depth)
 
@@ -59,7 +59,7 @@ The result: the 9B model fits in **~9.5GB** instead of 18GB. Quality loss is ess
 - The model architecture configuration
 - The tokenizer vocabulary
 
-In Gizmo-AI, the GGUF file lives at `~/gizmo-ai/models/Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf` — a single ~9.5GB file. This contrasts with the HuggingFace format, which spreads weights across multiple files alongside separate config and tokenizer files.
+In Gizmo, the GGUF file lives at `~/gizmo/models/Huihui-Qwen3.5-9B-abliterated.Q8_0.gguf` — a single ~9.5GB file. This contrasts with the HuggingFace format, which spreads weights across multiple files alongside separate config and tokenizer files.
 
 ## What Is llama.cpp?
 
@@ -71,7 +71,7 @@ In Gizmo-AI, the GGUF file lives at `~/gizmo-ai/models/Huihui-Qwen3.5-9B-abliter
 - **CUDA acceleration**: Using NVIDIA GPU compute for matrix operations
 - **Flash attention**: A memory-efficient attention algorithm (`--flash-attn`)
 
-In Gizmo-AI, llama.cpp runs inside the `gizmo-llama` container and exposes an API at port 8080. The orchestrator sends it messages in OpenAI format and receives streamed responses.
+In Gizmo, llama.cpp runs inside the `gizmo-llama` container and exposes an API at port 8080. The orchestrator sends it messages in OpenAI format and receives streamed responses.
 
 ## What Is a Context Window?
 
@@ -82,7 +82,7 @@ The **context window** is the model's working memory — everything it can see w
 - Any tool results (search results, memory lookups)
 - Any uploaded file content
 
-Qwen3.5-9B supports up to 262,144 tokens natively, but Gizmo-AI uses **32,768 tokens**. Larger contexts require more VRAM for the KV cache, increase latency, and provide diminishing returns for typical conversations. 32,768 tokens is roughly 24,000 words — enough for long conversations with code, search results, and document analysis.
+Qwen3.5-9B supports up to 262,144 tokens natively, but Gizmo uses **32,768 tokens**. Larger contexts require more VRAM for the KV cache, increase latency, and provide diminishing returns for typical conversations. 32,768 tokens is roughly 24,000 words — enough for long conversations with code, search results, and document analysis.
 
 When the context fills up, the oldest messages are trimmed to make room for new ones. The system prompt and most recent messages always stay.
 
@@ -94,7 +94,7 @@ When thinking is **ON**: The model works through the problem internally — cons
 
 When thinking is **OFF**: The model responds immediately without the internal reasoning step. Faster, but may be less accurate on complex problems.
 
-Gizmo-AI implements this via llama.cpp's native `enable_thinking` API:
+Gizmo implements this via llama.cpp's native `enable_thinking` API:
 - **Thinking ON**: The model's internal reasoning appears in a separate `reasoning_content` field, displayed as a collapsible block in the UI
 - **Thinking OFF**: The model still reasons internally, but the thinking is not surfaced to the user
 
@@ -106,7 +106,7 @@ Standard language models are fine-tuned with RLHF (Reinforcement Learning from H
 
 **Abliteration** is a technique that directly edits the model weights to remove this refusal direction from the residual stream. The result is a model that will engage with any topic without safety filters.
 
-The model used in Gizmo-AI — `huihui-ai/Huihui-Qwen3.5-9B-abliterated` — has been abliterated. Its knowledge, reasoning ability, and coding skills are unchanged. Only the refusal behavior has been removed.
+The model used in Gizmo — `huihui-ai/Huihui-Qwen3.5-9B-abliterated` — has been abliterated. Its knowledge, reasoning ability, and coding skills are unchanged. Only the refusal behavior has been removed.
 
 Tradeoffs:
 - The model may occasionally be slightly less coherent on topics near the abliterated directions
@@ -117,7 +117,7 @@ Tradeoffs:
 
 **Retrieval-Augmented Generation (RAG)** means injecting relevant information into the context window at inference time, rather than relying solely on what the model learned during training.
 
-In Gizmo-AI, this takes the form of a file-based memory system with BM25 ranking:
+In Gizmo, this takes the form of a file-based memory system with BM25 ranking:
 - You tell Gizmo to "remember that my name is Nick"
 - Gizmo writes a file to `memory/facts/user_name.txt`
 - On future conversations, the orchestrator tokenizes your message, filters stop words, and scores all memory files using **BM25** (a TF-IDF ranking algorithm)
@@ -128,7 +128,7 @@ BM25 is significantly better than basic keyword matching because it accounts for
 
 ## What Is Tool Calling?
 
-Modern LLMs can be trained to output structured JSON that triggers external functions. In Gizmo-AI:
+Modern LLMs can be trained to output structured JSON that triggers external functions. In Gizmo:
 
 1. The model receives tool definitions (web_search, read_memory, write_memory, list_memories, run_code) in its context
 2. When appropriate, instead of regular text, the model outputs a JSON tool call: `{"name": "web_search", "arguments": {"query": "AI news"}}`
@@ -140,7 +140,10 @@ This is how Gizmo searches the web without the model itself having internet acce
 
 ## What Is a System Prompt?
 
-The **system prompt** (or constitution) is a block of text prepended to every conversation that tells the model who it is, how to behave, and what capabilities it has. In Gizmo-AI, this lives in `config/constitution.txt`.
+The **system prompt** is a block of text prepended to every conversation that tells the model who it is, how to behave, and what capabilities it has. In Gizmo, the system prompt is assembled from two files:
+
+- **`config/constitution.txt`** — Core identity and principles: who Gizmo is, communication style, epistemic honesty rules
+- **`config/chat-prompt.txt`** — Operational instructions: when to use tools, how to handle patterns, memory integration, code execution guidelines
 
 It defines:
 - The model's identity ("You are Gizmo, a local AI assistant")
@@ -148,4 +151,4 @@ It defines:
 - Available tools and capabilities
 - Behavioral guidelines
 
-The system prompt is the primary way to customize the model's personality without retraining. Edit `constitution.txt` to change how Gizmo behaves. Gizmo-AI's constitution uses XML-style section tags (`<identity>`, `<style>`, `<tool-discipline>`, etc.) to help the model parse and follow different instruction sets without cross-contamination — structured prompts improve instruction adherence on smaller models.
+The system prompt is the primary way to customize the model's personality without retraining. Edit `constitution.txt` to change who Gizmo is, or `chat-prompt.txt` to change how chat interactions work. Both files use XML-style section tags (`<identity>`, `<style>`, `<tool-discipline>`, etc.) to help the model parse and follow different instruction sets without cross-contamination — structured prompts improve instruction adherence on smaller models.

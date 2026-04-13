@@ -1,4 +1,4 @@
-"""Gizmo-AI Tracker module — task/note management REST API + embedded AI chat."""
+"""Gizmo Tracker module — task/note management REST API + embedded AI chat."""
 
 import asyncio
 import json

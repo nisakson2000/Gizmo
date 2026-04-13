@@ -1,5 +1,5 @@
 #!/bin/bash
-cd "$HOME/gizmo-ai"
-echo "Stopping Gizmo-AI..."
+cd "$HOME/gizmo"
+echo "Stopping Gizmo..."
 podman compose down
 echo "All services stopped."

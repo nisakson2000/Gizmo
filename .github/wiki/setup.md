@@ -10,7 +10,7 @@
 - [Before You Start](#before-you-start) — Hardware requirements
 - [Steps 1-3](#step-1--install-podman) — Install Podman, NVIDIA toolkit, huggingface-hub
 - [Steps 4-6](#step-4--clone-the-repo) — Clone, download models (~14GB), build containers
-- [Steps 7-9](#step-7--start-gizmo-ai) — Start services, verify health, open UI
+- [Steps 7-9](#step-7--start-gizmo) — Start services, verify health, open UI
 - [Step 10](#step-10--remote-access-via-tailscale) — Remote access via Tailscale
 - [Troubleshooting](#troubleshooting) — Common issues and fixes
 
@@ -119,8 +119,8 @@ HuggingFace is the platform where the model files are hosted. The `huggingface-h
 ## Step 4 — Clone the Repo
 
 ```bash
-git clone https://github.com/nisakson2000/Gizmo-AI.git
-cd Gizmo-AI
+git clone https://github.com/nisakson2000/Gizmo.git
+cd Gizmo
 ```
 
 ## Step 5 — Download the Model
@@ -180,7 +180,7 @@ podman images | grep gizmo-sandbox
 - **Out of disk space:** The build needs ~10GB temporarily
 - **Network timeout:** Re-run the script — it will use cached layers
 
-## Step 7 — Start Gizmo-AI
+## Step 7 — Start Gizmo
 
 ```bash
 bash scripts/start.sh
@@ -196,7 +196,7 @@ The script:
 **Expected output:**
 ```
 ╔════════════════════════════════╗
-║        Gizmo-AI Startup        ║
+║        Gizmo Startup        ║
 ╚════════════════════════════════╝
 
 Starting infrastructure services...
@@ -208,7 +208,7 @@ Starting Whisper server (CPU)...
 Starting orchestrator and UI...
 
 ╔═══════════════════════════════════════════════════════╗
-║  Gizmo-AI is running                                  ║
+║  Gizmo is running                                  ║
 ║  UI:           http://localhost:3100                  ║
 ║  Orchestrator: http://localhost:9100                  ║
 ║  LLM API:      http://localhost:8080                  ║
@@ -228,7 +228,7 @@ bash scripts/health.sh
 
 **Healthy output:**
 ```
-Gizmo-AI Service Health
+Gizmo Service Health
 ─────────────────────────────────
   ✓ gizmo-llama              (port 8080)
   ✓ gizmo-orchestrator       (port 9100)
@@ -316,7 +316,7 @@ Sideload the Gizmo Android app for one-tap access from your phone.
 
 ### Install from GitHub Releases
 
-1. Download the latest `app-debug.apk` from [Releases](https://github.com/nisakson2000/Gizmo-AI/releases)
+1. Download the latest `app-debug.apk` from [Releases](https://github.com/nisakson2000/Gizmo/releases)
 2. On your Android device, enable "Install unknown apps" for your browser (Settings → Apps → Special access)
 3. Open the APK and install
 

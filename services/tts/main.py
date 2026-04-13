@@ -1,4 +1,4 @@
-"""Gizmo-AI TTS Server — faster-qwen3-tts streaming voice synthesis with voice cloning."""
+"""Gizmo TTS Server — faster-qwen3-tts streaming voice synthesis with voice cloning."""
 
 import asyncio
 import base64
@@ -104,7 +104,7 @@ async def lifespan(app: FastAPI):
     unload_model()
 
 
-app = FastAPI(title="Gizmo-AI TTS", version="4.0.0", lifespan=lifespan)
+app = FastAPI(title="Gizmo TTS", version="4.0.0", lifespan=lifespan)
 
 
 @app.get("/health")

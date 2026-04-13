@@ -1,4 +1,4 @@
-"""Gizmo-AI Orchestrator — FastAPI backend for the local AI assistant."""
+"""Gizmo Orchestrator — FastAPI backend for the local AI assistant."""
 
 import asyncio
 import base64
@@ -148,6 +148,7 @@ WHISPER_URL = f"http://{WHISPER_HOST}:{WHISPER_PORT}"
 MODEL_NAME = os.getenv("MODEL_NAME", "unknown")
 MAX_CONVERSATIONS = int(os.getenv("MAX_CONVERSATIONS", "500"))
 CONSTITUTION_PATH = Path("/app/config/constitution.txt")
+CHAT_PROMPT_PATH = Path("/app/config/chat-prompt.txt")
 DB_PATH = Path("/app/memory/conversations.db")
 LOGS_DIR = Path("/app/logs")
 VOICES_DIR = Path("/app/voices")
@@ -451,13 +452,23 @@ def get_conversation_messages(conversation_id: str) -> list[dict]:
 # --- System Prompt ---
 
 
-def load_constitution() -> str:
-    """Load and clean the constitution file."""
-    if not CONSTITUTION_PATH.exists():
-        return "You are Gizmo, a helpful local AI assistant."
-    text = CONSTITUTION_PATH.read_text(encoding="utf-8")
+def _load_prompt_file(path: Path, fallback: str = "") -> str:
+    """Load a prompt file, stripping comment lines (# prefix)."""
+    if not path.exists():
+        return fallback
+    text = path.read_text(encoding="utf-8")
     lines = [line for line in text.splitlines() if not line.strip().startswith("#")]
     return "\n".join(lines).strip()
+
+
+def load_constitution() -> str:
+    """Load the constitution (identity and principles)."""
+    return _load_prompt_file(CONSTITUTION_PATH, "You are Gizmo, a helpful local AI assistant.")
+
+
+def load_chat_prompt() -> str:
+    """Load the general chat prompt (operational instructions for tools, memory, etc.)."""
+    return _load_prompt_file(CHAT_PROMPT_PATH)
 
 
 def build_system_prompt(user_message: str = "", has_vision: bool = False,
@@ -476,6 +487,11 @@ def build_system_prompt(user_message: str = "", has_vision: bool = False,
     # Layer 0: Identity (IMMUNE — always included)
     constitution = load_constitution()
     layers["constitution"] = constitution
+
+    # Layer 0.25: Chat prompt (operational instructions — tools, memory, patterns)
+    chat_prompt = load_chat_prompt()
+    if chat_prompt:
+        layers["chat_prompt"] = chat_prompt
 
     if conversation_length >= IDENTITY_REINFORCE_MIN_MESSAGES:
         layers["identity_reminder"] = IDENTITY_REMINDER
@@ -799,7 +815,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Gizmo-AI Orchestrator", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Gizmo Orchestrator", version="1.0.0", lifespan=lifespan)
 
 from origins import ALLOWED_ORIGINS, check_ws_origin
 
@@ -919,7 +935,11 @@ async def api_get_mode(name: str):
 
 @app.put("/api/modes/{name}")
 async def api_update_mode(name: str, request: Request):
-    """Update an existing mode's system_prompt and/or config fields."""
+    """Update an existing mode's system_prompt and/or config fields. Built-in modes are read-only."""
+    from modes import BUILTIN_MODES
+    if name in BUILTIN_MODES:
+        raise HTTPException(status_code=403, detail="Built-in modes cannot be edited")
+
     body = await request.json()
     updated = False
 
@@ -1246,7 +1266,9 @@ async def ws_chat(ws: WebSocket):
             full_thinking = ""
             executed_tool_calls = []  # Accumulate for DB persistence
             tool_calls_pending = []
-            usage_data = {}
+            usage_prompt_tokens = 0
+            usage_completion_tokens = 0
+            usage_total_tokens = 0
             t_llm_start = time.perf_counter()
             _rep_check_len = 0
             async for event in stream_chat(messages, thinking_enabled=thinking,
@@ -1267,7 +1289,9 @@ async def ws_chat(ws: WebSocket):
                             conv_log.info("[%s] Repetition detected, stopping generation", trace_id)
                             break
                 elif event["type"] == "usage":
-                    usage_data = event
+                    usage_prompt_tokens += event.get("prompt_tokens", 0)
+                    usage_completion_tokens += event.get("completion_tokens", 0)
+                    usage_total_tokens += event.get("total_tokens", 0)
                 elif event["type"] == "truncated":
                     full_response += _TRUNCATION_NOTICE
                     await ws.send_json({"type": "token", "content": _TRUNCATION_NOTICE})
@@ -1353,7 +1377,9 @@ async def ws_chat(ws: WebSocket):
                         full_thinking += event["content"]
                         await ws.send_json(event)
                     elif event["type"] == "usage":
-                        usage_data = event
+                        usage_prompt_tokens += event.get("prompt_tokens", 0)
+                        usage_completion_tokens += event.get("completion_tokens", 0)
+                        usage_total_tokens += event.get("total_tokens", 0)
                     elif event["type"] == "truncated":
                         full_response += _TRUNCATION_NOTICE
                         await ws.send_json({"type": "token", "content": _TRUNCATION_NOTICE})
@@ -1453,9 +1479,9 @@ async def ws_chat(ws: WebSocket):
                 # Store analytics (fire-and-forget — non-critical telemetry)
                 context_ms = int((t_embed + t_recall + t_compact + t_knowledge) * 1000)
                 response_ms = int(t_llm_total * 1000)
-                prompt_tok = usage_data.get("prompt_tokens") or estimate_tokens(system_prompt + user_text)
-                completion_tok = usage_data.get("completion_tokens") or estimate_tokens(full_response)
-                total_tok = usage_data.get("total_tokens") or (prompt_tok + completion_tok)
+                prompt_tok = usage_prompt_tokens or estimate_tokens(system_prompt + user_text)
+                completion_tok = usage_completion_tokens or estimate_tokens(full_response)
+                total_tok = usage_total_tokens or (prompt_tok + completion_tok)
                 asyncio.create_task(asyncio.to_thread(
                     store_analytics, conversation_id, asst_msg_index,
                     prompt_tok, completion_tok, total_tok, response_ms,
@@ -1585,6 +1611,11 @@ async def rest_chat(
     full_response = ""
     full_thinking = ""
     max_tool_rounds = 5
+    rest_prompt_tokens = 0
+    rest_completion_tokens = 0
+    rest_total_tokens = 0
+    tool_round = 0
+    t_rest_start = time.perf_counter()
 
     for _ in range(max_tool_rounds):
         tool_calls_pending = []
@@ -1596,6 +1627,10 @@ async def rest_chat(
                 full_response += event["content"]
             elif event["type"] == "thinking":
                 full_thinking += event["content"]
+            elif event["type"] == "usage":
+                rest_prompt_tokens += event.get("prompt_tokens", 0)
+                rest_completion_tokens += event.get("completion_tokens", 0)
+                rest_total_tokens += event.get("total_tokens", 0)
             elif event["type"] == "tool_call":
                 tool_calls_pending.append(event)
             elif event["type"] == "error":
@@ -1604,6 +1639,8 @@ async def rest_chat(
 
         if not tool_calls_pending:
             break
+
+        tool_round += 1
 
         # Execute tool calls and append results to messages
         messages.append({
@@ -1634,10 +1671,22 @@ async def rest_chat(
                 "content": result,
             })
 
+    t_rest_total = time.perf_counter() - t_rest_start
     asst_msg_index = save_message(conversation_id, "assistant", full_response, full_thinking)
     conv_log.info("[REST] ASSISTANT (%s): %s", conversation_id, full_response[:500])
 
     if full_response:
+        # Store analytics
+        rest_response_ms = int(t_rest_total * 1000)
+        prompt_tok = rest_prompt_tokens or estimate_tokens(system_prompt + clean_text)
+        completion_tok = rest_completion_tokens or estimate_tokens(full_response)
+        total_tok = rest_total_tokens or (prompt_tok + completion_tok)
+        asyncio.create_task(asyncio.to_thread(
+            store_analytics, conversation_id, asst_msg_index,
+            prompt_tok, completion_tok, total_tok, rest_response_ms,
+            0, tool_round, mode,
+        ))
+
         index_conversation_turns(conversation_id, user_msg_index, clean_text,
                                  asst_msg_index, full_response)
         asyncio.create_task(asyncio.to_thread(
@@ -1904,7 +1953,7 @@ async def export_conversation(conv_id: str, format: str = "markdown"):
     # Markdown export
     title = conv_data.get("title", "Untitled")
     export_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    lines = [f"# {title}", f"*Exported from Gizmo-AI on {export_date}*", "", "---", ""]
+    lines = [f"# {title}", f"*Exported from Gizmo on {export_date}*", "", "---", ""]
     for m in messages_data:
         role_label = "User" if m["role"] == "user" else "Gizmo"
         ts = m.get("timestamp", "")

@@ -1,4 +1,4 @@
-"""Database operations for the Gizmo-AI task/note tracker."""
+"""Database operations for the Gizmo task/note tracker."""
 
 import json
 import logging

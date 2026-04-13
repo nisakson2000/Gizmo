@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-	<title>Gizmo-AI — Analytics</title>
+	<title>Gizmo — Analytics</title>
 </svelte:head>
 
 <AnalyticsDashboard />

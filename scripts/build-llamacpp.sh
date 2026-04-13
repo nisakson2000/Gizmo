@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PROJECT_DIR="$HOME/gizmo-ai"
+PROJECT_DIR="$HOME/gizmo"
 
 echo "Building llama.cpp container image..."
 echo "This compiles llama.cpp from source with CUDA 89 (RTX 4090)."
