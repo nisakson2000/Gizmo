@@ -479,6 +479,7 @@ class ChatViewModel(
                     }
                 }
                 is ServerEvent.Title -> {
+                    if (event.conversationId.isBlank()) return@launch
                     if (activeConversationId.value == null) {
                         activeConversationId.value = event.conversationId
                     }

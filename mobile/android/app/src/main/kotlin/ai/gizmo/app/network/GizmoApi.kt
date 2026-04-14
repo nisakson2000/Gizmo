@@ -87,7 +87,7 @@ class GizmoApi(private val serverUrl: String) {
     suspend fun getConversations(): List<Conversation> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/conversations").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val arr = JSONArray(body)
@@ -100,15 +100,16 @@ class GizmoApi(private val serverUrl: String) {
                     updatedAt = obj.optString("updated_at", "")
                 )
             }
-        } catch (_: Exception) {
-            emptyList()
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "${e.message}"); emptyList()
         }
     }
 
     suspend fun getConversation(id: String): List<Message>? = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/conversations/$id").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
             val body = response.body?.string() ?: return@withContext null
             val obj = JSONObject(body)
@@ -138,7 +139,9 @@ class GizmoApi(private val serverUrl: String) {
                     toolCalls = toolCalls
                 )
             }
-        } catch (_: Exception) {
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "getConversation: ${e.message}")
             null
         }
     }
@@ -150,7 +153,8 @@ class GizmoApi(private val serverUrl: String) {
                 .delete()
                 .build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "deleteConversation: ${e.message}")
             false
         }
     }
@@ -164,7 +168,8 @@ class GizmoApi(private val serverUrl: String) {
                 .patch(body)
                 .build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "renameConversation: ${e.message}")
             false
         }
     }
@@ -173,7 +178,7 @@ class GizmoApi(private val serverUrl: String) {
         try {
             val url = "$baseUrl/api/conversations/search?q=${Uri.encode(query)}"
             val request = Request.Builder().url(url).build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val arr = JSONArray(body)
@@ -186,8 +191,9 @@ class GizmoApi(private val serverUrl: String) {
                     snippet = obj.optString("snippet", "")
                 )
             }
-        } catch (_: Exception) {
-            emptyList()
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "${e.message}"); emptyList()
         }
     }
 
@@ -210,11 +216,13 @@ class GizmoApi(private val serverUrl: String) {
                     .post(body)
                     .build()
 
-                val response = client.newCall(request).execute()
+                client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
                 val respBody = response.body?.string() ?: return@withContext null
                 JSONObject(respBody).optString("data_url").takeIf { it.isNotEmpty() }
-            } catch (_: Exception) {
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("GizmoApi", "uploadImage: ${e.message}")
                 null
             }
         }
@@ -242,14 +250,16 @@ class GizmoApi(private val serverUrl: String) {
                     .post(body)
                     .build()
 
-                val response = client.newCall(request).execute()
+                client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
                 val respBody = response.body?.string() ?: return@withContext null
                 val obj = JSONObject(respBody)
                 val name = obj.optString("filename", "document")
                 val content = obj.optString("content", "")
                 if (content.isEmpty()) null else Pair(name, content)
-            } catch (_: Exception) {
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("GizmoApi", "uploadDocument: ${e.message}")
                 null
             }
         }
@@ -262,7 +272,8 @@ class GizmoApi(private val serverUrl: String) {
                     .delete()
                     .build()
                 client.newCall(request).execute().isSuccessful
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.d("GizmoApi", "deleteMessagesFrom: ${e.message}")
                 false
             }
         }
@@ -286,7 +297,7 @@ class GizmoApi(private val serverUrl: String) {
                     .addFormDataPart("file", filename, streamingBody(uri, contentResolver, mimeType.toMediaType()))
                     .build()
                 val request = Request.Builder().url("$baseUrl/api/upload-video").post(body).build()
-                val response = client.newCall(request).execute()
+                client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
                 val respBody = response.body?.string() ?: return@withContext null
                 val obj = JSONObject(respBody)
@@ -299,7 +310,9 @@ class GizmoApi(private val serverUrl: String) {
                     frames = frames,
                     videoUrl = obj.optString("video_url", "")
                 )
-            } catch (_: Exception) {
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("GizmoApi", "uploadVideo: ${e.message}")
                 null
             }
         }
@@ -314,11 +327,13 @@ class GizmoApi(private val serverUrl: String) {
                     .addFormDataPart("file", filename, streamingBody(uri, contentResolver, mimeType.toMediaType()))
                     .build()
                 val request = Request.Builder().url("$baseUrl/api/transcribe").post(body).build()
-                val response = client.newCall(request).execute()
+                client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
                 val respBody = response.body?.string() ?: return@withContext null
                 JSONObject(respBody).optString("text").takeIf { it.isNotEmpty() }
-            } catch (_: Exception) {
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("GizmoApi", "transcribeAudio: ${e.message}")
                 null
             }
         }
@@ -328,10 +343,12 @@ class GizmoApi(private val serverUrl: String) {
             val request = Request.Builder()
                 .url("$baseUrl/api/conversations/$conversationId/export?format=markdown")
                 .build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
             response.body?.string()
-        } catch (_: Exception) {
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "exportConversation: ${e.message}")
             null
         }
     }
@@ -342,7 +359,7 @@ class GizmoApi(private val serverUrl: String) {
             if (!url.startsWith("/api/") && !url.startsWith(baseUrl)) return@withContext null
             val fullUrl = if (url.startsWith("/")) "$baseUrl$url" else url
             val request = Request.Builder().url(fullUrl).build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
             val bytes = response.body?.bytes() ?: return@withContext null
             val disposition = response.header("Content-Disposition")
@@ -350,7 +367,9 @@ class GizmoApi(private val serverUrl: String) {
                 ?.trim('"')?.takeIf { it.isNotEmpty() }
                 ?: fullUrl.substringAfterLast("/")
             Pair(sanitizeFilename(rawFilename), bytes)
-        } catch (_: Exception) {
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "downloadFile: ${e.message}")
             null
         }
     }
@@ -358,7 +377,7 @@ class GizmoApi(private val serverUrl: String) {
     suspend fun getVoices(): List<ai.gizmo.app.model.Voice> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/voices").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val arr = JSONArray(body)
@@ -372,8 +391,9 @@ class GizmoApi(private val serverUrl: String) {
                     transcript = obj.optString("transcript").takeIf { it.isNotEmpty() }
                 )
             }
-        } catch (_: Exception) {
-            emptyList()
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "${e.message}"); emptyList()
         }
     }
 
@@ -390,7 +410,8 @@ class GizmoApi(private val serverUrl: String) {
                     .build()
                 val request = Request.Builder().url("$baseUrl/api/voices").post(body).build()
                 client.newCall(request).execute().isSuccessful
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.d("GizmoApi", "uploadVoice: ${e.message}")
                 false
             }
         }
@@ -399,7 +420,8 @@ class GizmoApi(private val serverUrl: String) {
         try {
             val request = Request.Builder().url("$baseUrl/api/voices/$id").delete().build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "deleteVoice: ${e.message}")
             false
         }
     }
@@ -409,13 +431,15 @@ class GizmoApi(private val serverUrl: String) {
             val json = JSONObject().put("text", text).toString()
             val body = json.toRequestBody("application/json".toMediaType())
             val request = Request.Builder().url("$baseUrl/api/voices/$id/preview").post(body).build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
             val bytes = response.body?.bytes() ?: return@withContext null
             val file = java.io.File(cacheDir, "preview_$id.wav")
             file.writeBytes(bytes)
             file.absolutePath
-        } catch (_: Exception) {
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "previewVoice: ${e.message}")
             null
         }
     }
@@ -424,7 +448,7 @@ class GizmoApi(private val serverUrl: String) {
     suspend fun getModeDetail(name: String): ai.gizmo.app.model.ModeDetail? = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/modes/$name").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
             val body = response.body?.string() ?: return@withContext null
             val obj = JSONObject(body)
@@ -436,7 +460,8 @@ class GizmoApi(private val serverUrl: String) {
                 order = obj.optInt("order", 0),
                 systemPrompt = obj.optString("system_prompt", "")
             )
-        } catch (_: Exception) { null }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getModeDetail: ${e.message}"); null }
     }
 
     suspend fun createMode(name: String, label: String, description: String, systemPrompt: String): Boolean =
@@ -453,7 +478,7 @@ class GizmoApi(private val serverUrl: String) {
                     .post(json.toRequestBody("application/json".toMediaType()))
                     .build()
                 client.newCall(request).execute().isSuccessful
-            } catch (_: Exception) { false }
+            } catch (e: Exception) { android.util.Log.d("GizmoApi", "createMode: ${e.message}"); false }
         }
 
     suspend fun updateMode(name: String, label: String?, description: String?, systemPrompt: String?): Boolean =
@@ -469,14 +494,14 @@ class GizmoApi(private val serverUrl: String) {
                     .put(json.toRequestBody("application/json".toMediaType()))
                     .build()
                 client.newCall(request).execute().isSuccessful
-            } catch (_: Exception) { false }
+            } catch (e: Exception) { android.util.Log.d("GizmoApi", "updateMode: ${e.message}"); false }
         }
 
     suspend fun deleteMode(name: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/modes/$name").delete().build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) { false }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "deleteMode: ${e.message}"); false }
     }
 
     // Memory Manager endpoints
@@ -485,7 +510,7 @@ class GizmoApi(private val serverUrl: String) {
             val url = if (subdir != null) "$baseUrl/api/memory/list?subdir=$subdir"
                       else "$baseUrl/api/memory/list"
             val request = Request.Builder().url(url).build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val arr = JSONArray(body)
@@ -498,14 +523,15 @@ class GizmoApi(private val serverUrl: String) {
                     modified = obj.optString("modified", "")
                 )
             }
-        } catch (_: Exception) { emptyList() }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getMemories: ${e.message}"); emptyList() }
     }
 
     suspend fun readMemory(filename: String, subdir: String): ai.gizmo.app.model.MemoryContent? = withContext(Dispatchers.IO) {
         try {
             val url = "$baseUrl/api/memory/read?filename=${Uri.encode(filename)}&subdir=${Uri.encode(subdir)}"
             val request = Request.Builder().url(url).build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
             val body = response.body?.string() ?: return@withContext null
             val obj = JSONObject(body)
@@ -514,7 +540,8 @@ class GizmoApi(private val serverUrl: String) {
                 subdir = obj.optString("subdir", subdir),
                 content = obj.optString("content", "")
             )
-        } catch (_: Exception) { null }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "readMemory: ${e.message}"); null }
     }
 
     suspend fun writeMemory(filename: String, content: String, subdir: String): Boolean = withContext(Dispatchers.IO) {
@@ -526,7 +553,7 @@ class GizmoApi(private val serverUrl: String) {
                 .build()
             val request = Request.Builder().url("$baseUrl/api/memory/write").post(body).build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) { false }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "writeMemory: ${e.message}"); false }
     }
 
     suspend fun deleteMemory(subdir: String, filename: String): Boolean = withContext(Dispatchers.IO) {
@@ -535,23 +562,24 @@ class GizmoApi(private val serverUrl: String) {
                 .url("$baseUrl/api/memory/${Uri.encode(subdir)}/${Uri.encode(filename)}")
                 .delete().build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) { false }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "deleteMemory: ${e.message}"); false }
     }
 
     suspend fun clearMemories(): Int = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/memory/clear").delete().build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext 0
             val body = response.body?.string() ?: return@withContext 0
             JSONObject(body).optInt("deleted", 0)
-        } catch (_: Exception) { 0 }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "clearMemories: ${e.message}"); 0 }
     }
 
     suspend fun getModes(): List<Mode> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/modes").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val arr = JSONArray(body)
@@ -564,15 +592,16 @@ class GizmoApi(private val serverUrl: String) {
                     icon = obj.optString("icon", "")
                 )
             }
-        } catch (_: Exception) {
-            emptyList()
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "${e.message}"); emptyList()
         }
     }
 
     suspend fun getServiceHealth(): List<ServiceHealth> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/services/health").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val obj = JSONObject(body)
@@ -584,8 +613,9 @@ class GizmoApi(private val serverUrl: String) {
                     error = svc.optString("error").takeIf { it.isNotEmpty() }
                 )
             }.toList()
-        } catch (_: Exception) {
-            emptyList()
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "${e.message}"); emptyList()
         }
     }
 
@@ -627,23 +657,25 @@ class GizmoApi(private val serverUrl: String) {
             if (tag != null) params.add("tag=${Uri.encode(tag)}")
             val qs = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
             val request = Request.Builder().url("$baseUrl/api/tracker/tasks$qs").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val obj = JSONObject(body)
             val arr = obj.getJSONArray("tasks")
             (0 until arr.length()).map { parseTask(arr.getJSONObject(it)) }
-        } catch (_: Exception) { emptyList() }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getTasks: ${e.message}"); emptyList() }
     }
 
     suspend fun getTask(id: String): ai.gizmo.app.model.TrackerTask? = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/tracker/tasks/$id").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
             val body = response.body?.string() ?: return@withContext null
             parseTask(JSONObject(body).getJSONObject("task"))
-        } catch (_: Exception) { null }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getTask: ${e.message}"); null }
     }
 
     suspend fun createTask(title: String, priority: String = "medium", parentId: String? = null): ai.gizmo.app.model.TrackerTask? = withContext(Dispatchers.IO) {
@@ -654,11 +686,12 @@ class GizmoApi(private val serverUrl: String) {
             }.toString()
             val request = Request.Builder().url("$baseUrl/api/tracker/tasks")
                 .post(json.toRequestBody("application/json".toMediaType())).build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
             val body = response.body?.string() ?: return@withContext null
             parseTask(JSONObject(body).getJSONObject("task"))
-        } catch (_: Exception) { null }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "createTask: ${e.message}"); null }
     }
 
     suspend fun updateTask(id: String, fields: Map<String, Any>): Boolean = withContext(Dispatchers.IO) {
@@ -667,7 +700,7 @@ class GizmoApi(private val serverUrl: String) {
             val request = Request.Builder().url("$baseUrl/api/tracker/tasks/$id")
                 .patch(json.toRequestBody("application/json".toMediaType())).build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) { false }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "updateTask: ${e.message}"); false }
     }
 
     suspend fun completeTask(id: String): Boolean = withContext(Dispatchers.IO) {
@@ -675,14 +708,14 @@ class GizmoApi(private val serverUrl: String) {
             val request = Request.Builder().url("$baseUrl/api/tracker/tasks/$id/complete")
                 .patch("{}".toRequestBody("application/json".toMediaType())).build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) { false }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "completeTask: ${e.message}"); false }
     }
 
     suspend fun deleteTask(id: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/tracker/tasks/$id").delete().build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) { false }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "deleteTask: ${e.message}"); false }
     }
 
     suspend fun getNotes(tag: String? = null, search: String? = null): List<ai.gizmo.app.model.TrackerNote> = withContext(Dispatchers.IO) {
@@ -692,13 +725,14 @@ class GizmoApi(private val serverUrl: String) {
             if (search != null) params.add("search=${Uri.encode(search)}")
             val qs = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
             val request = Request.Builder().url("$baseUrl/api/tracker/notes$qs").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val obj = JSONObject(body)
             val arr = obj.getJSONArray("notes")
             (0 until arr.length()).map { parseNote(arr.getJSONObject(it)) }
-        } catch (_: Exception) { emptyList() }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getNotes: ${e.message}"); emptyList() }
     }
 
     suspend fun createNote(title: String, content: String = ""): ai.gizmo.app.model.TrackerNote? = withContext(Dispatchers.IO) {
@@ -706,11 +740,12 @@ class GizmoApi(private val serverUrl: String) {
             val json = JSONObject().apply { put("title", title); put("content", content) }.toString()
             val request = Request.Builder().url("$baseUrl/api/tracker/notes")
                 .post(json.toRequestBody("application/json".toMediaType())).build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
             val body = response.body?.string() ?: return@withContext null
             parseNote(JSONObject(body).getJSONObject("note"))
-        } catch (_: Exception) { null }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "createNote: ${e.message}"); null }
     }
 
     suspend fun updateNote(id: String, fields: Map<String, Any>): Boolean = withContext(Dispatchers.IO) {
@@ -719,25 +754,26 @@ class GizmoApi(private val serverUrl: String) {
             val request = Request.Builder().url("$baseUrl/api/tracker/notes/$id")
                 .patch(json.toRequestBody("application/json".toMediaType())).build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) { false }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "updateNote: ${e.message}"); false }
     }
 
     suspend fun deleteNote(id: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/tracker/notes/$id").delete().build()
             client.newCall(request).execute().isSuccessful
-        } catch (_: Exception) { false }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "deleteNote: ${e.message}"); false }
     }
 
     suspend fun getTags(): List<String> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/tracker/tags").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val arr = JSONObject(body).getJSONArray("tags")
             (0 until arr.length()).map { arr.getString(it) }
-        } catch (_: Exception) { emptyList() }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getTags: ${e.message}"); emptyList() }
     }
 
     // --- Analytics API ---
@@ -745,7 +781,7 @@ class GizmoApi(private val serverUrl: String) {
     suspend fun getAnalyticsSummary(): ai.gizmo.app.model.AnalyticsSummary = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/analytics/summary").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext ai.gizmo.app.model.AnalyticsSummary()
             val body = response.body?.string() ?: return@withContext ai.gizmo.app.model.AnalyticsSummary()
             val obj = JSONObject(body)
@@ -761,13 +797,14 @@ class GizmoApi(private val serverUrl: String) {
                 avgContextMs = obj.optLong("avg_context_ms"), estimatedSavingsUsd = obj.optDouble("estimated_savings_usd", 0.0),
                 providers = providers
             )
-        } catch (_: Exception) { ai.gizmo.app.model.AnalyticsSummary() }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getAnalyticsSummary: ${e.message}"); ai.gizmo.app.model.AnalyticsSummary() }
     }
 
     suspend fun getAnalyticsDaily(days: Int = 30): List<ai.gizmo.app.model.DailyUsage> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/analytics/daily?days=$days").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val arr = JSONArray(body)
@@ -775,13 +812,14 @@ class GizmoApi(private val serverUrl: String) {
                 val d = arr.getJSONObject(i)
                 ai.gizmo.app.model.DailyUsage(d.getString("date"), d.optLong("prompt_tokens"), d.optLong("completion_tokens"), d.optLong("total_tokens"), d.optInt("messages"))
             }
-        } catch (_: Exception) { emptyList() }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getAnalyticsDaily: ${e.message}"); emptyList() }
     }
 
     suspend fun getAnalyticsConversations(): List<ai.gizmo.app.model.ConversationUsage> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/analytics/conversations").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val arr = JSONArray(body)
@@ -789,13 +827,14 @@ class GizmoApi(private val serverUrl: String) {
                 val c = arr.getJSONObject(i)
                 ai.gizmo.app.model.ConversationUsage(c.getString("conversation_id"), c.optString("title", ""), c.optLong("prompt_tokens"), c.optLong("completion_tokens"), c.optLong("total_tokens"), c.optInt("messages"))
             }
-        } catch (_: Exception) { emptyList() }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getAnalyticsConversations: ${e.message}"); emptyList() }
     }
 
     suspend fun getAnalyticsModes(): List<ai.gizmo.app.model.ModeUsage> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/analytics/modes").build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             val body = response.body?.string() ?: return@withContext emptyList()
             val arr = JSONArray(body)
@@ -803,7 +842,8 @@ class GizmoApi(private val serverUrl: String) {
                 val m = arr.getJSONObject(i)
                 ai.gizmo.app.model.ModeUsage(m.getString("mode"), m.optLong("total_tokens"), m.optInt("messages"))
             }
-        } catch (_: Exception) { emptyList() }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "getAnalyticsModes: ${e.message}"); emptyList() }
     }
 
     // --- Code Playground API ---
@@ -816,7 +856,7 @@ class GizmoApi(private val serverUrl: String) {
             }.toString()
             val request = Request.Builder().url("$baseUrl/api/run-code")
                 .post(json.toRequestBody("application/json".toMediaType())).build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
             val body = response.body?.string() ?: return@withContext ai.gizmo.app.model.ExecutionResult()
             val obj = JSONObject(body)
             val filesArr = obj.optJSONArray("output_files")
@@ -833,6 +873,7 @@ class GizmoApi(private val serverUrl: String) {
                 timedOut = obj.optBoolean("timed_out", false),
                 outputFiles = files
             )
-        } catch (_: Exception) { ai.gizmo.app.model.ExecutionResult(stderr = "Request failed") }
+            }
+        } catch (e: Exception) { android.util.Log.d("GizmoApi", "runCode: ${e.message}"); ai.gizmo.app.model.ExecutionResult(stderr = "Request failed") }
     }
 }

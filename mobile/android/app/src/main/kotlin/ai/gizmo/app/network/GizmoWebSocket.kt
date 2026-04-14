@@ -49,7 +49,9 @@ class GizmoWebSocket(
                     val json = JSONObject(text)
                     val event = ServerEvent.parse(json)
                     onEvent(event)
-                } catch (_: Exception) { }
+                } catch (e: Exception) {
+                    android.util.Log.w("GizmoWebSocket", "Failed to parse message: ${e.message}")
+                }
             }
 
             override fun onMessage(ws: WebSocket, bytes: ByteString) {

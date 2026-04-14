@@ -41,9 +41,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -134,16 +131,16 @@ fun TrackerScreen(api: GizmoApi, serverUrl: String, modifier: Modifier = Modifie
         modifier = modifier
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = BgSecondary,
-                contentColor = Accent,
-                indicator = {}
+            Row(
+                modifier = Modifier.fillMaxWidth().background(BgSecondary).padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
-                    text = { Text("Tasks", color = if (selectedTab == 0) Accent else TextDim) })
-                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
-                    text = { Text("Notes", color = if (selectedTab == 1) Accent else TextDim) })
+                FilterChip(selected = selectedTab == 0, onClick = { selectedTab = 0 },
+                    label = { Text("Tasks", fontSize = 13.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Accent, selectedLabelColor = BgPrimary, containerColor = BgTertiary, labelColor = TextPrimary))
+                FilterChip(selected = selectedTab == 1, onClick = { selectedTab = 1 },
+                    label = { Text("Notes", fontSize = 13.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Accent, selectedLabelColor = BgPrimary, containerColor = BgTertiary, labelColor = TextPrimary))
             }
 
             when (selectedTab) {
