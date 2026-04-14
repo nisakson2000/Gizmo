@@ -75,6 +75,7 @@ fun ChatScreen(
     var showVoiceStudio by remember { mutableStateOf(false) }
     var showModeEditor by remember { mutableStateOf(false) }
     var showMemoryManager by remember { mutableStateOf(false) }
+    var viewingMediaUrl by remember { mutableStateOf<String?>(null) }
     var inputText by remember { mutableStateOf("") }
     var editText by remember { mutableStateOf("") }
     val voices = remember { mutableStateListOf<Voice>() }
@@ -230,6 +231,7 @@ fun ChatScreen(
                                 onRegenerate = { viewModel.regenerateLastResponse() },
                                 onVariantSwitch = { idx, dir -> viewModel.switchVariant(idx, dir) },
                                 onDownload = { url -> viewModel.downloadMediaFile(url, context.contentResolver) },
+                                onViewMedia = { url -> viewingMediaUrl = url },
                                 modifier = Modifier.weight(1f)
                             )
                         } else {
@@ -354,5 +356,9 @@ fun ChatScreen(
             api = viewModel.api,
             onDismiss = { showMemoryManager = false }
         )
+    }
+
+    viewingMediaUrl?.let { url ->
+        MediaViewerDialog(url = url, onDismiss = { viewingMediaUrl = null })
     }
 }

@@ -80,6 +80,62 @@ class GizmoApi(private val serverUrl: String) {
             val trimmed = url.trim().lowercase()
             return trimmed.startsWith("http://") || trimmed.startsWith("https://")
         }
+
+        /**
+         * Check GitHub releases for a newer app version.
+         * Returns a Pair of (latestVersion, downloadUrl) if an update is available, null otherwise.
+         */
+        suspend fun checkForUpdate(currentVersion: String): Pair<String, String>? = withContext(Dispatchers.IO) {
+            try {
+                val ghClient = OkHttpClient.Builder()
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS)
+                    .build()
+                val request = Request.Builder()
+                    .url("https://api.github.com/repos/nisakson2000/Gizmo/releases/latest")
+                    .header("Accept", "application/vnd.github+json")
+                    .build()
+                ghClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@withContext null
+                    val body = response.body?.string() ?: return@withContext null
+                    val json = JSONObject(body)
+                    val tagName = json.optString("tag_name", "")
+                    val latestVersion = tagName.removePrefix("v")
+                    if (latestVersion.isEmpty() || latestVersion == currentVersion) return@withContext null
+                    if (!isNewerVersion(latestVersion, currentVersion)) return@withContext null
+                    val htmlUrl = json.optString("html_url", "")
+                    // Find the APK asset download URL
+                    val assets = json.optJSONArray("assets")
+                    var downloadUrl = htmlUrl
+                    if (assets != null) {
+                        for (i in 0 until assets.length()) {
+                            val asset = assets.getJSONObject(i)
+                            val name = asset.optString("name", "")
+                            if (name.endsWith(".apk")) {
+                                downloadUrl = asset.optString("browser_download_url", htmlUrl)
+                                break
+                            }
+                        }
+                    }
+                    Pair(latestVersion, downloadUrl)
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("GizmoApi", "Update check failed: ${e.message}")
+                null
+            }
+        }
+
+        private fun isNewerVersion(latest: String, current: String): Boolean {
+            val latestParts = latest.split(".").mapNotNull { it.toIntOrNull() }
+            val currentParts = current.split(".").mapNotNull { it.toIntOrNull() }
+            for (i in 0 until maxOf(latestParts.size, currentParts.size)) {
+                val l = latestParts.getOrElse(i) { 0 }
+                val c = currentParts.getOrElse(i) { 0 }
+                if (l > c) return true
+                if (l < c) return false
+            }
+            return false
+        }
     }
 
     private val baseUrl = serverUrl.trimEnd('/')

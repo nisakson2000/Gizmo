@@ -7,6 +7,7 @@ import android.widget.Toast
 import android.widget.VideoView
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -68,24 +69,27 @@ fun MessageBubble(
     onRegenerate: () -> Unit,
     onVariantSwitch: (Int) -> Unit,
     onDownload: (String) -> Unit,
+    onViewMedia: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (message.role == "user") {
-        UserBubble(message, isSelected, onSelect, onEdit, onCopy, onVariantSwitch, modifier)
+        UserBubble(message, serverUrl, isSelected, onSelect, onEdit, onCopy, onVariantSwitch, onViewMedia, modifier)
     } else {
         AssistantBubble(message, serverUrl, isSelected, isLastAssistant, generating,
-            onSelect, onCopy, onRegenerate, onVariantSwitch, onDownload, modifier)
+            onSelect, onCopy, onRegenerate, onVariantSwitch, onDownload, onViewMedia, modifier)
     }
 }
 
 @Composable
 private fun UserBubble(
     message: Message,
+    serverUrl: String,
     isSelected: Boolean,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     onCopy: () -> Unit,
     onVariantSwitch: (Int) -> Unit,
+    onViewMedia: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
@@ -104,15 +108,53 @@ private fun UserBubble(
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 if (!message.imageUrl.isNullOrEmpty()) {
+                    val fullImageUrl = if (message.imageUrl.startsWith("/")) "$serverUrl${message.imageUrl}" else message.imageUrl
                     AsyncImage(
-                        model = message.imageUrl,
+                        model = fullImageUrl,
                         contentDescription = "Attached image",
                         contentScale = ContentScale.FillWidth,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 200.dp)
                             .padding(bottom = 8.dp)
+                            .clickable { onViewMedia(fullImageUrl) }
                     )
+                }
+                if (!message.videoUrl.isNullOrEmpty()) {
+                    val fullVideoUrl = if (message.videoUrl.startsWith("/")) "$serverUrl${message.videoUrl}" else message.videoUrl
+                    Surface(
+                        onClick = { onViewMedia(fullVideoUrl) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgTertiary,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, tint = Accent, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Video attachment", color = TextPrimary, fontSize = 13.sp)
+                        }
+                    }
+                }
+                if (!message.audioUrl.isNullOrEmpty()) {
+                    val fullAudioUrl = if (message.audioUrl.startsWith("/")) "$serverUrl${message.audioUrl}" else message.audioUrl
+                    Surface(
+                        onClick = { onViewMedia(fullAudioUrl) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgTertiary,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, tint = Accent, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Audio attachment", color = TextPrimary, fontSize = 13.sp)
+                        }
+                    }
                 }
                 if (message.displayContent.isNotEmpty()) {
                     Text(text = message.displayContent, color = TextPrimary)
@@ -147,6 +189,7 @@ private fun AssistantBubble(
     onRegenerate: () -> Unit,
     onVariantSwitch: (Int) -> Unit,
     onDownload: (String) -> Unit,
+    onViewMedia: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -170,16 +213,18 @@ private fun AssistantBubble(
         // Video player
         if (!message.videoUrl.isNullOrEmpty()) {
             val fullUrl = if (message.videoUrl.startsWith("/")) "$serverUrl${message.videoUrl}" else message.videoUrl
-            AndroidView(
-                factory = { ctx ->
-                    VideoView(ctx).apply {
-                        setVideoPath(fullUrl)
-                        setOnPreparedListener { mp -> mp.isLooping = true; start() }
-                        setOnErrorListener { _, _, _ -> true }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(200.dp)
-            )
+            Box(modifier = Modifier.clickable { onViewMedia(fullUrl) }) {
+                AndroidView(
+                    factory = { ctx ->
+                        VideoView(ctx).apply {
+                            setVideoPath(fullUrl)
+                            setOnPreparedListener { mp -> mp.isLooping = true; start() }
+                            setOnErrorListener { _, _, _ -> true }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(200.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
         }
 

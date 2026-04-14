@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -69,6 +68,8 @@ import ai.gizmo.app.ui.theme.Success
 import ai.gizmo.app.ui.theme.TextDim
 import ai.gizmo.app.ui.theme.TextPrimary
 import ai.gizmo.app.ui.theme.TextSecondary
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -100,10 +101,14 @@ fun CodeScreen(api: GizmoApi, serverUrl: String, modifier: Modifier = Modifier) 
         result = null
     }
 
+    // Full-screen dialog overlay for code chat
     if (showChat) {
-        BackHandler { showChat = false }
-        CodeChat(serverUrl = serverUrl, code = code, language = language, onDismiss = { showChat = false })
-        return
+        Dialog(
+            onDismissRequest = { showChat = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+        ) {
+            CodeChat(serverUrl = serverUrl, code = code, language = language, onDismiss = { showChat = false })
+        }
     }
 
     Box(modifier = modifier.fillMaxSize().imePadding()) {

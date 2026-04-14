@@ -496,7 +496,7 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │               │   ├── ErrorActivity.kt   # Connection failure
 │               │   ├── model/             # Data classes, ViewModel, ServerEvent sealed class
 │               │   ├── network/           # OkHttp WebSocket + REST client
-│               │   ├── chat/              # Chat Compose screens (6 files)
+│               │   ├── chat/              # Chat Compose screens (7 files, incl. MediaViewer)
 │               │   ├── ui/theme/          # Material3 dark theme
 │               │   ├── ui/components/     # Shared Compose components (6 files)
 │               │   ├── settings/          # Settings bottom sheet

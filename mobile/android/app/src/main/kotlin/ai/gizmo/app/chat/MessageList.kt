@@ -75,6 +75,7 @@ fun MessageList(
     onRegenerate: () -> Unit,
     onVariantSwitch: (Int, Int) -> Unit,
     onDownload: (String) -> Unit,
+    onViewMedia: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -126,7 +127,8 @@ fun MessageList(
                         onCopy = { copyToClipboard(context, message.displayContent) },
                         onRegenerate = onRegenerate,
                         onVariantSwitch = { dir -> onVariantSwitch(index, dir) },
-                        onDownload = onDownload
+                        onDownload = onDownload,
+                        onViewMedia = onViewMedia
                     )
                 }
             }

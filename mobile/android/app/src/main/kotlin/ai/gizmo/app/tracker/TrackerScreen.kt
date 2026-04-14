@@ -35,7 +35,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -61,6 +60,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import ai.gizmo.app.model.TrackerNote
 import ai.gizmo.app.model.TrackerTask
 import ai.gizmo.app.network.GizmoApi
@@ -105,34 +106,34 @@ fun TrackerScreen(api: GizmoApi, serverUrl: String, modifier: Modifier = Modifie
         if (selectedTab == 0) loadTasks() else loadNotes()
     }
 
-    // Detail screens with system back button support
+    // Full-screen dialog overlays — render above the outer Scaffold's chrome
     selectedTaskId?.let { id ->
-        BackHandler { selectedTaskId = null; loadTasks() }
-        TaskDetail(api = api, taskId = id, onDismiss = { selectedTaskId = null; loadTasks() })
-        return
+        Dialog(
+            onDismissRequest = { selectedTaskId = null; loadTasks() },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+        ) {
+            TaskDetail(api = api, taskId = id, onDismiss = { selectedTaskId = null; loadTasks() })
+        }
     }
     selectedNoteId?.let { id ->
-        BackHandler { selectedNoteId = null; loadNotes() }
-        NoteEditor(api = api, noteId = id, onDismiss = { selectedNoteId = null; loadNotes() })
-        return
+        Dialog(
+            onDismissRequest = { selectedNoteId = null; loadNotes() },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+        ) {
+            NoteEditor(api = api, noteId = id, onDismiss = { selectedNoteId = null; loadNotes() })
+        }
     }
     if (showChat) {
-        BackHandler { showChat = false }
-        TrackerChat(serverUrl = serverUrl, onRefresh = { loadTasks(); loadNotes() }, onDismiss = { showChat = false })
-        return
+        Dialog(
+            onDismissRequest = { showChat = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+        ) {
+            TrackerChat(serverUrl = serverUrl, onRefresh = { loadTasks(); loadNotes() }, onDismiss = { showChat = false })
+        }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showChat = true }, containerColor = Accent, contentColor = BgPrimary) {
-                Icon(Icons.AutoMirrored.Filled.Chat, "Ask Gizmo")
-            }
-        },
-        containerColor = BgPrimary,
-        modifier = modifier
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().imePadding()) {
             Row(
                 modifier = Modifier.fillMaxWidth().background(BgSecondary).padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -231,6 +232,22 @@ fun TrackerScreen(api: GizmoApi, serverUrl: String, modifier: Modifier = Modifie
                 }
             }
         }
+
+        // FAB — aligned with CodeScreen's FAB position
+        FloatingActionButton(
+            onClick = { showChat = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            containerColor = Accent,
+            contentColor = BgPrimary
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Chat, "Ask Gizmo")
+        }
+
+        // Snackbar
+        SnackbarHost(
+            hostState = snackbar,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
+        )
     }
 }
 

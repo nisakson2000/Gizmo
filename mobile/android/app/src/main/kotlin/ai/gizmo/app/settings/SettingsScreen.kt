@@ -40,9 +40,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,6 +54,8 @@ import androidx.compose.ui.unit.sp
 import ai.gizmo.app.R
 import ai.gizmo.app.model.Mode
 import ai.gizmo.app.model.ServiceHealth
+import ai.gizmo.app.network.GizmoApi
+import kotlinx.coroutines.launch
 import ai.gizmo.app.ui.theme.Accent
 import ai.gizmo.app.ui.theme.BgSecondary
 import ai.gizmo.app.ui.theme.BgTertiary
@@ -396,6 +402,64 @@ fun SettingsScreen(
             if (trustAllCerts) {
                 Text("Certificate validation disabled — only use on trusted networks",
                     color = ErrorColor, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Border)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // App version + update check
+            val context = LocalContext.current
+            val updateScope = rememberCoroutineScope()
+            val versionName = remember {
+                try {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: ""
+                } catch (_: Exception) { "" }
+            }
+            var updateInfo by remember { mutableStateOf<Pair<String, String>?>(null) }
+            var checkingUpdate by remember { mutableStateOf(false) }
+
+            LaunchedEffect(versionName) {
+                if (versionName.isNotEmpty()) {
+                    checkingUpdate = true
+                    updateInfo = GizmoApi.checkForUpdate(versionName)
+                    checkingUpdate = false
+                }
+            }
+
+            if (updateInfo != null) {
+                Surface(
+                    onClick = {
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo!!.second)))
+                        } catch (_: Exception) { }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    color = Accent.copy(alpha = 0.15f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Update available", color = Accent, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                            Text("v${updateInfo!!.first} — tap to download", color = TextSecondary, fontSize = 12.sp)
+                        }
+                        Icon(Icons.Default.Refresh, contentDescription = null, tint = Accent, modifier = Modifier.size(20.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            if (versionName.isNotEmpty()) {
+                Text(
+                    text = "Gizmo for Android v$versionName",
+                    color = TextDim,
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))

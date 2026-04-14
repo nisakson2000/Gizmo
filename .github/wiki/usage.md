@@ -581,13 +581,15 @@ Add as many server profiles as you need (LAN, Tailscale, different machines). Wh
 - **Document upload** — attach documents for text extraction and analysis
 - **Conversation management** — search, rename, delete with undo
 - **Mode selector** — switch between Chat, Brainstorm, Coder, Research, etc.
+- **Media viewer** — tap any image in a message to view fullscreen with pinch-to-zoom; tap videos to view fullscreen; audio/docs open in external apps
 - **Auto-reconnect** — exponential backoff reconnect on network interruption
 
 ### Navigation
 
 - **Bottom bar** — 4 tabs: Chat, Tasks, Code, Stats
 - **Drawer** — swipe right or tap hamburger for conversation list, search, settings
-- **Settings** — thinking toggle, context length slider, mode selector, service health
+- **Settings** — thinking toggle, context length slider, mode selector, theme, TTS, service health, version info, and automatic update detection from GitHub releases
+- **Ask Gizmo** — tap the chat FAB on Tasks or Code tabs to open a dedicated AI chat overlay (full-screen dialog)
 
 ### Build-Time Defaults
 
