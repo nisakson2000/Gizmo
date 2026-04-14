@@ -58,7 +58,13 @@ data class ServiceHealth(
     val name: String,
     val status: String,
     val error: String? = null
-)
+) {
+    val isHealthy: Boolean get() = status == STATUS_HEALTHY
+
+    companion object {
+        const val STATUS_HEALTHY = "healthy"
+    }
+}
 
 enum class ConnectionState {
     DISCONNECTED, CONNECTING, CONNECTED, GENERATING

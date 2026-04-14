@@ -66,6 +66,18 @@ import ai.gizmo.app.ui.theme.TextDim
 import ai.gizmo.app.ui.theme.TextPrimary
 import ai.gizmo.app.ui.theme.TextSecondary
 
+class TtsConfig(
+    val enabled: Boolean,
+    val onEnabledChanged: (Boolean) -> Unit,
+    val speed: Float,
+    val onSpeedChanged: (Float) -> Unit,
+    val language: String,
+    val onLanguageChanged: (String) -> Unit,
+    val voices: List<ai.gizmo.app.model.Voice>,
+    val selectedVoiceId: String?,
+    val onVoiceSelected: (String?) -> Unit
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -84,15 +96,7 @@ fun SettingsScreen(
     onOpenVoiceStudio: () -> Unit,
     onOpenModeEditor: () -> Unit,
     onOpenMemoryManager: () -> Unit,
-    ttsEnabled: Boolean,
-    onTtsChanged: (Boolean) -> Unit,
-    ttsSpeed: Float,
-    onTtsSpeedChanged: (Float) -> Unit,
-    ttsLanguage: String,
-    onTtsLanguageChanged: (String) -> Unit,
-    voices: List<ai.gizmo.app.model.Voice>,
-    selectedVoiceId: String?,
-    onVoiceSelected: (String?) -> Unit,
+    tts: TtsConfig,
     trustAllCerts: Boolean,
     onTrustAllCertsChanged: (Boolean) -> Unit,
     onDismiss: () -> Unit
@@ -262,13 +266,12 @@ fun SettingsScreen(
             ) {
                 Text("Read responses aloud", color = TextPrimary, modifier = Modifier.weight(1f))
                 Switch(
-                    checked = ttsEnabled,
-                    onCheckedChange = onTtsChanged,
+                    checked = tts.enabled,
+                    onCheckedChange = tts.onEnabledChanged,
                     colors = SwitchDefaults.colors(checkedThumbColor = Accent, checkedTrackColor = Accent.copy(alpha = 0.3f))
                 )
             }
-            if (ttsEnabled) {
-                // Voice selector
+            if (tts.enabled) {
                 var showVoiceMenu by remember { mutableStateOf(false) }
                 Box {
                     Row(
@@ -277,34 +280,32 @@ fun SettingsScreen(
                     ) {
                         Text("Voice", color = TextSecondary, modifier = Modifier.weight(1f))
                         Text(
-                            voices.find { it.id == selectedVoiceId }?.name ?: "Default",
+                            tts.voices.find { it.id == tts.selectedVoiceId }?.name ?: "Default",
                             color = Accent
                         )
                     }
                     DropdownMenu(expanded = showVoiceMenu, onDismissRequest = { showVoiceMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Default", color = if (selectedVoiceId == null) Accent else TextPrimary) },
-                            onClick = { onVoiceSelected(null); showVoiceMenu = false }
+                            text = { Text("Default", color = if (tts.selectedVoiceId == null) Accent else TextPrimary) },
+                            onClick = { tts.onVoiceSelected(null); showVoiceMenu = false }
                         )
-                        voices.forEach { v ->
+                        tts.voices.forEach { v ->
                             DropdownMenuItem(
-                                text = { Text(v.name, color = if (v.id == selectedVoiceId) Accent else TextPrimary) },
-                                onClick = { onVoiceSelected(v.id); showVoiceMenu = false }
+                                text = { Text(v.name, color = if (v.id == tts.selectedVoiceId) Accent else TextPrimary) },
+                                onClick = { tts.onVoiceSelected(v.id); showVoiceMenu = false }
                             )
                         }
                     }
                 }
-                // Speed slider
-                Text("Speed: ${"%.1f".format(ttsSpeed)}x", color = TextSecondary, fontSize = 13.sp)
+                Text("Speed: ${"%.1f".format(tts.speed)}x", color = TextSecondary, fontSize = 13.sp)
                 Slider(
-                    value = ttsSpeed,
-                    onValueChange = onTtsSpeedChanged,
+                    value = tts.speed,
+                    onValueChange = tts.onSpeedChanged,
                     valueRange = 0.5f..2.0f,
                     steps = 14,
                     colors = SliderDefaults.colors(thumbColor = Accent, activeTrackColor = Accent, inactiveTrackColor = Border),
                     modifier = Modifier.fillMaxWidth()
                 )
-                // Language
                 val languages = listOf("Auto", "English", "Chinese", "Japanese", "Korean", "German", "French", "Russian", "Portuguese", "Spanish", "Italian")
                 var showLangMenu by remember { mutableStateOf(false) }
                 Box {
@@ -313,13 +314,13 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth().clickable { showLangMenu = true }.padding(vertical = 8.dp)
                     ) {
                         Text("Language", color = TextSecondary, modifier = Modifier.weight(1f))
-                        Text(ttsLanguage, color = Accent)
+                        Text(tts.language, color = Accent)
                     }
                     DropdownMenu(expanded = showLangMenu, onDismissRequest = { showLangMenu = false }) {
                         languages.forEach { lang ->
                             DropdownMenuItem(
-                                text = { Text(lang, color = if (lang == ttsLanguage) Accent else TextPrimary) },
-                                onClick = { onTtsLanguageChanged(lang); showLangMenu = false }
+                                text = { Text(lang, color = if (lang == tts.language) Accent else TextPrimary) },
+                                onClick = { tts.onLanguageChanged(lang); showLangMenu = false }
                             )
                         }
                     }
@@ -351,7 +352,7 @@ fun SettingsScreen(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = if (svc.status == "healthy") Success else ErrorColor,
+                        color = if (svc.isHealthy) Success else ErrorColor,
                         modifier = Modifier.size(8.dp)
                     ) {}
                     Spacer(modifier = Modifier.width(12.dp))
@@ -362,7 +363,7 @@ fun SettingsScreen(
                     )
                     Text(
                         text = svc.status,
-                        color = if (svc.status == "healthy") Success else ErrorColor,
+                        color = if (svc.isHealthy) Success else ErrorColor,
                         fontSize = 13.sp
                     )
                 }

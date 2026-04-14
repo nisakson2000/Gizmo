@@ -198,10 +198,8 @@ private fun AssistantBubble(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // Content rendered as markdown — memoized to avoid re-parsing on revisit
         if (message.displayContent.isNotEmpty()) {
-            val content = remember(message.id, message.currentVariantIndex) { message.displayContent }
-            Markdown(content = content, modifier = Modifier.fillMaxWidth())
+            Markdown(content = message.displayContent, modifier = Modifier.fillMaxWidth())
 
             // Detect download links (/api/media/ URLs)
             mediaUrlRegex.findAll(message.displayContent).forEach { match ->

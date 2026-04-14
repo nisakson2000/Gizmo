@@ -48,6 +48,7 @@ import ai.gizmo.app.analytics.AnalyticsScreen
 import ai.gizmo.app.code.CodeScreen
 import ai.gizmo.app.tracker.TrackerScreen
 import ai.gizmo.app.settings.SettingsScreen
+import ai.gizmo.app.settings.TtsConfig
 import ai.gizmo.app.model.Voice
 import ai.gizmo.app.ui.components.BottomNav
 import ai.gizmo.app.ui.components.ConnectionIndicator
@@ -58,6 +59,9 @@ import ai.gizmo.app.memory.MemoryManagerScreen
 import ai.gizmo.app.mode.ModeEditorScreen
 import ai.gizmo.app.voice.VoiceStudioScreen
 import ai.gizmo.app.ui.theme.TextSecondary
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,6 +113,16 @@ fun ChatScreen(
     val audioPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { viewModel.handleAudioPick(it, context.contentResolver) } }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.startRecording(context)
+        } else {
+            viewModel.showSnackbar("Microphone permission required for voice input")
+        }
+    }
 
     val activeTitle = viewModel.conversations
         .find { it.id == viewModel.activeConversationId.value }?.title
@@ -272,7 +286,14 @@ fun ChatScreen(
                                 if (viewModel.isRecording.value) {
                                     viewModel.stopRecording(context.contentResolver)
                                 } else {
-                                    viewModel.startRecording(context)
+                                    val hasPermission = ContextCompat.checkSelfPermission(
+                                        context, Manifest.permission.RECORD_AUDIO
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    if (hasPermission) {
+                                        viewModel.startRecording(context)
+                                    } else {
+                                        micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    }
                                 }
                             },
                             onMicLongPress = { viewModel.cancelRecording() },
@@ -319,15 +340,17 @@ fun ChatScreen(
             onOpenVoiceStudio = { showSettings = false; showVoiceStudio = true },
             onOpenModeEditor = { showSettings = false; showModeEditor = true },
             onOpenMemoryManager = { showSettings = false; showMemoryManager = true },
-            ttsEnabled = viewModel.ttsEnabled.value,
-            onTtsChanged = { viewModel.ttsEnabled.value = it; viewModel.saveSettings(context) },
-            ttsSpeed = viewModel.ttsSpeed.value,
-            onTtsSpeedChanged = { viewModel.ttsSpeed.value = it; viewModel.saveSettings(context) },
-            ttsLanguage = viewModel.ttsLanguage.value,
-            onTtsLanguageChanged = { viewModel.ttsLanguage.value = it; viewModel.saveSettings(context) },
-            voices = voices,
-            selectedVoiceId = viewModel.ttsVoiceId.value,
-            onVoiceSelected = { viewModel.ttsVoiceId.value = it; viewModel.saveSettings(context) },
+            tts = TtsConfig(
+                enabled = viewModel.ttsEnabled.value,
+                onEnabledChanged = { viewModel.ttsEnabled.value = it; viewModel.saveSettings(context) },
+                speed = viewModel.ttsSpeed.value,
+                onSpeedChanged = { viewModel.ttsSpeed.value = it; viewModel.saveSettings(context) },
+                language = viewModel.ttsLanguage.value,
+                onLanguageChanged = { viewModel.ttsLanguage.value = it; viewModel.saveSettings(context) },
+                voices = voices,
+                selectedVoiceId = viewModel.ttsVoiceId.value,
+                onVoiceSelected = { viewModel.ttsVoiceId.value = it; viewModel.saveSettings(context) }
+            ),
             trustAllCerts = viewModel.trustAllCerts.value,
             onTrustAllCertsChanged = { viewModel.setTrustAllCerts(it, context) },
             onDismiss = { showSettings = false }
