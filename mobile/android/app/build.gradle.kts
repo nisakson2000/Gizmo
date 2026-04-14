@@ -12,8 +12,8 @@ android {
         applicationId = "ai.gizmo.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.0.0"
+        versionCode = 10
+        versionName = "1.0.1"
     }
 
     buildTypes {
