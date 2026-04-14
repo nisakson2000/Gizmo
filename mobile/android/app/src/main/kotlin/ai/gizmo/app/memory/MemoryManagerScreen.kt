@@ -175,10 +175,12 @@ fun MemoryManagerScreen(api: GizmoApi, onDismiss: () -> Unit) {
                                         )
                                     }
                                     IconButton(onClick = {
+                                        val deleted = mem.copy()
                                         memories.removeAll { it.filename == mem.filename && it.subdir == mem.subdir }
                                         scope.launch {
-                                            api.deleteMemory(mem.subdir, mem.filename)
-                                            snackbarHostState.showSnackbar("Memory deleted", duration = SnackbarDuration.Short)
+                                            val ok = api.deleteMemory(deleted.subdir, deleted.filename)
+                                            if (!ok) { memories.add(deleted); snackbarHostState.showSnackbar("Failed to delete memory") }
+                                            else snackbarHostState.showSnackbar("Memory deleted", duration = SnackbarDuration.Short)
                                         }
                                     }) {
                                         Icon(Icons.Default.Delete, "Delete", tint = ErrorColor.copy(alpha = 0.7f))

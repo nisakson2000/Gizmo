@@ -172,8 +172,9 @@ fun TrackerScreen(api: GizmoApi, serverUrl: String, modifier: Modifier = Modifie
                             TaskItem(task = task, onClick = { selectedTaskId = task.id }, onDelete = {
                                 tasks.removeAll { it.id == task.id }
                                 scope.launch {
-                                    api.deleteTask(task.id)
-                                    snackbar.showSnackbar("Task deleted", duration = SnackbarDuration.Short)
+                                    val ok = api.deleteTask(task.id)
+                                    if (!ok) { tasks.add(task); snackbar.showSnackbar("Failed to delete task") }
+                                    else snackbar.showSnackbar("Task deleted", duration = SnackbarDuration.Short)
                                 }
                             })
                         }
@@ -222,8 +223,9 @@ fun TrackerScreen(api: GizmoApi, serverUrl: String, modifier: Modifier = Modifie
                             NoteItem(note = note, onClick = { selectedNoteId = note.id }, onDelete = {
                                 notes.removeAll { it.id == note.id }
                                 scope.launch {
-                                    api.deleteNote(note.id)
-                                    snackbar.showSnackbar("Note deleted", duration = SnackbarDuration.Short)
+                                    val ok = api.deleteNote(note.id)
+                                    if (!ok) { notes.add(note); snackbar.showSnackbar("Failed to delete note") }
+                                    else snackbar.showSnackbar("Note deleted", duration = SnackbarDuration.Short)
                                 }
                             })
                         }
