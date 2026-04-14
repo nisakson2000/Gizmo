@@ -498,9 +498,14 @@ Defines all service endpoints, ports, and health check paths. Used by scripts an
 │               │   ├── network/           # OkHttp WebSocket + REST client
 │               │   ├── chat/              # Chat Compose screens (6 files)
 │               │   ├── ui/theme/          # Material3 dark theme
-│               │   ├── ui/components/     # Shared Compose components (4 files)
+│               │   ├── ui/components/     # Shared Compose components (6 files)
 │               │   ├── settings/          # Settings bottom sheet
-│               │   └── placeholder/       # Placeholder tabs
+│               │   ├── analytics/         # Usage analytics dashboard
+│               │   ├── code/              # Code editor + AI chat overlay
+│               │   ├── memory/            # Memory manager screen
+│               │   ├── mode/              # Mode editor screen
+│               │   ├── tracker/           # Task tracker + notes
+│               │   └── voice/             # Voice Studio screen
 │               ├── res/layout/            # 5 layout XMLs (onboarding, server management screens)
 │               ├── res/values/            # colors.xml, strings.xml, themes.xml
 │               ├── res/drawable/          # Icons, rounded card shape

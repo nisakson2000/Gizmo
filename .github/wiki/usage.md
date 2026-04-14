@@ -585,7 +585,7 @@ Add as many server profiles as you need (LAN, Tailscale, different machines). Wh
 
 ### Navigation
 
-- **Bottom bar** — 4 tabs: Chat (functional), Tasks, Code, Stats (coming soon)
+- **Bottom bar** — 4 tabs: Chat, Tasks, Code, Stats
 - **Drawer** — swipe right or tap hamburger for conversation list, search, settings
 - **Settings** — thinking toggle, context length slider, mode selector, service health
 

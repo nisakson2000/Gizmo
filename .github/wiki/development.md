@@ -195,12 +195,17 @@ The `gizmo-defaults.json` file is gitignored — it's for personal builds only. 
 | Directory | Purpose |
 |-----------|---------|
 | `mobile/android/app/src/main/kotlin/ai/gizmo/app/` | Activities + server management (10 files) |
-| `mobile/android/app/src/main/kotlin/ai/gizmo/app/model/` | Data classes, ViewModel, ServerEvent sealed class |
-| `mobile/android/app/src/main/kotlin/ai/gizmo/app/network/` | OkHttp WebSocket + REST client |
-| `mobile/android/app/src/main/kotlin/ai/gizmo/app/chat/` | Compose chat screens (ChatScreen, MessageList, ChatInput, etc.) |
-| `mobile/android/app/src/main/kotlin/ai/gizmo/app/ui/` | Material3 theme + shared Compose components |
-| `mobile/android/app/src/main/kotlin/ai/gizmo/app/settings/` | Settings bottom sheet |
-| `mobile/android/app/src/main/kotlin/ai/gizmo/app/placeholder/` | Placeholder screens for future tabs |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/model/` | Data classes, ViewModel, ServerEvent sealed class (10 files) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/network/` | OkHttp WebSocket + REST client (2 files) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/chat/` | Compose chat screens (6 files) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/ui/` | Material3 theme + shared Compose components (9 files) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/settings/` | Settings bottom sheet (1 file) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/analytics/` | Usage analytics dashboard (1 file) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/code/` | Code editor + AI chat overlay (2 files) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/memory/` | Memory manager screen (1 file) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/mode/` | Mode editor screen (1 file) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/tracker/` | Task tracker + notes (4 files) |
+| `mobile/android/app/src/main/kotlin/ai/gizmo/app/voice/` | Voice Studio screen (1 file) |
 | `mobile/android/app/src/main/res/` | Layouts (XML activities), colors, themes, drawables, animations |
 | `mobile/android/app/src/main/AndroidManifest.xml` | Permissions, activities, config |
 | `mobile/Dockerfile` | Build environment (JDK 17 + Android SDK) |
