@@ -40,6 +40,7 @@ class ChatViewModel(
     val pendingDocumentName = mutableStateOf<String?>(null)
     val pendingVideoUri = mutableStateOf<Uri?>(null)
     val pendingAudioName = mutableStateOf<String?>(null)
+    val transcribedTextForInput = mutableStateOf<String?>(null)
     val selectedMessageIndex = mutableStateOf<Int?>(null)
     val editingMessageIndex = mutableStateOf<Int?>(null)
     val snackbarMessage = mutableStateOf<String?>(null)
@@ -586,9 +587,14 @@ class ChatViewModel(
         val file = micRecorder?.stop()
         micRecorder = null
         if (file != null) {
-            val uri = Uri.fromFile(file)
-            handleAudioPick(uri, contentResolver)
-            // Temp file cleaned up after upload completes
+            viewModelScope.launch {
+                val text = api.transcribeAudio(Uri.fromFile(file), contentResolver)
+                if (text != null) {
+                    transcribedTextForInput.value = text
+                } else {
+                    showSnackbar("Transcription failed — check your connection")
+                }
+            }
         }
     }
 

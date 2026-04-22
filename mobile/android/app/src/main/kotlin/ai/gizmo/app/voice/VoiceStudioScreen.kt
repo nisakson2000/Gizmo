@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,6 +82,7 @@ fun VoiceStudioScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var addName by remember { mutableStateOf("") }
     var addUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var maxDuration by remember { mutableIntStateOf(60) }
     var previewVoiceId by remember { mutableStateOf<String?>(null) }
     var previewText by remember { mutableStateOf("Hello, this is a voice preview.") }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
@@ -154,7 +158,7 @@ fun VoiceStudioScreen(
     // Add voice dialog
     if (showAddDialog) {
         AlertDialog(
-            onDismissRequest = { showAddDialog = false; addUri = null; addName = "" },
+            onDismissRequest = { showAddDialog = false; addUri = null; addName = ""; maxDuration = 60 },
             title = { Text("Add Voice") },
             text = {
                 Column {
@@ -169,6 +173,24 @@ fun VoiceStudioScreen(
                     TextButton(onClick = { filePicker.launch("audio/*") }) {
                         Text(if (addUri != null) "File selected" else "Pick audio file", color = Accent)
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Clip duration", color = TextSecondary, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(30, 60, 90, 120).forEach { seconds ->
+                            FilterChip(
+                                selected = maxDuration == seconds,
+                                onClick = { maxDuration = seconds },
+                                label = { Text("${seconds}s") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Accent,
+                                    selectedLabelColor = BgPrimary,
+                                    containerColor = BgTertiary,
+                                    labelColor = TextPrimary
+                                )
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -176,9 +198,10 @@ fun VoiceStudioScreen(
                     onClick = {
                         val uri = addUri ?: return@TextButton
                         val name = addName.ifBlank { "Voice" }
+                        val duration = maxDuration
                         showAddDialog = false
                         scope.launch {
-                            val result = api.uploadVoice(uri, name, 60, context.contentResolver)
+                            val result = api.uploadVoice(uri, name, duration, context.contentResolver)
                             if (result != null) {
                                 voices.clear()
                                 voices.addAll(api.getVoices())
@@ -186,6 +209,7 @@ fun VoiceStudioScreen(
                         }
                         addUri = null
                         addName = ""
+                        maxDuration = 60
                     },
                     enabled = addUri != null
                 ) {
@@ -193,7 +217,7 @@ fun VoiceStudioScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false; addUri = null; addName = "" }) {
+                TextButton(onClick = { showAddDialog = false; addUri = null; addName = ""; maxDuration = 60 }) {
                     Text("Cancel", color = TextSecondary)
                 }
             },

@@ -53,8 +53,17 @@ fun resolveMediaUrl(url: String, serverUrl: String): String =
 fun MediaViewerDialog(url: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val lowerUrl = url.lowercase()
-    val isImage = IMAGE_EXTENSIONS.any { lowerUrl.contains(it) }
-    val isVideo = VIDEO_EXTENSIONS.any { lowerUrl.contains(it) }
+    // content:// URIs from the Android picker have no file extension in the path,
+    // so fall back to the content resolver's MIME type to classify them.
+    val contentMimeType = remember(url) {
+        if (url.startsWith("content://")) {
+            try { context.contentResolver.getType(Uri.parse(url)) } catch (_: Exception) { null }
+        } else null
+    }
+    val isImage = IMAGE_EXTENSIONS.any { lowerUrl.contains(it) } ||
+        contentMimeType?.startsWith("image/") == true
+    val isVideo = VIDEO_EXTENSIONS.any { lowerUrl.contains(it) } ||
+        contentMimeType?.startsWith("video/") == true
 
     Dialog(
         onDismissRequest = onDismiss,

@@ -5,10 +5,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
@@ -95,6 +99,14 @@ fun ChatScreen(
         viewModel.snackbarMessage.value?.let { msg ->
             snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
             viewModel.clearSnackbar()
+        }
+    }
+
+    // Mic dictation: append transcribed text into the input field, like the web UI.
+    LaunchedEffect(viewModel.transcribedTextForInput.value) {
+        viewModel.transcribedTextForInput.value?.let { text ->
+            inputText += text
+            viewModel.transcribedTextForInput.value = null
         }
     }
 
@@ -217,7 +229,7 @@ fun ChatScreen(
                     Column(modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .imePadding()) {
+                        .windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars))) {
 
                         val hasMessages = viewModel.messages.isNotEmpty() || viewModel.generating.value
 

@@ -680,6 +680,11 @@ class GizmoApi(private val serverUrl: String) {
 
     // --- Tracker API ---
 
+    // JSONObject.optString() returns the literal string "null" when the value is JSON null,
+    // which then passes isNotEmpty() and renders as "null" in the UI. Filter that out.
+    private fun JSONObject.optNullableString(name: String): String? =
+        if (isNull(name)) null else optString(name).takeIf { it.isNotEmpty() }
+
     private fun parseTask(obj: JSONObject): ai.gizmo.app.model.TrackerTask {
         val tagsArr = obj.optJSONArray("tags")
         val tags = if (tagsArr != null) (0 until tagsArr.length()).map { tagsArr.getString(it) } else emptyList()
@@ -689,11 +694,11 @@ class GizmoApi(private val serverUrl: String) {
             id = obj.optString("id", ""), title = obj.optString("title", ""),
             description = obj.optString("description", ""), status = obj.optString("status", "todo"),
             priority = obj.optString("priority", "medium"),
-            dueDate = obj.optString("due_date").takeIf { it.isNotEmpty() },
-            tags = tags, parentId = obj.optString("parent_id").takeIf { it.isNotEmpty() },
+            dueDate = obj.optNullableString("due_date"),
+            tags = tags, parentId = obj.optNullableString("parent_id"),
             recurrence = obj.optString("recurrence", "none"),
             createdAt = obj.optString("created_at", ""), updatedAt = obj.optString("updated_at", ""),
-            completedAt = obj.optString("completed_at").takeIf { it.isNotEmpty() }, subtasks = subtasks
+            completedAt = obj.optNullableString("completed_at"), subtasks = subtasks
         )
     }
 
