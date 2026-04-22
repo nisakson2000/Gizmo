@@ -201,8 +201,8 @@ fun VoiceStudioScreen(
                         val duration = maxDuration
                         showAddDialog = false
                         scope.launch {
-                            val result = api.uploadVoice(uri, name, duration, context.contentResolver)
-                            if (result != null) {
+                            val success = api.uploadVoice(uri, name, duration, context.contentResolver)
+                            if (success) {
                                 voices.clear()
                                 voices.addAll(api.getVoices())
                             }

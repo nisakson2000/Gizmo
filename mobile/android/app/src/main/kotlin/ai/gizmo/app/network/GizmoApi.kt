@@ -192,9 +192,9 @@ class GizmoApi(private val serverUrl: String) {
                     content = m.optString("content", ""),
                     thinking = m.optString("thinking", ""),
                     timestamp = m.optString("timestamp", ""),
-                    imageUrl = m.optString("image_url").takeIf { it.isNotEmpty() },
-                    audioUrl = m.optString("audio_url").takeIf { it.isNotEmpty() },
-                    videoUrl = m.optString("video_url").takeIf { it.isNotEmpty() },
+                    imageUrl = m.optNullableString("image_url"),
+                    audioUrl = m.optNullableString("audio_url"),
+                    videoUrl = m.optNullableString("video_url"),
                     toolCalls = toolCalls
                 )
             }
