@@ -241,6 +241,7 @@ fun ChatScreen(
                                 streamingToolCalls = viewModel.streamingToolCalls,
                                 generating = viewModel.generating.value,
                                 serverUrl = viewModel.serverUrl,
+                                activeConversationId = viewModel.activeConversationId.value,
                                 selectedIndex = viewModel.selectedMessageIndex.value,
                                 editingIndex = viewModel.editingMessageIndex.value,
                                 onSelectMessage = { viewModel.selectedMessageIndex.value = it },

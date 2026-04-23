@@ -1,9 +1,11 @@
 package ai.gizmo.app.chat
 
 import android.content.Intent
+import android.media.MediaPlayer
 import android.net.Uri
 import android.widget.VideoView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,10 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -139,15 +143,52 @@ private fun ImageViewer(url: String) {
 
 @Composable
 private fun VideoViewer(url: String) {
-    AndroidView(
-        factory = { ctx ->
-            VideoView(ctx).apply {
-                setVideoPath(url)
-                setOnPreparedListener { it.isLooping = true; start() }
-                setOnErrorListener { _, _, _ -> true }
+    var player by remember { mutableStateOf<MediaPlayer?>(null) }
+    var isPlaying by remember { mutableStateOf(true) }
+
+    DisposableEffect(url) {
+        onDispose { player = null }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            factory = { ctx ->
+                VideoView(ctx).apply {
+                    setVideoPath(url)
+                    setOnPreparedListener { mp ->
+                        player = mp
+                        mp.isLooping = true
+                        start()
+                    }
+                    setOnErrorListener { _, _, _ -> true }
+                }
+            },
+            onRelease = { it.stopPlayback() },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Full-area tap target to toggle play/pause. Sits on top of the VideoView
+        // but below the Close / Open-externally IconButtons in the parent Box.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable {
+                    player?.let { mp ->
+                        if (isPlaying) mp.pause() else mp.start()
+                        isPlaying = !isPlaying
+                    }
+                }
+        ) {
+            if (!isPlaying) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(80.dp)
+                )
             }
-        },
-        onRelease = { it.stopPlayback() },
-        modifier = Modifier.fillMaxSize()
-    )
+        }
+    }
 }

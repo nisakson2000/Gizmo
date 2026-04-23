@@ -132,7 +132,13 @@ private fun UserBubble(
                             factory = { ctx ->
                                 VideoView(ctx).apply {
                                     setVideoPath(fullVideoUrl)
-                                    setOnPreparedListener { mp -> mp.isLooping = true; start() }
+                                    // Render the first frame as a static thumbnail — no autoplay.
+                                    // start()+pause() is the canonical way to get VideoView's
+                                    // SurfaceView to paint a frame before playback begins.
+                                    setOnPreparedListener {
+                                        start()
+                                        pause()
+                                    }
                                     setOnErrorListener { _, _, _ -> true }
                                 }
                             },
