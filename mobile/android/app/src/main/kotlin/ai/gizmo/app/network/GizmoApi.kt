@@ -143,6 +143,25 @@ class GizmoApi(private val serverUrl: String) {
 
     private val baseUrl = serverUrl.trimEnd('/')
 
+    // Host-side stack-control service lives on the same host as the orchestrator but on
+    // port 9101, outside podman. Force-swap to :9101 regardless of the orchestrator's
+    // configured port — the service's port is fixed and not user-configurable by design.
+    private val stackControlBaseUrl: String by lazy {
+        val uri = Uri.parse(baseUrl)
+        val scheme = uri.scheme ?: "http"
+        val host = uri.host ?: baseUrl
+        "$scheme://$host:9101"
+    }
+
+    // Start/stop can take up to 180s on the server side. The shared client's 30s read
+    // timeout isn't enough, so build a long-running variant with matching SSL config.
+    private val longCallClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .callTimeout(210, TimeUnit.SECONDS)
+            .readTimeout(210, TimeUnit.SECONDS)
+            .build()
+    }
+
     suspend fun getConversations(): List<Conversation> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$baseUrl/api/conversations").build()
@@ -939,5 +958,86 @@ class GizmoApi(private val serverUrl: String) {
             )
             }
         } catch (e: Exception) { android.util.Log.d("GizmoApi", "runCode: ${e.message}"); ai.gizmo.app.model.ExecutionResult(stderr = "Request failed") }
+    }
+
+    // --- Stack Control (host-side service at :9101) ---
+
+    suspend fun checkStackControlHealth(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$stackControlBaseUrl/health").build()
+            client.newCall(request).execute().use { it.isSuccessful }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "checkStackControlHealth: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun getStackStatus(): ai.gizmo.app.model.StackStatus? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$stackControlBaseUrl/api/system/status").build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                val body = response.body?.string() ?: return@withContext null
+                val obj = JSONObject(body)
+                val containersArr = obj.optJSONArray("containers")
+                val containers = if (containersArr != null) {
+                    (0 until containersArr.length()).map { i ->
+                        val c = containersArr.getJSONObject(i)
+                        ai.gizmo.app.model.StackContainer(
+                            name = c.optString("name", ""),
+                            status = c.optString("status", ""),
+                            uptimeSeconds = if (c.isNull("uptime_seconds")) null else c.optLong("uptime_seconds")
+                        )
+                    }
+                } else emptyList()
+                ai.gizmo.app.model.StackStatus(
+                    running = obj.optBoolean("running", false),
+                    containers = containers
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "getStackStatus: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun startStack(): ai.gizmo.app.model.StackOperationResult? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$stackControlBaseUrl/api/system/start")
+                .post("".toRequestBody("application/json".toMediaType()))
+                .build()
+            longCallClient.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: return@withContext null
+                val obj = JSONObject(body)
+                ai.gizmo.app.model.StackOperationResult(
+                    success = obj.optBoolean("success", false),
+                    message = obj.optString("message", "")
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "startStack: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun stopStack(): ai.gizmo.app.model.StackOperationResult? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$stackControlBaseUrl/api/system/stop")
+                .post("".toRequestBody("application/json".toMediaType()))
+                .build()
+            longCallClient.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: return@withContext null
+                val obj = JSONObject(body)
+                ai.gizmo.app.model.StackOperationResult(
+                    success = obj.optBoolean("success", false),
+                    message = obj.optString("message", "")
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.d("GizmoApi", "stopStack: ${e.message}")
+            null
+        }
     }
 }

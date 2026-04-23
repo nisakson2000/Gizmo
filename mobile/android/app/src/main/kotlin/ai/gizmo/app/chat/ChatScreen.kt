@@ -366,6 +366,7 @@ fun ChatScreen(
             ),
             trustAllCerts = viewModel.trustAllCerts.value,
             onTrustAllCertsChanged = { viewModel.setTrustAllCerts(it, context) },
+            api = viewModel.api,
             onDismiss = { showSettings = false }
         )
     }

@@ -99,6 +99,7 @@ fun SettingsScreen(
     tts: TtsConfig,
     trustAllCerts: Boolean,
     onTrustAllCertsChanged: (Boolean) -> Unit,
+    api: GizmoApi,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -330,6 +331,13 @@ fun SettingsScreen(
             TextButton(onClick = onOpenVoiceStudio) {
                 Text("Voice Studio", color = Accent)
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Border)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Stack control (host-side service, separate from the orchestrator)
+            StackControlSection(api = api)
 
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = Border)

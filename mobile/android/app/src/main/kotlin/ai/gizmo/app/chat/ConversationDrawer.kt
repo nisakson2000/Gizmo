@@ -52,7 +52,10 @@ import ai.gizmo.app.ui.theme.TextDim
 import ai.gizmo.app.ui.theme.TextPrimary
 import ai.gizmo.app.ui.theme.TextSecondary
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
@@ -285,13 +288,27 @@ private fun groupByDate(conversations: List<Conversation>): List<Pair<String, Li
 
 private fun parseDate(dateStr: String): LocalDate? {
     if (dateStr.isBlank()) return null
+    val zone = ZoneId.systemDefault()
+    // Server timestamps are UTC; convert to the device's zone BEFORE taking the date,
+    // otherwise a chat created just after midnight UTC shows under "Previous 7 Days"
+    // for users west of UTC who are still on the previous calendar day locally.
     return try {
-        OffsetDateTime.parse(dateStr, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDate()
+        OffsetDateTime.parse(dateStr, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            .atZoneSameInstant(zone)
+            .toLocalDate()
     } catch (_: DateTimeParseException) {
         try {
-            LocalDate.parse(dateStr.take(10))
-        } catch (_: DateTimeParseException) {
-            null
+            // Server string without a timezone offset — assume UTC, shift to local.
+            LocalDateTime.parse(dateStr.substring(0, minOf(19, dateStr.length)))
+                .atOffset(ZoneOffset.UTC)
+                .atZoneSameInstant(zone)
+                .toLocalDate()
+        } catch (_: Exception) {
+            try {
+                LocalDate.parse(dateStr.take(10))
+            } catch (_: DateTimeParseException) {
+                null
+            }
         }
     }
 }
